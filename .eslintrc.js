@@ -28,6 +28,7 @@ module.exports = {
     '@typescript-eslint',
   ],
   rules: {
+    'import/default': 0,
     'arrow-parens': ['error', 'always'],
     'quote-props': ['error', 'as-needed'],
     'comma-dangle': ['error', 'always-multiline'],
