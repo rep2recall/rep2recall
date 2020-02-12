@@ -30,6 +30,7 @@ module.exports = {
   rules: {
     'no-unused-vars': 0,
     'import/default': 0,
+    'import/no-unresolved': 0,
     'arrow-parens': ['error', 'always'],
     'quote-props': ['error', 'as-needed'],
     'comma-dangle': ['error', 'always-multiline'],

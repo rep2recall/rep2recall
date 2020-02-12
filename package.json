@@ -15,6 +15,6 @@
     "eslint-plugin-standard": ">=4.0.0",
     "eslint-plugin-vue": "^6.1.2",
     "lerna": "^3.19.0",
-    "typescript": "~3.5.3"
+    "typescript": "^3.7.5"
   }
 }
