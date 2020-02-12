@@ -1,5 +1,7 @@
+import Vue from 'vue'
+
 declare module 'vue/types/vue' {
-  interface VueConstructor {
-      $mq: 'sm' | 'md' | 'lg'
+  interface Vue {
+    $mq: 'sm' | 'md' | 'lg'
   }
 }
