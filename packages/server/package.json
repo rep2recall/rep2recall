@@ -1,0 +1,16 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Pacharapol Withayasakpunt <patarapolw@gmail.com> (https://polvcode.dev)",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "liteorm": "0.4.1",
+    "nanoid": "^2.1.11"
+  },
+  "devDependencies": {
+    "@types/nanoid": "^2.1.0",
+    "faker": "^4.1.0"
+  }
+}
