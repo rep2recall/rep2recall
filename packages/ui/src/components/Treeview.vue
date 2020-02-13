@@ -9,7 +9,7 @@ ul.menu-list
         b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
           span {{it.deck.split('/')[depth]}}
         div(style="flex-grow: 1;")
-        DueScore(:data="data" :deck="it.deck" :exact="open" @has-review="$set(it, 'hasReview', $event)")
+        DueScore(:data="data" :deck="it.deck" :exact="open" @has-review="it.hasReview = $event")
       Treeview(v-if="open" :data="data" :depth="depth + 1")
     div(v-else)
       a
@@ -17,7 +17,7 @@ ul.menu-list
         b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
           span {{it.deck.split('/')[depth]}}
         div(style="flex-grow: 1;")
-        DueScore(:data="data" :deck="it.deck" @has-review="$set(it, 'hasReview', $event)")
+        DueScore(:data="data" :deck="it.deck" @has-review="it.hasReview = $event")
 </template>
 
 <script lang="ts">
@@ -43,6 +43,7 @@ export default class Treeview extends Vue {
       .map(it => {
         return {
           ...it,
+          hasReview: false,
           deck: it.deck.split('/').slice(0, this.depth + 1).join('/')
         }
       })
@@ -50,6 +51,10 @@ export default class Treeview extends Vue {
     const decks = subData.map(it => it.deck)
     
     return subData.filter((it, i) => decks.indexOf(it.deck) === i)
+  }
+
+  mounted () {
+    this.$forceUpdate()
   }
 
   subDecksExists (deck: string) {

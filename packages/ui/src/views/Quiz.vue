@@ -2,7 +2,11 @@
 .container
   .columns
     .column(:class="$mq === 'lg' ? 'is-10 is-offset-1' : ''")
-      b-field(label="Search")
+      b-field
+        template(slot="label")
+          span Search
+          b-tooltip(label="Click here to learn how-to" position="is-right")
+            a.button.is-text(href="https://github.com/patarapolw/qsearch" target="_blank" style="font-size: 13px;") ?
         b-input
       .menu
         Treeview(:data="data")
