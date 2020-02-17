@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
-    "liteorm": "0.4.1",
+    "liteorm": "0.4.4",
     "nanoid": "^2.1.11"
   },
   "devDependencies": {
