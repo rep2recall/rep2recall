@@ -1,95 +1,122 @@
 import crypto from 'crypto'
 
 import { Db, Table, primary, prop, Entity } from 'liteorm'
+import { Serialize } from 'any-serialize'
 import nanoid from 'nanoid'
-import SparkMD5 from 'spark-md5'
-import stringify from 'fast-json-stable-stringify'
+
+const ser = new Serialize()
 
 @Entity({ name: 'user', timestamp: true })
 class DbUser {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ null: true }) email?: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ null: true, unique: true }) email?: string
   @prop({ default: () => crypto.randomBytes(48).toString('base64') }) secret?: string
   @prop({ null: true }) picture?: string
 }
 
-export const dbUser = new Table<DbUser, { createdAt: Date; updatedAt: Date }>(DbUser)
+export const dbUser = new Table(DbUser)
 
 @Entity({ name: 'deck', timestamp: true })
 class DbDeck {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ references: dbUser }) userId!: number
   @prop() name!: string
 }
 
-export const dbDeck = new Table<DbDeck, { createdAt: Date; updatedAt: Date }>(DbDeck)
+export const dbDeck = new Table(DbDeck)
 
-@Entity({ name: 'source', timestamp: true })
+@Entity<DbSource>({
+  name: 'source',
+  timestamp: true,
+  unique: [
+    ['h', 'userId'],
+  ],
+})
 class DbSource {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ references: dbUser }) userId!: number
   @prop() name!: string
-  @prop({ null: true, unique: true }) h?: string
+  @prop({ null: true }) h?: string
 }
 
-export const dbSource = new Table<DbSource, { createdAt: Date; updatedAt: Date }>(DbSource)
+export const dbSource = new Table(DbSource)
 
-@Entity({ name: 'template', timestamp: true })
+@Entity<DbTemplate>({
+  name: 'template',
+  timestamp: true,
+  unique: [
+    ['h', 'userId'],
+  ],
+})
 class DbTemplate {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
-  @prop({ references: dbSource, null: true }) sourceId?: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ references: dbUser }) userId!: number
+  @prop({ references: dbSource, null: true }) sourceId?: number
   @prop() name!: string
   @prop() front!: string
   @prop({ null: true }) back?: string
   @prop({ null: true }) css?: string
   @prop({ null: true }) js?: string
+  @prop({
+    default: ({ front, back, css, js }) => {
+      return hash({ front, back, css, js })
+    },
+  }) h?: string
 }
 
-export const dbTemplate = new Table<DbTemplate, { createdAt: Date; updatedAt: Date }>(DbTemplate)
+export const dbTemplate = new Table(DbTemplate)
 
-@Entity({ name: 'note', timestamp: true })
+@Entity<DbNote>({
+  name: 'note',
+  timestamp: true,
+  unique: [
+    ['h', 'userId'],
+  ],
+})
 class DbNote {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
-  @prop({ references: dbSource, null: true }) sourceId?: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ references: dbUser }) userId!: number
+  @prop({ references: dbSource, null: true }) sourceId?: number
   @prop({
-    unique: true,
-    default: ({ data }) => hash(data),
-    onUpdate: ({ data }) => hash(data),
-  }) h!: string
+    onChange: ({ data }) => data ? hash(data) : undefined,
+  }) h?: string
 
   @prop() order!: Record<string, number>
   @prop() data!: Record<string, any>
 }
 
-export const dbNote = new Table<DbNote, { createdAt: Date; updatedAt: Date }>(DbNote)
+export const dbNote = new Table(DbNote)
 
-@Entity({ name: 'media', timestamp: true })
+@Entity<DbMedia>({
+  name: 'media',
+  timestamp: true,
+  unique: [
+    ['h', 'userId'],
+  ],
+})
 class DbMedia {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
-  @prop({ references: dbSource, null: true }) sourceId?: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ references: dbUser }) userId!: number
+  @prop({ references: dbSource, null: true }) sourceId?: number
   @prop() name!: string
   @prop({
-    unique: true,
-    default: ({ data }) => hash(data),
-    onUpdate: ({ data }) => data ? hash(data) : undefined,
+    onChange: ({ data }) => data ? hash(data) : undefined,
   }) h?: string
 
   @prop() data!: ArrayBuffer
 }
 
-export const dbMedia = new Table<DbMedia, { createdAt: Date; updatedAt: Date }>(DbMedia)
+export const dbMedia = new Table(DbMedia)
 
 @Entity({ name: 'card', timestamp: true })
 class DbCard {
-  @primary({ default: () => nanoid() }) _id?: string
-  @prop({ references: dbUser }) userId!: string
-  @prop({ references: dbDeck }) deckId!: string
-  @prop({ references: dbTemplate, null: true }) templateId?: string
-  @prop({ references: dbNote, null: true }) noteId?: string
-  @prop() front!: string
+  @primary({ autoincrement: true }) _id?: number
+  @prop({ default: () => nanoid() }) guid?: string
+  @prop({ references: dbUser }) userId!: number
+  @prop({ references: dbDeck }) deckId!: number
+  @prop({ references: dbTemplate, null: true }) templateId?: number
+  @prop({ references: dbNote, null: true }) noteId?: number
+  @prop({ null: true }) front?: string
   @prop({ null: true }) back?: string
   @prop({ null: true }) mnemonic?: string
   @prop({ null: true, type: 'int' }) srsLevel?: number
@@ -100,7 +127,7 @@ class DbCard {
   }
 }
 
-export const dbCard = new Table<DbCard, { createdAt: Date; updatedAt: Date }>(DbCard)
+export const dbCard = new Table(DbCard)
 
 export let db: Db
 
@@ -109,10 +136,12 @@ export async function initDatabase (filename: string) {
   await db.init([dbUser, dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
 }
 
-function hash (obj: any) {
+export function hash (obj: any) {
+  const hash = crypto.createHash('sha256')
+
   if (obj instanceof ArrayBuffer) {
-    return SparkMD5.ArrayBuffer.hash(obj)
+    return hash.update(Buffer.from(obj)).digest('base64')
   } else {
-    return SparkMD5.hash(stringify(obj))
+    return hash.update(ser.stringify(obj)).digest('base64')
   }
 }
