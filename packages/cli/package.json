@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "@rep2recall/cli",
   "version": "1.0.0",
   "main": "index.js",
   "author": "Pacharapol Withayasakpunt <patarapolw@gmail.com> (https://polvcode.dev)",
