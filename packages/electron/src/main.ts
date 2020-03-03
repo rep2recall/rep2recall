@@ -5,17 +5,18 @@ try {
   require('electron-reloader')(module)
 } catch (_) {}
 
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'r2r', privileges: { secure: true, standard: true } },
+])
+
 app.allowRendererProcessReuse = true
 contextMenu()
-
-protocol.registerSchemesAsPrivileged([
-  { scheme: 'r2r', privileges: { bypassCSP: true, supportFetchAPI: true } },
-])
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  require('./api')
   createWindow()
 })
 
@@ -48,5 +49,5 @@ function createWindow () {
   win.maximize()
 
   // and load the index.html of the app.
-  win.loadFile('lib/web/index.html')
+  win.loadURL('r2r://./index.html')
 }

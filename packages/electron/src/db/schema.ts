@@ -99,11 +99,7 @@ class DbMedia {
   @prop({ references: dbUser }) userId!: number
   @prop({ references: dbSource, null: true }) sourceId?: number
   @prop() name!: string
-  @prop({
-    onChange: ({ data }) => data ? hash(data) : undefined,
-  }) h?: string
-
-  @prop() data!: ArrayBuffer
+  @prop() h!: string
 }
 
 export const dbMedia = new Table(DbMedia)

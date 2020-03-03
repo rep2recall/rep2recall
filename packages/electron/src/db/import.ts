@@ -1,8 +1,10 @@
 import fs from 'fs'
+import path from 'path'
 
-import { Apkg } from 'ankisync'
+import { Apkg, ankiMedia } from 'ankisync'
 
-import { db, dbCard, dbNote, dbUser, dbSource, hash, dbTemplate, dbDeck } from './schema'
+import { db, dbCard, dbNote, dbUser, dbSource, hash, dbTemplate, dbDeck, dbMedia } from './schema'
+import { MEDIA_PATH } from '../utils'
 
 export async function fromApkg (filename: string) {
   const user = await db.first(dbUser)({}, {
@@ -106,11 +108,30 @@ export async function fromApkg (filename: string) {
         noteId,
         deckId,
       })
-    })()
+    })().catch((e) => { throw e })
 
     pp.push(promise)
   })
 
-  await Promise.all(pp)
+  await apkg.anki2.db.each(ankiMedia)({}, {
+    name: ankiMedia.c.name,
+    data: ankiMedia.c.data,
+    h: ankiMedia.c.h,
+  })((m) => {
+    const promise = (async () => {
+      await db.create(dbMedia)({
+        name: m.name,
+        h: m.h!,
+        userId,
+        sourceId,
+      })
+
+      fs.writeFileSync(path.join(MEDIA_PATH, m.name), m.data)
+    })().catch((e) => { throw e })
+
+    pp.push(promise)
+  })
+
+  await Promise.all(pp).catch((e) => { throw e })
   await apkg.cleanup()
 }
