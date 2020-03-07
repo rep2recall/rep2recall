@@ -1,0 +1,4 @@
+node_modules
+/neutralino/
+/dist/
+neutralinojs.log

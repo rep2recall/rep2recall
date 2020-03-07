@@ -7,3 +7,4 @@ tmp
 dist
 node_modules*
 lib/
+/packages/app/neutralino

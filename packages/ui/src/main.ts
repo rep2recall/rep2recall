@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 
 import App from './App.vue'
 import router from './router'
+import './neutralino'
 
 import './plugins/buefy'
 import './plugins/fontawesome'
@@ -31,3 +32,11 @@ new Vue({
   router,
   render: (h) => h(App),
 }).$mount('#app')
+
+window.Neutralino.init({
+  load () {
+    window.Neutralino.os.runCommand('pwd', ({ stdout }) => {
+      console.log(stdout)
+    })
+  },
+})

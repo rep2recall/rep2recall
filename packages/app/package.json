@@ -1,0 +1,24 @@
+{
+  "name": "@rep2recall/app",
+  "version": "1.0.0",
+  "private": true,
+  "author": "Pacharapol Withayasakpunt <patarapolw@gmail.com> (https://polvcode.dev)",
+  "license": "MIT",
+  "scripts": {
+    "download": "ts-node scripts/download-neutralino.ts",
+    "start": "ts-node scripts/dev.ts",
+    "dist": "ts-node scripts/dist.ts"
+  },
+  "dependencies": {
+    "fs-extra": "^8.1.0",
+    "open": "^7.0.2",
+    "rimraf": "^3.0.2",
+    "unzipper": "^0.10.10"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^8.1.0",
+    "@types/node": "^13.9.0",
+    "@types/rimraf": "^2.0.3",
+    "@types/unzipper": "^0.10.2"
+  }
+}

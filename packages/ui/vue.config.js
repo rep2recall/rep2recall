@@ -1,4 +1,5 @@
 module.exports = {
   publicPath: '/',
-  outputDir: process.env.OUTPUT_DIR || '../electron/lib/web',
+  outputDir: '../app/neutralino/app',
+  assetsDir: './assets',
 }

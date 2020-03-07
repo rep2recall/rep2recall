@@ -1,3 +1,0 @@
-{
-  "extends": "./packages/electron-ui/tsconfig.json"
-}
