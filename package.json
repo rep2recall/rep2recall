@@ -1,6 +1,9 @@
 {
   "name": "rep2recall",
   "private": true,
+  "scripts": {
+    "preinstall": "is-npm"
+  },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.17.0",
     "@typescript-eslint/parser": "^2.17.0",

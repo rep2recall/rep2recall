@@ -11,6 +11,7 @@
     "watch": "tsc -w",
     "build": "tsc",
     "dist": "tsc && electron-builder",
+    "preinstall": "if !(test -x is-npm); then is-npm; fi",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps"
   },
@@ -23,7 +24,7 @@
   },
   "devDependencies": {
     "@types/nanoid": "^2.1.0",
-    "electron": "^8.0.2",
+    "electron": "^7.0.0",
     "electron-builder": "^22.3.2",
     "electron-reloader": "^1.0.1",
     "typescript": "^3.8.3"
