@@ -4,9 +4,10 @@ import { Db as LiteOrm, Table, primary, prop, Entity, UndefinedEqNull } from 'li
 import nanoid from 'nanoid'
 import { String, Number } from 'runtypes'
 import fs from 'fs-extra'
+import AdmZip from 'adm-zip'
 
-import { hash, mapAsync, distinctBy } from '../utils'
-import { mediaPath } from '../config'
+import { hash, mapAsync, distinctBy, chunk } from '../utils'
+import { mediaPath, tmpPath } from '../config'
 
 @Entity({ name: 'deck', timestamp: true })
 class DbDeck {
@@ -132,7 +133,7 @@ class Db {
     return await this.db.init([dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
   }
 
-  async find (cond: any): Promise<UndefinedEqNull<Partial<IEntry>>[]> {
+  async find (cond: any, projection?: (keyof IEntry)[]): Promise<UndefinedEqNull<Partial<IEntry>>[]> {
     return this.db.all(dbCard, {
       to: dbDeck,
       from: dbCard.c.deckId,
@@ -149,29 +150,39 @@ class Db {
       to: dbSource,
       from: dbNote.c.sourceId,
       type: 'left',
-    })(cond, {
-      id: dbCard.c.id,
-      guid: dbCard.c.guid,
-      deck: dbDeck.c.name,
-      template: dbTemplate.c.name,
-      templateH: dbTemplate.c.h,
-      qfmt: dbTemplate.c.qfmt,
-      afmt: dbTemplate.c.afmt,
-      css: dbTemplate.c.css,
-      js: dbTemplate.c.js,
-      data: dbNote.c.data,
-      order: dbNote.c.order,
-      source: dbSource.c.name,
-      sourceH: dbSource.c.h,
-      front: dbCard.c.front,
-      back: dbCard.c.back,
-      mnemonic: dbCard.c.mnemonic,
-      srsLevel: dbCard.c.srsLevel,
-      nextReview: dbCard.c.nextReview,
-      tag: dbCard.c.tag,
-      stat: dbCard.c.stat,
-      attachments: dbCard.c.attachments,
-    })
+    })(cond, (() => {
+      const select = {
+        id: dbCard.c.id,
+        guid: dbCard.c.guid,
+        deck: dbDeck.c.name,
+        template: dbTemplate.c.name,
+        templateH: dbTemplate.c.h,
+        qfmt: dbTemplate.c.qfmt,
+        afmt: dbTemplate.c.afmt,
+        css: dbTemplate.c.css,
+        js: dbTemplate.c.js,
+        data: dbNote.c.data,
+        order: dbNote.c.order,
+        source: dbSource.c.name,
+        sourceH: dbSource.c.h,
+        front: dbCard.c.front,
+        back: dbCard.c.back,
+        mnemonic: dbCard.c.mnemonic,
+        srsLevel: dbCard.c.srsLevel,
+        nextReview: dbCard.c.nextReview,
+        tag: dbCard.c.tag,
+        stat: dbCard.c.stat,
+        attachments: dbCard.c.attachments,
+      }
+
+      if (projection) {
+        return Object.entries(select)
+          .filter(([k]) => projection.includes(k as any))
+          .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {})
+      }
+
+      return select
+    })())
   }
 
   async insert (...entries: IEntry[]) {
@@ -333,7 +344,49 @@ class Db {
     })
   }
 
-  async export (cond: Record<string, any>, dst: string) {
+  async export (cond: Record<string, any>) {
+    const ds = await this.find(cond) as IEntry[]
+    const tmpDir = path.join(tmpPath, nanoid())
+    fs.ensureDirSync(path.join(tmpDir, 'media'))
+
+    const mapIdToName: Record<string, string> = {}
+
+    for (const atts of chunk(Array.from(new Set(ds
+      .reduce((prev, c) => [...prev, ...(c.attachments || []) as number[]], [] as number[]))), 900)) {
+      (await this.db.all(dbMedia)({
+        id: { $in: atts },
+      }, {
+        id: dbMedia.c.id,
+        name: dbMedia.c.name,
+      })).map((el) => {
+        mapIdToName[el.id!.toString()] = el.name
+        fs.copyFileSync(path.join(mediaPath, el.name), path.join(tmpDir, 'media', el.name))
+      })
+    }
+
+    ds.map((d) => {
+      if (d.attachments) {
+        d.attachments.map((att, i) => {
+          d.attachments![i] = {
+            path: mapIdToName[att.toString()],
+          }
+        })
+      }
+    })
+
+    const dstDb = new Db(path.join(tmpDir, 'data.db'))
+    await dstDb.init()
+    await dstDb.insert(...ds)
+    await dstDb.db.close()
+
+    const zip = new AdmZip(path.join(tmpDir, 'data.zip'))
+    zip.addLocalFile(path.join(tmpDir, 'data.db'))
+    zip.addLocalFolder(path.join(tmpDir, 'media'))
+    zip.writeZip()
+
+    return {
+      path: path.join(tmpDir, 'data.zip'),
+    }
   }
 }
 

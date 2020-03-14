@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "adm-zip": "^0.4.14",
     "ankisync": "^0.5.0",
     "any-serialize": "^1.4.12",
     "appdirs": "^1.1.0",
@@ -27,14 +28,17 @@
     "liteorm": "^0.9.2",
     "nanoid": "^2.1.11",
     "pump": "^3.0.0",
+    "rimraf": "^3.0.2",
     "runtypes": "^4.2.0",
     "sqlite3": "git+https://github.com/mapbox/node-sqlite3.git"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.4.32",
     "@types/fs-extra": "^8.1.0",
-    "@types/node": "^13.9.1",
     "@types/nanoid": "^2.1.0",
+    "@types/node": "^13.9.1",
     "@types/pump": "^1.1.0",
+    "@types/rimraf": "^2.0.3",
     "pino-pretty": "^3.6.1"
   }
 }

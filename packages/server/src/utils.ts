@@ -36,3 +36,9 @@ export function distinctBy<T> (arr: T[], k: string, undefinedIsDistinct?: boolea
     }
   })
 }
+
+export function * chunk<T> (arr: T[], n: number) {
+  for (let i = 0; i < arr.length; i += n) {
+    yield arr.slice(i, i + n)
+  }
+}
