@@ -1,14 +1,11 @@
-import crypto from 'crypto'
-
-import { Db, Table, primary, prop, Entity } from 'liteorm'
-import { Serialize } from 'any-serialize'
+import { Db as LiteOrm, Table, primary, prop, Entity } from 'liteorm'
 import nanoid from 'nanoid'
 
-const ser = new Serialize()
+import { hash } from '../utils'
 
 @Entity({ name: 'deck', timestamp: true })
 class DbDeck {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop() name!: string
 }
 
@@ -16,7 +13,7 @@ export const dbDeck = new Table(DbDeck)
 
 @Entity<DbSource>({ name: 'source', timestamp: true })
 class DbSource {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop() name!: string
   @prop({ null: true, unique: true }) h?: string
 }
@@ -25,11 +22,11 @@ export const dbSource = new Table(DbSource)
 
 @Entity<DbTemplate>({ name: 'template', timestamp: true })
 class DbTemplate {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop({ references: dbSource, null: true }) sourceId?: number
   @prop() name!: string
-  @prop() front!: string
-  @prop({ null: true }) back?: string
+  @prop() qfmt!: string
+  @prop({ null: true }) afmt?: string
   @prop({ null: true }) css?: string
   @prop({ null: true }) js?: string
   @prop({
@@ -44,7 +41,7 @@ export const dbTemplate = new Table(DbTemplate)
 
 @Entity<DbNote>({ name: 'note', timestamp: true })
 class DbNote {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop({ references: dbSource, null: true }) sourceId?: number
   @prop({
     onChange: ({ data }) => data ? hash(data) : undefined,
@@ -59,7 +56,7 @@ export const dbNote = new Table(DbNote)
 
 @Entity<DbMedia>({ name: 'media', timestamp: true })
 class DbMedia {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop({ references: dbSource, null: true }) sourceId?: number
   @prop() name!: string
   @prop({ unique: true }) h!: string
@@ -69,7 +66,7 @@ export const dbMedia = new Table(DbMedia)
 
 @Entity({ name: 'card', timestamp: true })
 class DbCard {
-  @primary({ autoincrement: true }) _id?: number
+  @primary({ autoincrement: true }) id?: number
   @prop({ default: () => nanoid() }) guid?: string
   @prop({ references: dbDeck }) deckId!: number
   @prop({ references: dbTemplate, null: true }) templateId?: number
@@ -86,23 +83,67 @@ class DbCard {
         wrong: number
       }
   }
+
+  @prop({ default: () => [] }) attachments?: number[]
 }
 
 export const dbCard = new Table(DbCard)
+
+class Db {
+  db: LiteOrm
+
+  constructor (filename: string) {
+    this.db = new LiteOrm(filename)
+  }
+
+  async init () {
+    return await this.db.init([dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
+  }
+
+  async find (cond: any) {
+    return this.db.all(dbCard, {
+      to: dbDeck,
+      from: dbCard.c.deckId,
+      type: 'left',
+    }, {
+      to: dbTemplate,
+      from: dbCard.c.templateId,
+      type: 'left',
+    }, {
+      to: dbNote,
+      from: dbCard.c.noteId,
+      type: 'left',
+    }, {
+      to: dbSource,
+      from: dbNote.c.sourceId,
+      type: 'left',
+    })(cond, {
+      guid: dbCard.c.guid,
+      deck: dbDeck.c.name,
+      template: dbTemplate.c.name,
+      qfmt: dbTemplate.c.qfmt,
+      afmt: dbTemplate.c.afmt,
+      css: dbTemplate.c.css,
+      js: dbTemplate.c.js,
+      data: dbNote.c.data,
+      order: dbNote.c.order,
+      source: dbSource.c.name,
+      sourceH: dbSource.c.h,
+      front: dbCard.c.front,
+      back: dbCard.c.back,
+      mnemonic: dbCard.c.mnemonic,
+      srsLevel: dbCard.c.srsLevel,
+      nextReview: dbCard.c.nextReview,
+      tag: dbCard.c.tag,
+      stat: dbCard.c.stat,
+      attachments: dbCard.c.attachments,
+    })
+  }
+}
 
 export let db: Db
 
 export async function initDatabase (filename: string) {
   db = new Db(filename)
-  await db.init([dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
-}
-
-export function hash (obj: any) {
-  const hash = crypto.createHash('sha256')
-
-  if (obj instanceof ArrayBuffer) {
-    return hash.update(Buffer.from(obj)).digest('base64')
-  } else {
-    return hash.update(ser.stringify(obj)).digest('base64')
-  }
+  await db.init()
 }

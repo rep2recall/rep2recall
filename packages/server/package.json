@@ -13,23 +13,26 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/fs-extra": "^8.1.0",
-    "@types/node": "^13.9.1",
-    "ankisync": "^0.4.12",
+    "ankisync": "^0.5.0",
     "any-serialize": "^1.4.12",
     "appdirs": "^1.1.0",
+    "bluebird": "^3.7.2",
+    "bluebird-global": "^1.0.1",
     "dayjs": "^1.8.22",
     "fastify": "^2.12.1",
     "fastify-multipart": "^1.0.5",
     "fastify-oas": "^2.5.2",
     "fastify-static": "^2.6.0",
     "fs-extra": "^8.1.0",
-    "liteorm": "^0.9.0",
+    "liteorm": "^0.9.2",
     "nanoid": "^2.1.11",
     "pump": "^3.0.0",
-    "runtypes": "^4.2.0"
+    "runtypes": "^4.2.0",
+    "sqlite3": "git+https://github.com/mapbox/node-sqlite3.git"
   },
   "devDependencies": {
+    "@types/fs-extra": "^8.1.0",
+    "@types/node": "^13.9.1",
     "@types/nanoid": "^2.1.0",
     "@types/pump": "^1.1.0",
     "pino-pretty": "^3.6.1"
