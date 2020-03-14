@@ -9,7 +9,30 @@ export function hash (obj: any) {
 
   if (obj instanceof ArrayBuffer) {
     return hash.update(Buffer.from(obj)).digest('base64')
-  } else {
+  } else if (typeof obj === 'object') {
     return hash.update(ser.stringify(obj)).digest('base64')
+  } else {
+    return obj
   }
+}
+
+export async function mapAsync<T, R = T> (
+  arr: T[],
+  cb: (el: T, i: number, a0: T[]) => Promise<R>,
+): Promise<R[]> {
+  return Promise.all(arr.map(async (el, i, a0) => {
+    return await cb(el, i, a0)
+  }))
+}
+
+export function distinctBy<T> (arr: T[], k: string, undefinedIsDistinct?: boolean): T[] {
+  const arrK = arr.map((a) => hash((a as any)[k]))
+  return arr.filter((a, i) => {
+    const aK = (a as any)[k]
+    if (aK === undefined) {
+      return !!undefinedIsDistinct
+    } else {
+      return arrK.indexOf(hash(aK)) === i
+    }
+  })
 }
