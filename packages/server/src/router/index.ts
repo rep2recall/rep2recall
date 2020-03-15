@@ -1,7 +1,9 @@
 import { FastifyInstance } from 'fastify'
 import swagger from 'fastify-oas'
 
+import editRouter from './edit'
 import mediaRouter from './media'
+import quizRouter from './quiz'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.register(swagger, {
@@ -35,7 +37,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     exposeRoute: true,
   })
 
+  f.register(editRouter, { prefix: '/edit' })
   f.register(mediaRouter, { prefix: '/media' })
+  f.register(quizRouter, { prefix: '/quiz' })
   next()
 }
 

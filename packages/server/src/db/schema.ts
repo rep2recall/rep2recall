@@ -5,10 +5,11 @@ import nanoid from 'nanoid'
 import { String, Number } from 'runtypes'
 import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
+import dayjs from 'dayjs'
 import { ankiMustache } from '@patarapolw/blogdown-make-html/dist/mustache'
 import QSearch from '@patarapolw/qsearch'
 
-import { hash, mapAsync, distinctBy, chunk } from '../utils'
+import { hash, mapAsync, distinctBy, chunk, ser } from '../utils'
 import { mediaPath, tmpPath } from '../config'
 import { srsMap, getNextReview, repeatReview } from './quiz'
 
@@ -111,7 +112,7 @@ export interface IEntry {
   back?: string
   mnemonic?: string
   srsLevel?: number
-  nextReview?: Date
+  nextReview?: Date | string
   tag?: string[]
   stat?: {
     streak: {
@@ -148,6 +149,7 @@ class Db {
 
   constructor (filename: string) {
     this.db = new LiteOrm(filename)
+    this.db.sql.run('PRAGMA journal_mode = WAL;')
   }
 
   async init () {
@@ -222,6 +224,91 @@ class Db {
       offset,
       limit,
     })
+  }
+
+  async update (
+    ids: number[],
+    set: (Partial<IEntry> | ((ent: DbCard) => Partial<DbCard> | Promise<Partial<DbCard>>)),
+  ) {
+    for (const idsChunk of chunk(ids, 900)) {
+      if (typeof set === 'function') {
+        await mapAsync(await this.db.all(dbCard)({ id: { $in: idsChunk } }, '*'), async (ent) => {
+          ent = await set(ent as any)
+          await this.db.update(dbCard)({ id: ent.id }, ent)
+        })
+      } else {
+        await this.db.update(dbCard)({
+          id: { $in: idsChunk },
+        }, [
+          Object.entries(set)
+            .filter(([k]) => ['front', 'back', 'mnemonic', 'srsLevel', 'nextReview', 'tag'].includes(k))
+            .map(([k, v]) => {
+              return [k, (k === 'nextReview' && v) ? dayjs(v as string).toDate() : v]
+            })
+            .reduce((prev, [k, v]) => ({ ...prev, [k as string]: v }), {}),
+        ])
+
+        await mapAsync(await this.db.all(dbCard, dbDeck)({
+          card__id: { $in: idsChunk },
+        }, {
+          id: dbCard.c.id,
+          deck: dbDeck.c.name,
+          templateId: dbTemplate.c.id,
+          noteId: dbNote.c.id,
+        }), async (ent) => {
+          const setTemplate = ser.clone(Object.entries(set)
+            .filter(([k]) => ['qfmt', 'afmt', 'css', 'js'].includes(k))
+            .reduce((prev, [k, v]) => ({ ...prev, [k as string]: v }), {} as any))
+          const setNote = ser.clone(Object.entries(set)
+            .filter(([k]) => ['data', 'order'].includes(k))
+            .reduce((prev, [k, v]) => ({ ...prev, [k as string]: v }), {} as any))
+
+          if (set.deck && ent.deck !== set.deck) {
+            let deckId: number
+
+            try {
+              deckId = (await this.db.first(dbDeck)({ name: set.deck }, {
+                id: dbDeck.c.id,
+                name: dbDeck.c.name,
+              })).id!
+            } catch (_) {
+              deckId = await this.db.create(dbDeck)({ name: set.deck })
+            }
+
+            await this.db.update(dbCard)({ id: ent.id }, {
+              deckId: dbCard.c.deckId,
+            })
+          }
+
+          if (Object.keys(setTemplate).length > 0) {
+            await this.db.update(dbTemplate)({ id: ent.templateId }, setTemplate)
+          }
+
+          if (Object.keys(setNote).length > 0) {
+            try {
+              if (setNote.data) {
+                const { data } = await this.db.first(dbNote)({ id: ent.noteId }, {
+                  data: dbNote.c.data,
+                })
+                Object.assign(setNote.data, data)
+              }
+
+              await this.db.update(dbNote)({ id: ent.noteId }, setNote)
+            } catch (e) {
+              console.error(e)
+            }
+          }
+        })
+      }
+    }
+  }
+
+  async delete (ids: number[]) {
+    for (const idsChunk of chunk(ids, 900)) {
+      await this.db.delete(dbCard)({
+        id: { $in: idsChunk },
+      })
+    }
   }
 
   async insert (...entries: IEntry[]) {
@@ -331,7 +418,7 @@ class Db {
           back: ent.back,
           mnemonic: ent.mnemonic,
           srsLevel: ent.srsLevel,
-          nextReview: ent.nextReview,
+          nextReview: ent.nextReview ? dayjs(ent.nextReview).toDate() : undefined,
           tag: ent.tag,
           stat: ent.stat,
           attachments: ent.attachments ? ent.attachments.map((att) => {

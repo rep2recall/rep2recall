@@ -8,7 +8,7 @@ import dayjs from 'dayjs'
 
 import { mediaPath } from '../config'
 
-export default (f: FastifyInstance, opts: any, next: () => void) => {
+const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.patch('/', {
     schema: {
       tags: ['media'],
@@ -100,3 +100,5 @@ export default (f: FastifyInstance, opts: any, next: () => void) => {
 
   next()
 }
+
+export default router
