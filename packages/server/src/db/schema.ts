@@ -5,9 +5,11 @@ import nanoid from 'nanoid'
 import { String, Number } from 'runtypes'
 import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
+import { ankiMustache } from '@patarapolw/blogdown-make-html/dist/mustache'
 
 import { hash, mapAsync, distinctBy, chunk } from '../utils'
 import { mediaPath, tmpPath } from '../config'
+import { srsMap, getNextReview, repeatReview } from './quiz'
 
 @Entity({ name: 'deck', timestamp: true })
 class DbDeck {
@@ -133,7 +135,17 @@ class Db {
     return await this.db.init([dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
   }
 
-  async find (cond: any, projection?: (keyof IEntry)[]): Promise<UndefinedEqNull<Partial<IEntry>>[]> {
+  async find (cond: any, opts: {
+    projection?: (keyof IEntry)[]
+    offset?: number
+    limit?: number
+    sort?: {
+      key: string
+      desc: boolean
+    }
+  } = {}): Promise<UndefinedEqNull<Partial<IEntry>>[]> {
+    const { projection, offset, limit, sort } = opts
+
     return this.db.all(dbCard, {
       to: dbDeck,
       from: dbCard.c.deckId,
@@ -182,7 +194,11 @@ class Db {
       }
 
       return select
-    })())
+    })(), {
+      sort,
+      offset,
+      limit,
+    })
   }
 
   async insert (...entries: IEntry[]) {
@@ -387,6 +403,90 @@ class Db {
     return {
       path: path.join(tmpDir, 'data.zip'),
     }
+  }
+
+  async render (id: number) {
+    const r = await this.find({ id }, {
+      projection: [
+        'front', 'back', 'mnemonic',
+        'qfmt', 'afmt', 'css', 'js',
+        'data',
+      ],
+      limit: 1,
+    })
+    if (!r[0]) {
+      throw new Error(`Card ${id} not found.`)
+    }
+
+    const card = r[0]
+    const { front, back, qfmt, afmt, data } = card
+
+    if (typeof front !== 'string') {
+      card.front = ankiMustache(qfmt || '', data || {})
+    }
+
+    if (typeof back !== 'string') {
+      card.back = ankiMustache(afmt || '', data || {})
+    }
+
+    return card
+  }
+
+  async markRight (id: number) {
+    return this._updateSrsLevel(+1, id)
+  }
+
+  async markWrong (id: number) {
+    return this._updateSrsLevel(-1, id)
+  }
+
+  private async _updateSrsLevel (dSrsLevel: number, id: number) {
+    const cs = await this.find({ id }, {
+      projection: ['srsLevel', 'stat'],
+      limit: 1,
+    })
+    if (!cs[0]) {
+      throw new Error(`Card ${id} not found.`)
+    }
+
+    const card = cs[0]
+    card.srsLevel = card.srsLevel || 0
+    card.stat = card.stat || {
+      streak: {
+        right: 0,
+        wrong: 0,
+      },
+    }
+    card.stat.streak = card.stat.streak || {
+      right: 0,
+      wrong: 0,
+    }
+
+    if (dSrsLevel > 0) {
+      card.stat.streak.right = (card.stat.streak.right || 0) + 1
+    } else if (dSrsLevel < 0) {
+      card.stat.streak.wrong = (card.stat.streak.wrong || 0) + 1
+    }
+
+    card.srsLevel += dSrsLevel
+
+    if (card.srsLevel >= srsMap.length) {
+      card.srsLevel = srsMap.length - 1
+    }
+
+    if (card.srsLevel < 0) {
+      card.srsLevel = 0
+    }
+
+    if (dSrsLevel > 0) {
+      card.nextReview = getNextReview(card.srsLevel)
+    } else {
+      card.nextReview = repeatReview()
+    }
+
+    const { srsLevel, stat, nextReview } = card
+
+    await this.db.update(dbCard)({ id }, { srsLevel, stat, nextReview })
   }
 }
 
