@@ -1,30 +1,13 @@
 import { FastifyInstance } from 'fastify'
-import QSearch from '@patarapolw/qsearch'
 import dayjs from 'dayjs'
 
 import { db } from '../db/schema'
 
-const qSearch = new QSearch({
-  dialect: 'liteorm',
-  schema: {
-    deck: {},
-    template: {},
-    qfmt: {},
-    afmt: {},
-    front: {},
-    back: {},
-    source: {},
-    data: {},
-    mnemonic: {},
-    srsLevel: { type: 'number' },
-    nextReview: { type: 'date' },
-    tag: {},
-  },
-})
-
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.post('/', {
     schema: {
+      summary: 'Query for card ids, for use in due treeview',
+      tags: ['quiz'],
       body: {
         type: 'object',
         required: ['q'],
@@ -40,7 +23,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const { q, deck, type, due } = req.body
 
     let $or = [
-      typeof q === 'string' ? qSearch.parse(q).cond : q,
+      typeof q === 'string' ? db.qSearch.parse(q).cond : q,
     ]
 
     let dueOrNew = false
@@ -108,13 +91,78 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }).reduce((a, b) => [...a, ...b])
     }
 
-    const ids = await db.find({ $or }, {
+    return (await db.find({ $or }, {
       projection: [
         'id',
         'deck', 'template', 'qfmt', 'afmt', 'front', 'back', 'mnemonic', 'source', 'data',
+        'srsLevel', 'nextReview',
       ],
-    })
+    })).map((el) => ({
+      id: el.id,
+      deck: el.deck,
+      srsLevel: el.srsLevel,
+      nextReview: el.nextReview,
+    }))
+  })
+
+  f.get('/', {
+    schema: {
+      summary: 'Render a quiz item',
+      tags: ['quiz'],
+      querystring: {
+        id: { type: 'integer' },
+      },
+    },
+  }, async (req) => {
+    return await db.render(req.query.id)
+  })
+
+  f.patch('/right', {
+    schema: {
+      summary: 'Mark as right',
+      tags: ['quiz'],
+      querystring: {
+        id: { type: 'integer' },
+      },
+    },
+  }, async (req) => {
+    await db.markRight(req.query.id)
+    return {
+      error: null,
+    }
+  })
+
+  f.patch('/wrong', {
+    schema: {
+      summary: 'Mark as wrong',
+      tags: ['quiz'],
+      querystring: {
+        id: { type: 'integer' },
+      },
+    },
+  }, async (req) => {
+    await db.markWrong(req.query.id)
+    return {
+      error: null,
+    }
+  })
+
+  f.patch('/repeat', {
+    schema: {
+      summary: 'Mark for repetition',
+      tags: ['quiz'],
+      querystring: {
+        id: { type: 'integer' },
+      },
+    },
+  }, async (req) => {
+    await db.markRepeat(req.query.id)
+    return {
+      error: null,
+    }
   })
 
   next()
 }
+
+export default router

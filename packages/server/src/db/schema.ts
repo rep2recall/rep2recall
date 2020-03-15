@@ -6,6 +6,7 @@ import { String, Number } from 'runtypes'
 import fs from 'fs-extra'
 import AdmZip from 'adm-zip'
 import { ankiMustache } from '@patarapolw/blogdown-make-html/dist/mustache'
+import QSearch from '@patarapolw/qsearch'
 
 import { hash, mapAsync, distinctBy, chunk } from '../utils'
 import { mediaPath, tmpPath } from '../config'
@@ -127,6 +128,24 @@ export interface IEntry {
 class Db {
   db: LiteOrm
 
+  qSearch = new QSearch({
+    dialect: 'liteorm',
+    schema: {
+      deck: {},
+      template: {},
+      qfmt: {},
+      afmt: {},
+      front: {},
+      back: {},
+      source: {},
+      data: {},
+      mnemonic: {},
+      srsLevel: { type: 'number' },
+      nextReview: { type: 'date' },
+      tag: {},
+    },
+  })
+
   constructor (filename: string) {
     this.db = new LiteOrm(filename)
   }
@@ -135,7 +154,7 @@ class Db {
     return await this.db.init([dbSource, dbDeck, dbTemplate, dbNote, dbMedia, dbCard])
   }
 
-  async find (cond: any, opts: {
+  async find (cond: string | Record<string, any>, opts: {
     projection?: (keyof IEntry)[]
     offset?: number
     limit?: number
@@ -145,6 +164,10 @@ class Db {
     }
   } = {}): Promise<UndefinedEqNull<Partial<IEntry>>[]> {
     const { projection, offset, limit, sort } = opts
+
+    if (typeof cond === 'string') {
+      cond = this.qSearch.parse(cond).cond
+    }
 
     return this.db.all(dbCard, {
       to: dbDeck,
@@ -162,7 +185,7 @@ class Db {
       to: dbSource,
       from: dbNote.c.sourceId,
       type: 'left',
-    })(cond, (() => {
+    })(cond as Record<string, any>, (() => {
       const select = {
         id: dbCard.c.id,
         guid: dbCard.c.guid,
@@ -438,6 +461,10 @@ class Db {
 
   async markWrong (id: number) {
     return this._updateSrsLevel(-1, id)
+  }
+
+  async markRepeat (id: number) {
+    return this._updateSrsLevel(0, id)
   }
 
   private async _updateSrsLevel (dSrsLevel: number, id: number) {
