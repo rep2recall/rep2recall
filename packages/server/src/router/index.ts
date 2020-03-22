@@ -10,26 +10,22 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     routePrefix: '/doc',
     swagger: {
       info: {
-        title: 'Swagger API',
+        title: 'Rep2Recall API',
         description: 'Rep2Recall Swagger API',
         version: '0.1.0',
       },
       consumes: ['application/json'],
       produces: ['application/json'],
       tags: [
+        { name: 'edit', description: 'Editing related endpoints' },
         { name: 'media', description: 'Media related endpoints' },
-        { name: 'post', description: 'Post related endpoints' },
-        { name: 'comment', description: 'Comment related endpoints' },
+        { name: 'quiz', description: 'Quizzing related endpoints' },
       ],
       components: {
         securitySchemes: {
           BasicAuth: {
             type: 'http',
             scheme: 'basic',
-          },
-          BearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
           },
         },
       },

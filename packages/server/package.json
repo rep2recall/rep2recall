@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "private": true,
   "scripts": {
+    "dev": "ts-node-dev src/index.ts",
     "preinstall": "if !(test -x is-npm); then is-npm; fi",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -41,6 +42,8 @@
     "@types/node": "^13.9.1",
     "@types/pump": "^1.1.0",
     "@types/rimraf": "^2.0.3",
-    "pino-pretty": "^3.6.1"
+    "pino-pretty": "^3.6.1",
+    "ts-node-dev": "^1.0.0-pre.44",
+    "typescript": "^3.8.3"
   }
 }
