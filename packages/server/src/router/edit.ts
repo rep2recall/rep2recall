@@ -3,6 +3,24 @@ import { FastifyInstance } from 'fastify'
 import { db } from '../db/schema'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
+  f.get('/', {
+    schema: {
+      tags: ['edit'],
+      summary: 'Get info of an item',
+      querystring: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+    },
+  }, async (req) => {
+    const { id } = req.query
+
+    return await db.render(id)
+  })
+
   f.post('/', {
     schema: {
       tags: ['edit'],
@@ -12,8 +30,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         required: ['q', 'offset', 'limit', 'sort'],
         properties: {
           q: { type: ['string', 'object'] },
+          cond: { type: 'object' },
           offset: { type: 'integer' },
-          limit: { type: 'integer' },
+          limit: { type: ['integer', 'null'] },
           sort: {
             type: 'object',
             properties: {
@@ -25,22 +44,32 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       },
     },
   }, async (req) => {
-    const { q, offset = 0, limit, sort } = req.body
+    let { q, cond, offset = 0, limit, sort } = req.body
+
+    if (typeof q === 'string') {
+      q = db.qSearch.parse(q).cond
+    }
+
+    if (cond) {
+      q = { $and: [q, cond] }
+    }
+
+    let c = db.db.find(q).sort({
+      [sort.key]: sort.desc ? -1 : 1,
+    }).skip(offset)
+
+    if (limit) {
+      c = c.limit(limit)
+    }
 
     const [rData, rCount] = await Promise.all([
-      db.find(q, {
-        offset,
-        limit,
-        sort,
-      }),
-      db.find(q, {
-        projection: ['id'],
-      }),
+      c,
+      db.db.count(q),
     ])
 
     return {
       data: rData,
-      count: rCount.length,
+      count: rCount,
     }
   })
 
@@ -58,10 +87,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       },
     },
   }, async (req) => {
-    const ids = await db.insert(req.body)
+    const docs = await db.insert(req.body)
+    const { error } = docs as any
+
+    if (error) {
+      console.error(error)
+      throw new Error('Cannot insert')
+    }
 
     return {
-      id: ids[0],
+      ids: (docs as any[]).map((el) => el._id),
     }
   })
 
@@ -80,7 +115,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, set } = req.body
-    await db.update(ids, set)
+    await db.set({
+      _id: { $in: ids },
+    }, set)
 
     return {
       error: null,
@@ -101,7 +138,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids } = req.body
-    await db.delete(ids)
+    await db.db.remove({
+      _id: { $in: ids },
+    }, { multi: true })
 
     return {
       error: null,
@@ -123,10 +162,10 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, tags } = req.body
-    await db.update(ids, (ent) => {
-      return {
-        tag: Array.from(new Set([...(ent.tag || []), ...tags])),
-      }
+    await db.db.update({
+      _id: { $in: ids },
+    }, {
+      $addToSet: { tag: { $each: tags } },
     })
 
     return {
@@ -149,10 +188,10 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, tags } = req.body
-    await db.update(ids, (ent) => {
-      return {
-        tag: ent.tag ? ent.tag.filter((t) => !tags.includes(t)) : [],
-      }
+    await db.db.update({
+      _id: { $in: ids },
+    }, {
+      $pull: { tag: { $in: tags } },
     })
 
     return {

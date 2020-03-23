@@ -3,10 +3,13 @@ import path from 'path'
 import fastify from 'fastify'
 import fastifyStatic from 'fastify-static'
 
-import { config } from './config'
+import { config, appPath } from './config'
 import router from './router'
+import { initDatabase } from './db/schema';
 
-;(async () => {
+(async () => {
+  await initDatabase(path.join(appPath, 'data.nedb'))
+
   const app = fastify({
     logger: (() => {
       try {

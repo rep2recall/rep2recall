@@ -2,9 +2,10 @@ import fs from 'fs'
 import path from 'path'
 
 import { FastifyInstance } from 'fastify'
-import multipart from 'fastify-multipart'
-import pump from 'pump'
+// @ts-ignore
+import fileUpload from 'fastify-file-upload'
 import dayjs from 'dayjs'
+import { UploadedFile } from 'express-fileupload'
 
 import { mediaPath } from '../config'
 
@@ -31,7 +32,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   })
 
-  f.register(multipart)
+  f.register(fileUpload)
 
   f.post('/upload', {
     schema: {
@@ -41,43 +42,35 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         type: 'object',
         required: ['file'],
         properties: {
-          file: { type: 'array', items: { type: 'object' }, minItems: 1, maxItems: 1 },
+          file: { type: 'object' },
         },
       },
     },
-  }, (req, reply) => {
-    if (!req.isMultipart()) {
-      reply.code(400).send(new Error('Request is not multipart'))
-      return
+  }, async (req) => {
+    const file = req.body.file as UploadedFile
+
+    let filename = file.name
+
+    if (filename === 'image.png') {
+      filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
     }
 
-    let filename = ''
+    filename = (() => {
+      const originalFilename = filename
 
-    req.multipart((field, file, filename_) => {
-      filename = filename_
-      if (filename === 'image.png') {
-        filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
+      while (fs.existsSync(path.resolve(mediaPath, filename))) {
+        const [base, ext] = originalFilename.split(/(\.[a-z]+)$/i)
+        filename = base + '-' + Math.random().toString(36).substr(2) + (ext || '.png')
       }
 
-      filename = (() => {
-        const originalFilename = filename
+      return filename
+    })()
 
-        while (fs.existsSync(path.resolve(mediaPath, filename))) {
-          const [base, ext] = originalFilename.split(/(\.[a-z]+)$/i)
-          filename = base + '-' + Math.random().toString(36).substr(2) + (ext || '.png')
-        }
+    await file.mv(path.join(mediaPath, filename))
 
-        return filename
-      })()
-
-      const stream = fs.createWriteStream(path.join(mediaPath, filename))
-
-      pump(file, stream)
-    }, () => {
-      reply.code(200).send({
-        filename,
-      })
-    })
+    return {
+      filename,
+    }
   })
 
   f.get('/:filename', {

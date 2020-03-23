@@ -45,7 +45,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     if (type !== 'all') {
       if (type === 'due') {
         $or.map((cond) => {
-          cond.nextReview = { $lte: +new Date() }
+          cond.nextReview = { $lte: new Date().toISOString() }
         })
       } else if (type === 'leech') {
         $or.map((cond) => {
@@ -65,7 +65,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       if (m) {
         try {
           $or.map((cond) => {
-            cond.nextReview = { $lte: +dayjs().add(parseFloat(m[1]), m[2] as any).toDate() }
+            cond.nextReview = { $lte: +dayjs().add(parseFloat(m[1]), m[2] as any).toISOString() }
           })
         } catch (e) {
           console.error(e)
@@ -85,24 +85,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           },
           {
             ...cond,
-            nextReview: { $lte: +new Date() },
+            nextReview: { $lte: new Date().toISOString() },
           },
         ]
       }).reduce((a, b) => [...a, ...b])
     }
 
-    return (await db.find({ $or }, {
-      projection: [
-        'id',
-        'deck', 'template', 'qfmt', 'afmt', 'front', 'back', 'mnemonic', 'source', 'data',
-        'srsLevel', 'nextReview',
-      ],
-    })).map((el) => ({
-      id: el.id,
-      deck: el.deck,
-      srsLevel: el.srsLevel,
-      nextReview: el.nextReview,
-    }))
+    return await db.db.find({ $or })
   })
 
   f.get('/', {
