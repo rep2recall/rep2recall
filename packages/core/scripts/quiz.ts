@@ -5,7 +5,7 @@ import readline from 'readline-sync'
 import dayjs from 'dayjs'
 
 import { Matter } from '../src/matter'
-import { initDatabase, db, IDbDataSchema } from '../src/schema'
+import { initDatabase, db } from '../src/schema'
 
 const DECK_NAME = ''
 const ROOT = '../../user'
@@ -15,12 +15,12 @@ async function main () {
     cwd: `${ROOT}/quiz/${DECK_NAME}`,
   })
 
-  await initDatabase(`${ROOT}/db.nedb`)
+  await initDatabase(`${ROOT}/user.db`)
 
   while (files.length > 0) {
     const f = files.splice(Math.floor(Math.random() * files.length), 1)[0]
     const id = f.replace(/^.+\//, '').replace(/\.[^.]+$/, '')
-    const item = await db.db.findOne({ _id: id }) as IDbDataSchema
+    const item = await db.get(id)
     if (item && item.nextReview > dayjs().add(10, 'minute').toDate()) {
       continue
     }

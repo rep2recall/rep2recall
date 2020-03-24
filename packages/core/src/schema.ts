@@ -1,86 +1,84 @@
-import DataStore from 'nedb-promises'
-import * as t from 'runtypes'
+import { Entity, Db as LiteOrm, primary, prop, Table } from 'liteorm'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { Matter } from './matter'
-import { toDate, ser } from './utils'
 
-export const dbDataSchema = t.Record({
+const x1fTransform = {
+  get: (repr: string | null) => repr ? repr.split('\x1f').filter((el) => el) : null,
+  set: (d: string[]) => d ? `\x1f${d.join('\x1f')}\x1f` : null,
+}
+
+@Entity({ name: 'data', timestamp: true })
+class DbData {
   /**
    * Filename
    */
-  _id: t.String,
+  @primary() id!: string
 
   /**
    * Frontmatter
    */
-  h: t.String.Or(t.Undefined),
-  data: t.Dictionary(t.Unknown).Or(t.Undefined),
-  tag: t.Array(t.String).Or(t.Undefined),
-  references: t.Array(t.String).Or(t.Undefined),
+  @prop({ unique: true, null: true }) h?: string
+  @prop({ default: () => ({}) }) data?: Record<string, any>
+  @prop({ default: () => [], transform: x1fTransform }) tag?: string[]
+  @prop({ default: () => [], transform: x1fTransform }) references?: string[]
 
   /**
    * Quiz
    */
-  nextReview: t.Unknown.withConstraint<Date>((d) => d instanceof Date),
-  srsLevel: t.Number,
-  streak: t.Record({
-    right: t.Number,
-    wrong: t.Number,
-  }),
-})
+  @prop() nextReview!: Date
+  @prop({ type: 'int' }) srsLevel!: number
+  @prop({
+    default: () => ({
+      right: 0,
+      wrong: 0,
+      maxRight: 0,
+      maxWrong: 0,
+    }),
+  }) streak!: {
+    right: number
+    wrong: number
+    maxRight: number
+    maxWrong: number
+  }
+}
 
-export type IDbDataSchema = t.Static<typeof dbDataSchema>
+export const dbData = new Table(DbData)
 
-class DbData {
-  db: DataStore
+class Db {
+  db: LiteOrm
 
   constructor (public filename: string) {
-    this.db = DataStore.create({ filename })
+    this.db = new LiteOrm(filename)
   }
 
   async init () {
-    await this.db.ensureIndex({ fieldName: 'h', unique: true, sparse: true })
+    await this.db.init([dbData])
   }
 
   async close () {
-    // await this.db.()
-  }
-
-  async insert (...entries: IDbDataSchema[]) {
-    entries.map((el) => {
-      dbDataSchema.check(el)
-    })
-
-    return await this.db.insert(entries)
-  }
-
-  async set (cond: any, $set: Partial<IDbDataSchema> | string) {
-    if (typeof $set === 'string') {
-      const matter = new Matter()
-      const { header } = matter.parse($set)
-      $set = ser.clone({
-        nextReview: header.date ? toDate(header.date) : undefined,
-        ...header,
-      })
-    }
-
-    t.Partial(dbDataSchema.fields).check($set)
-
-    await this.db.update(cond, { $set })
+    await this.db.close()
   }
 
   markRight = this._updateSrsLevel(+1)
   markWrong = this._updateSrsLevel(-1)
   markRepeat = this._updateSrsLevel(0)
 
+  async get (id: string) {
+    try {
+      return await this.db.first(dbData)({ id }, {
+        srsLevel: dbData.c.srsLevel,
+        streak: dbData.c.streak,
+        nextReview: dbData.c.nextReview,
+      })
+    } catch (_) {
+      return null
+    }
+  }
+
   private _updateSrsLevel (dSrsLevel: number) {
     return async (id: string, newItem?: string) => {
-      let card = await this.db.findOne({ _id: id }, {
-        srsLevel: 1,
-        streak: 1,
-        nextReview: 1,
-      }) as any
+      let card = await this.get(id)
 
       const isNew = !card
 
@@ -90,6 +88,8 @@ class DbData {
           streak: {
             right: 0,
             wrong: 0,
+            maxRight: 0,
+            maxWrong: 0,
           },
           nextReview: repeatReview(),
         }
@@ -98,9 +98,17 @@ class DbData {
       if (dSrsLevel > 0) {
         card.streak.right = card.streak.right + 1
         card.streak.wrong = 0
+
+        if (card.streak.right > card.streak.maxRight) {
+          card.streak.maxRight = card.streak.right
+        }
       } else if (dSrsLevel < 0) {
         card.streak.wrong = card.streak.wrong + 1
         card.streak.right = 0
+
+        if (card.streak.wrong > card.streak.maxWrong) {
+          card.streak.maxWrong = card.streak.wrong
+        }
       }
 
       card.srsLevel += dSrsLevel
@@ -123,34 +131,35 @@ class DbData {
 
       if (newItem) {
         const matter = new Matter()
-        const { header } = matter.parse(newItem)
+        const { header: { h, data, tag, references } } = matter.parse(newItem)
+        const validHeader = { h, data, tag, references }
 
         if (isNew) {
-          await this.insert(ser.clone({
+          await this.db.create(dbData)({
             srsLevel,
             streak,
             nextReview,
-            _id: id,
-            ...header,
-          }))
+            id,
+            ...validHeader,
+          })
         } else {
-          await this.set({ _id: id }, {
+          await this.db.update(dbData)({ id }, {
             srsLevel,
             streak,
             nextReview,
-            ...header,
+            ...validHeader,
           })
         }
       } else {
-        await this.set({ _id: id }, { srsLevel, streak, nextReview })
+        await this.db.update(dbData)({ id }, { srsLevel, streak, nextReview })
       }
     }
   }
 }
 
-export let db: DbData
+export let db: Db
 
 export async function initDatabase (filename: string) {
-  db = new DbData(filename)
+  db = new Db(filename)
   await db.init()
 }
