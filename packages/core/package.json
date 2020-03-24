@@ -19,6 +19,7 @@
     "runtypes": "^4.2.0"
   },
   "devDependencies": {
-    "@types/node": "^13.9.3"
+    "@types/node": "^13.9.3",
+    "fast-glob": "^3.2.2"
   }
 }

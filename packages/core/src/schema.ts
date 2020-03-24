@@ -9,7 +9,7 @@ export const dbDataSchema = t.Record({
   /**
    * Filename
    */
-  _id: t.String.Or(t.Undefined),
+  _id: t.String,
 
   /**
    * Frontmatter
@@ -22,12 +22,12 @@ export const dbDataSchema = t.Record({
   /**
    * Quiz
    */
-  nextReview: t.Unknown.withConstraint<Date>((d) => d instanceof Date).Or(t.Undefined),
-  srsLevel: t.Number.Or(t.Undefined),
+  nextReview: t.Unknown.withConstraint<Date>((d) => d instanceof Date),
+  srsLevel: t.Number,
   streak: t.Record({
     right: t.Number,
     wrong: t.Number,
-  }).Or(t.Undefined),
+  }),
 })
 
 export type IDbDataSchema = t.Static<typeof dbDataSchema>
@@ -47,18 +47,8 @@ class DbData {
     // await this.db.()
   }
 
-  async insert (...entries: (IDbDataSchema | string)[]) {
-    entries.map((el, i) => {
-      if (typeof el === 'string') {
-        const matter = new Matter()
-        const { header } = matter.parse(el)
-        el = ser.clone({
-          nextReview: header.date ? toDate(header.date) : undefined,
-          ...header,
-        })
-        entries[i] = el
-      }
-
+  async insert (...entries: IDbDataSchema[]) {
+    entries.map((el) => {
       dbDataSchema.check(el)
     })
 
@@ -80,59 +70,69 @@ class DbData {
     await this.db.update(cond, { $set })
   }
 
-  async markRight (id: number) {
-    return this._updateSrsLevel(+1, id)
-  }
+  markRight = this._updateSrsLevel(+1)
+  markWrong = this._updateSrsLevel(-1)
+  markRepeat = this._updateSrsLevel(0)
 
-  async markWrong (id: number) {
-    return this._updateSrsLevel(-1, id)
-  }
+  private _updateSrsLevel (dSrsLevel: number) {
+    return async (id: string, newItem?: string) => {
+      let card = {
+        srsLevel: 0,
+        streak: {
+          right: 0,
+          wrong: 0,
+        },
+        nextReview: repeatReview(),
+      }
 
-  async markRepeat (id: number) {
-    return this._updateSrsLevel(0, id)
-  }
+      if (!newItem) {
+        card = await this.db.findOne({ _id: id }, {
+          srsLevel: 1,
+          streak: 1,
+          nextReview: 1,
+        }) as any
+        if (!card) {
+          throw new Error(`Card ${id} not found.`)
+        }
+      }
 
-  private async _updateSrsLevel (dSrsLevel: number, id: number) {
-    const c = await this.db.findOne({ _id: id }, {
-      srsLevel: 1,
-      streak: 1,
-    })
-    if (!c) {
-      throw new Error(`Card ${id} not found.`)
+      if (dSrsLevel > 0) {
+        card.streak.right = (card.streak.right || 0) + 1
+      } else if (dSrsLevel < 0) {
+        card.streak.wrong = (card.streak.wrong || 0) + 1
+      }
+
+      card.srsLevel += dSrsLevel
+
+      if (card.srsLevel >= srsMap.length) {
+        card.srsLevel = srsMap.length - 1
+      }
+
+      if (card.srsLevel < 0) {
+        card.srsLevel = 0
+      }
+
+      if (dSrsLevel > 0) {
+        card.nextReview = getNextReview(card.srsLevel)
+      }
+
+      const { srsLevel, streak, nextReview } = card
+
+      if (newItem) {
+        const matter = new Matter()
+        const { header } = matter.parse(newItem)
+
+        await this.insert(ser.clone({
+          srsLevel,
+          streak,
+          nextReview,
+          _id: id,
+          ...header,
+        }))
+      } else {
+        await this.set({ _id: id }, { srsLevel, streak, nextReview })
+      }
     }
-
-    const card = c as Partial<IDbDataSchema>
-    card.srsLevel = card.srsLevel || 0
-    card.streak = card.streak || {
-      right: 0,
-      wrong: 0,
-    }
-
-    if (dSrsLevel > 0) {
-      card.streak.right = (card.streak.right || 0) + 1
-    } else if (dSrsLevel < 0) {
-      card.streak.wrong = (card.streak.wrong || 0) + 1
-    }
-
-    card.srsLevel += dSrsLevel
-
-    if (card.srsLevel >= srsMap.length) {
-      card.srsLevel = srsMap.length - 1
-    }
-
-    if (card.srsLevel < 0) {
-      card.srsLevel = 0
-    }
-
-    if (dSrsLevel > 0) {
-      card.nextReview = getNextReview(card.srsLevel)
-    } else {
-      card.nextReview = repeatReview()
-    }
-
-    const { srsLevel, streak, nextReview } = card
-
-    await this.set({ _id: id }, { srsLevel, streak, nextReview })
   }
 }
 
