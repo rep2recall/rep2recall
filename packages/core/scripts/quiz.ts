@@ -21,7 +21,7 @@ async function main () {
     const f = files.splice(Math.floor(Math.random() * files.length), 1)[0]
     const id = f.replace(/^.+\//, '').replace(/\.[^.]+$/, '')
     const item = await db.db.findOne({ _id: id }) as IDbDataSchema
-    if (item.nextReview > dayjs().add(10, 'minute').toDate()) {
+    if (item && item.nextReview > dayjs().add(10, 'minute').toDate()) {
       continue
     }
 
