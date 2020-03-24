@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "preinstall": "if !(test -x is-npm); then is-npm; fi",
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
+    "preinstall": "if !(test -x is-npm); then is-npm; fi",
     "watch": "vue-cli-service build --mode=develeopment --watch"
   },
   "dependencies": {
@@ -14,17 +14,23 @@
     "@fortawesome/free-regular-svg-icons": "^5.12.1",
     "@fortawesome/free-solid-svg-icons": "^5.12.1",
     "@fortawesome/vue-fontawesome": "^0.1.9",
+    "@types/codemirror": "0.0.88",
+    "ajv": "^6.12.0",
+    "axios": "^0.19.2",
     "buefy": "^0.8.10",
     "core-js": "^3.6.4",
     "dayjs": "^1.8.20",
+    "js-yaml": "^3.13.1",
     "vue": "^2.6.11",
     "vue-class-component": "^7.2.2",
     "vue-cli-plugin-pug": "^1.0.7",
+    "vue-codemirror": "^4.0.6",
     "vue-mq": "^1.0.1",
     "vue-property-decorator": "^8.3.0",
     "vue-router": "^3.1.5"
   },
   "devDependencies": {
+    "@types/js-yaml": "^3.12.2",
     "@vue/cli-plugin-babel": "^4.2.0",
     "@vue/cli-plugin-router": "^4.2.0",
     "@vue/cli-plugin-typescript": "^4.2.0",

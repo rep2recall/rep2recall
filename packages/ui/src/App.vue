@@ -1,49 +1,48 @@
 <template lang="pug">
 #app
-  nav#main-nav(:style="{ width: $mq === 'lg' ? 'auto' : '0' }")
-    nav#sub-nav
-      nav#icon-nav(v-if="isNavShown")
-        b-tooltip(label='Quiz' position="is-right")
-          router-link(to="/quiz")
-            fontawesome(:icon="['far', 'question-circle']")
-        b-tooltip(label='Edit' position="is-right")
-          router-link(to="/edit")
-            fontawesome(:icon="['far', 'edit']")
-        b-tooltip(label='Edit' position="is-right")
-          router-link(to="/browse")
-            fontawesome(icon="list")
-        b-tooltip(label='Import' position="is-right")
-          router-link(to="/import")
-            fontawesome(icon="file-import")
-        b-tooltip(label='Community' position="is-right")
-          router-link(to="/community")
-            fontawesome(icon="users")
-        b-tooltip(label='Settings' position="is-right")
-          router-link(to="/settings")
-            fontawesome(icon="cog")
-      div(style="flex-grow: 1;")
-      nav#icon-nav
-        nav(v-if="$mq !== 'lg'" role="button" @click="isNavShown = !isNavShown")
-          .arrow-up(v-if="!isNavShown")
-          .arrow-down(v-else)
-        b-tooltip(label='Login' position="is-right")
-          router-link(to="/login")
-            fontawesome(icon="user")
+  nav#main-nav(v-if="isDrawer")
+    nav#icon-nav(style="margin-top: 1em;")
+      router-link.flex-center-left-inline(to="/quiz")
+        fontawesome(:icon="['far', 'question-circle']")
+        span Quiz
+      router-link.flex-center-left-inline(to="/edit")
+        fontawesome(:icon="['far', 'edit']")
+        span Edit
+      router-link.flex-center-left-inline(to="/browse")
+        fontawesome(icon="list")
+        span Browse
+      router-link.flex-center-left-inline(to="/settings")
+        fontawesome(icon="cog")
+        span Settings
+      router-link.flex-center-left-inline(to="/community")
+        fontawesome(icon="users")
+        span Community
+    div(style="flex-grow: 1;")
+    nav#icon-nav
+      nav(v-if="$mq !== 'lg'" role="button" @click="isNavShown = !isNavShown")
+        .arrow-up(v-if="!isNavShown")
+        .arrow-down(v-else)
+      router-link.flex-center-left-inline(to="/login")
+        fontawesome(icon="user-slash")
+        span Not Logged In
+  #burger
+    a.navbar-burger(
+      :class="{ 'is-active': isDrawer }" @click="isDrawer = !isDrawer"
+      style="display: block !important;" 
+    )
+      span
+      span
+      span
   #main-view
     router-view
 </template>
 
 <script lang="ts">
-import { Vue, Component, Watch } from "vue-property-decorator";
+import { Vue, Component, Watch } from "vue-property-decorator"
 
 @Component
 export default class App extends Vue {
-  isNavShown = this.$mq === "lg";
-
-  @Watch("$mq")
-  setNavShown() {
-    this.isNavShown = this.$mq === "lg";
-  }
+  isDrawer = true
 }
 </script>
 
@@ -67,15 +66,11 @@ body,
   z-index: 100;
   display: flex;
   flex-direction: column;
+  width: 200px;
 
   nav {
     display: flex;
     flex-direction: column;
-  }
-
-  #sub-nav {
-    width: 70px;
-    flex-grow: 1;
   }
 
   #icon-nav {
@@ -83,7 +78,7 @@ body,
   }
 
   .svg-inline--fa {
-    $size: 50px;
+    $size: 30px;
 
     width: $size;
     height: $size;
@@ -133,5 +128,11 @@ body,
   flex-grow: 1;
   margin-left: 1em;
   margin-right: 1em;
+}
+
+.flex-center-left-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 </style>

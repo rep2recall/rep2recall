@@ -4,7 +4,7 @@ import stylis from 'stylis'
 
 export default class MakeHtml {
   md = new showdown.Converter({
-    metadata: true
+    metadata: true,
   })
 
   hp: HyperPug
@@ -12,14 +12,14 @@ export default class MakeHtml {
   html = ''
 
   constructor (
-    public id = 'el-' + Math.random().toString(36).substr(2)
+    public id = 'el-' + Math.random().toString(36).substr(2),
   ) {
     this.md.addExtension({
       type: 'lang',
       regex: /\n```pug parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
         return this.pugConvert(p1)
-      }
+      },
     }, 'pug')
 
     this.md.addExtension({
@@ -27,12 +27,12 @@ export default class MakeHtml {
       regex: /\n```css parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
         return this.makeCss(p1)
-      }
+      },
     }, 'css')
 
     this.hp = new HyperPug({
       markdown: (s) => this.mdConvert(s),
-      css: (s) => this.mdConvert(s)
+      css: (s) => this.mdConvert(s),
     })
   }
 

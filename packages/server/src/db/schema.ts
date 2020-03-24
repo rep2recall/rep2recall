@@ -17,13 +17,9 @@ export interface IDbData {
   type?: string
   h?: string
   data?: Record<string, any>
-  css?: string
-  js?: string
   source?: string
   deck?: string
-  front?: string
-  back?: string
-  mnemonic?: string
+  markdown?: string
   name?: string
   url?: string
   link?: string[] // REFERENCES
@@ -42,22 +38,18 @@ class DbData {
   validator = this.ajv.compile({
     type: 'object',
     properties: {
+      markdown: { type: 'string' },
       type: { type: 'string' },
       h: { type: 'string' },
       data: { type: 'object' },
-      css: { type: 'string' },
-      js: { type: 'string' },
       source: { type: 'string' },
       deck: { type: 'string' },
-      front: { type: 'string' },
-      back: { type: 'string' },
-      mnemonic: { type: 'string' },
       name: { type: 'string' },
       url: { type: 'string' },
       link: { type: 'array', items: { type: 'string' } },
       tag: { type: 'array', items: { type: 'string' } },
       srsLevel: { type: 'integer' },
-      nextReview: { type: 'string', format: 'date' },
+      nextReview: { type: 'string', format: 'date-time' },
       streak: {
         type: 'object',
         required: ['right', 'wrong'],
@@ -197,24 +189,19 @@ class DbData {
     const r = await this.db.findOne({ _id: id })
 
     if (r) {
-      const { front, back, css, js, mnemonic, link } = r as IDbData
-      const compiled = { front, back, css, js, mnemonic } as any
+      let { markdown, link } = r as IDbData
 
       if (link) {
         const contexts = await this.db.find({ _id: { $in: link } })
-        contexts.map((ctx) => {
-          Object.keys(compiled).map((k) => {
-            const v = compiled[k]
-
-            if (v) {
-              compiled[k] = hbs.compile(v)(ctx)
-            }
+        if (markdown) {
+          contexts.map((ctx) => {
+            markdown = hbs.compile(markdown)(ctx)
           })
-        })
+        }
 
         return {
           ...r,
-          ...compiled,
+          markdown,
         }
       }
 
