@@ -1,5 +1,5 @@
 import DataStore from 'nedb-promises'
-import t from 'runtypes'
+import * as t from 'runtypes'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { Matter } from './matter'
@@ -76,30 +76,31 @@ class DbData {
 
   private _updateSrsLevel (dSrsLevel: number) {
     return async (id: string, newItem?: string) => {
-      let card = {
-        srsLevel: 0,
-        streak: {
-          right: 0,
-          wrong: 0,
-        },
-        nextReview: repeatReview(),
-      }
+      let card = await this.db.findOne({ _id: id }, {
+        srsLevel: 1,
+        streak: 1,
+        nextReview: 1,
+      }) as any
 
-      if (!newItem) {
-        card = await this.db.findOne({ _id: id }, {
-          srsLevel: 1,
-          streak: 1,
-          nextReview: 1,
-        }) as any
-        if (!card) {
-          throw new Error(`Card ${id} not found.`)
+      const isNew = !card
+
+      if (!card) {
+        card = {
+          srsLevel: 0,
+          streak: {
+            right: 0,
+            wrong: 0,
+          },
+          nextReview: repeatReview(),
         }
       }
 
       if (dSrsLevel > 0) {
-        card.streak.right = (card.streak.right || 0) + 1
+        card.streak.right = card.streak.right + 1
+        card.streak.wrong = 0
       } else if (dSrsLevel < 0) {
-        card.streak.wrong = (card.streak.wrong || 0) + 1
+        card.streak.wrong = card.streak.wrong + 1
+        card.streak.right = 0
       }
 
       card.srsLevel += dSrsLevel
@@ -114,6 +115,8 @@ class DbData {
 
       if (dSrsLevel > 0) {
         card.nextReview = getNextReview(card.srsLevel)
+      } else {
+        card.nextReview = repeatReview()
       }
 
       const { srsLevel, streak, nextReview } = card
@@ -122,13 +125,22 @@ class DbData {
         const matter = new Matter()
         const { header } = matter.parse(newItem)
 
-        await this.insert(ser.clone({
-          srsLevel,
-          streak,
-          nextReview,
-          _id: id,
-          ...header,
-        }))
+        if (isNew) {
+          await this.insert(ser.clone({
+            srsLevel,
+            streak,
+            nextReview,
+            _id: id,
+            ...header,
+          }))
+        } else {
+          await this.set({ _id: id }, {
+            srsLevel,
+            streak,
+            nextReview,
+            ...header,
+          })
+        }
       } else {
         await this.set({ _id: id }, { srsLevel, streak, nextReview })
       }

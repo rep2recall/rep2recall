@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@types/node": "^13.9.3",
-    "fast-glob": "^3.2.2"
+    "@types/readline-sync": "^1.4.3",
+    "fast-glob": "^3.2.2",
+    "readline-sync": "^1.4.10"
   }
 }
