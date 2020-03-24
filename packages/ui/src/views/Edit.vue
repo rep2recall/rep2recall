@@ -180,9 +180,9 @@ export default class Edit extends Vue {
       }))
 
       if (r.data) {
-        const { raw, nextReview } = r.data
+        const { markdown, nextReview } = r.data
 
-        const { header: rawHeader, content } = this.matter.parse(raw)
+        const { header: rawHeader, content } = this.matter.parse(markdown)
         Object.assign(rawHeader, {
           nextReview: nextReview ? dayjs(nextReview).format('YYYY-MM-DD HH:mm Z') : undefined,
         })
@@ -208,7 +208,7 @@ export default class Edit extends Vue {
     }
 
     const content = {
-      raw: this.markdown,
+      markdown: this.markdown,
       ...header
     }
 

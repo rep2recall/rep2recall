@@ -22,7 +22,7 @@ export interface IDbData {
   markdown?: string
   name?: string
   url?: string
-  link?: string[] // REFERENCES
+  references?: string[] // REFERENCES
   tag?: string[]
   srsLevel?: number
   nextReview?: string
@@ -46,7 +46,7 @@ class DbData {
       deck: { type: 'string' },
       name: { type: 'string' },
       url: { type: 'string' },
-      link: { type: 'array', items: { type: 'string' } },
+      references: { type: 'array', items: { type: 'string' } },
       tag: { type: 'array', items: { type: 'string' } },
       srsLevel: { type: 'integer' },
       nextReview: { type: 'string', format: 'date-time' },
@@ -160,7 +160,7 @@ class DbData {
       type: 'media',
       _id: {
         $in: Array.from(new Set(ds
-          .reduce((prev, c) => [...prev, ...(c.link || [])], [] as string[]))),
+          .reduce((prev, c) => [...prev, ...(c.references || [])], [] as string[]))),
       },
     })).map((el) => {
       const { url } = el as IDbData
@@ -189,13 +189,15 @@ class DbData {
     const r = await this.db.findOne({ _id: id })
 
     if (r) {
-      let { markdown, link } = r as IDbData
+      let { markdown, references } = r as IDbData
 
-      if (link) {
-        const contexts = await this.db.find({ _id: { $in: link } })
+      if (references) {
+        const contexts = await this.db.find({ _id: { $in: references } })
         if (markdown) {
           contexts.map((ctx) => {
-            markdown = hbs.compile(markdown)(ctx)
+            markdown = hbs.compile(markdown)({
+              [ctx._id]: ctx,
+            })
           })
         }
 
