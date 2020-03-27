@@ -1,205 +1,184 @@
-import path from 'path'
+import { Readable } from 'stream'
 
-import DataStore from 'nedb-promises'
-import { String } from 'runtypes'
-import fs from 'fs-extra'
-import AdmZip from 'adm-zip'
-import dayjs from 'dayjs'
-import QSearch from '@patarapolw/qsearch'
-import Ajv from 'ajv'
+import t from 'runtypes'
+import mongoose from 'mongoose'
 import hbs from 'handlebars'
+import { prop, getModelForClass, index, DocumentType } from '@typegoose/typegoose'
+import { GridFSBucket } from 'mongodb'
+import nanoid from 'nanoid'
 
-import { hash } from '../utils'
-import { mediaPath, tmpPath } from '../config'
 import { srsMap, getNextReview, repeatReview } from './quiz'
 
-export interface IDbData {
-  type?: string
-  h?: string
-  data?: Record<string, any>
-  source?: string
-  deck?: string
-  markdown?: string
-  name?: string
-  url?: string
-  references?: string[] // REFERENCES
-  tag?: string[]
-  srsLevel?: number
-  nextReview?: string
-  streak?: {
-    right: number
-    wrong: number
+class DbUser {
+  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ required: true }) email!: string
+}
+
+export const DbUserModel = getModelForClass(DbUser)
+
+class DbQuiz {
+  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ required: true }) nextReview!: Date
+  @prop({ required: true }) srsLevel!: number
+  @prop() stat?: {
+    streak: {
+      right: number
+      wrong: number
+      maxRight: number
+      maxWrong: number
+    }
   }
 }
 
-class DbData {
-  db: DataStore
-  ajv = new Ajv()
-  validator = this.ajv.compile({
-    type: 'object',
-    properties: {
-      markdown: { type: 'string' },
-      type: { type: 'string' },
-      h: { type: 'string' },
-      data: { type: 'object' },
-      source: { type: 'string' },
-      deck: { type: 'string' },
-      name: { type: 'string' },
-      url: { type: 'string' },
-      references: { type: 'array', items: { type: 'string' } },
-      tag: { type: 'array', items: { type: 'string' } },
-      srsLevel: { type: 'integer' },
-      nextReview: { type: 'string', format: 'date-time' },
-      streak: {
-        type: 'object',
-        required: ['right', 'wrong'],
-        properties: {
-          right: { type: 'integer' },
-          wrong: { type: 'integer' },
-        },
-      },
-    },
-  })
+export const DbQuizModel = getModelForClass(DbQuiz)
 
-  qSearch = new QSearch({
-    dialect: 'nedb',
-    schema: {
-      deck: {},
-      template: {},
-      front: {},
-      back: {},
-      source: {},
-      data: {},
-      mnemonic: {},
-      srsLevel: { type: 'number' },
-      nextReview: { type: 'date' },
-      tag: {},
-    },
-    normalizeDates: (d) => dayjs(d).toISOString(),
-  })
+@index({ h: 1, userId: 1 }, { unique: true })
+class DbCard {
+  /**
+   * Filename and deck
+   */
+  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ required: true }) userId!: string
+  @prop() deck?: string
 
-  constructor (public filename: string) {
-    this.db = DataStore.create({ filename })
+  /**
+   * Frontmatter
+   */
+  @prop({ unique: true }) h?: string
+  @prop() data?: Record<string, any>
+  @prop() tag?: string[]
+  @prop() ref?: string[] // Self-reference
+  @prop() media?: string[] // GridFS-reference
+
+  /**
+   * Content
+   */
+  @prop() markdown?: string
+
+  /**
+   * Quiz
+   */
+  @prop({ ref: 'DbQuiz' }) quizId?: string
+}
+
+export const DbCardModel = getModelForClass(DbCard)
+
+export const getDbMediaBucket = () => new GridFSBucket(mongoose.connection.db)
+
+const tNullUndefined = t.Null.Or(t.Undefined)
+
+export const DbSchema = t.Record({
+  quiz: t.Array(t.Record({
+    _id: t.String,
+    nextReview: t.Unknown.withConstraint<Date>((el) => el instanceof Date),
+    srsLevel: t.Number,
+    stat: t.Unknown,
+  })),
+  card: t.Array(t.Record({
+    _id: t.String,
+    deck: t.String.Or(tNullUndefined),
+    h: t.String.Or(tNullUndefined),
+    data: t.Unknown.Or(tNullUndefined),
+    tag: t.Array(t.String).Or(tNullUndefined),
+    ref: t.Array(t.String).Or(tNullUndefined),
+    media: t.Array(t.String).Or(tNullUndefined),
+    markdown: t.String.Or(tNullUndefined),
+    quizId: t.String.Or(tNullUndefined),
+  })),
+  media: t.Array(t.Record({
+    filename: t.String,
+    data: t.Unknown,
+    meta: t.Unknown.Or(tNullUndefined),
+  })),
+})
+
+export type IDbSchema = t.Static<typeof DbSchema>
+
+class Db {
+  mediaBucket = getDbMediaBucket()
+  user: DocumentType<DbUser> | null = null
+
+  async signIn (email: string) {
+    this.user = await DbUserModel.findOne({ email })
+    if (this.user) {
+      this.user = await DbUserModel.create({ email })
+    }
+
+    return this.user
   }
 
-  async init () {
-    await this.db.ensureIndex({ fieldName: 'h', unique: true, sparse: true })
+  async signOut () {
+    this.user = null
   }
 
   async close () {
-    // await this.db.()
+    await mongoose.disconnect()
   }
 
-  async insert (...entries: IDbData[]) {
-    for (const el of entries) {
-      if (!this.validator(el)) {
-        console.error(this.validator.errors)
-
-        return {
-          error: this.validator.errors,
-        }
-      }
+  async insert (entry: IDbSchema) {
+    if (!this.user) {
+      return null
     }
 
-    return await this.db.insert(entries)
+    DbSchema.check(entry)
+
+    const [cs] = await Promise.all([
+      DbCardModel.insertMany(entry.card.map((c) => ({
+        ...c,
+        userId: this.user!._id,
+      })), { ordered: false }),
+      DbQuizModel.insertMany(entry.quiz, { ordered: false }),
+      Promise.allSettled(entry.media.map((media) => {
+        return this.uploadMedia(media as any)
+      })),
+    ])
+
+    return cs.map((c) => c._id)
   }
 
-  async set (cond: any, $set: Partial<IDbData>) {
-    if (!this.validator($set)) {
-      console.error(this.validator.errors)
-
-      return {
-        error: this.validator.errors,
-      }
+  async uploadMedia (media: {
+    data: Buffer
+    filename: string
+    meta?: any
+  }) {
+    if (!this.user) {
+      return null
     }
 
-    await this.db.update(cond, { $set })
-  }
-
-  async uploadMedia (f: string | Buffer, opts: {
-    filename?: string
-    makeUnique?: boolean
-    source?: string
-  } = {}) {
-    let { filename, makeUnique, source } = opts
-
-    if (!filename || makeUnique) {
-      filename = (() => {
-        const p = path.parse(filename || path.basename(String.check(f)))
-        return p.name + '_' + Math.random().toString(36).substr(2) + p.ext
-      })()
-    }
-
-    fs.ensureFileSync(path.join(mediaPath, filename))
-
-    let b: Buffer
-
-    if (typeof f === 'string') {
-      fs.copyFileSync(f, path.join(mediaPath, filename))
-      b = fs.readFileSync(f)
-    } else {
-      fs.writeFileSync(path.join(mediaPath, filename), f)
-      b = f
-    }
-
-    return await this.insert({
-      type: 'media',
-      name: filename,
-      url: filename,
-      h: hash(b),
-      source,
+    return new Promise((resolve, reject) => {
+      new Readable({
+        read () {
+          this.push(media.data)
+        },
+      })
+        .pipe(this.mediaBucket.openUploadStream(media.filename, {
+          metadata: {
+            ...(media.meta || {}),
+            userId: this.user!._id,
+          },
+        }))
+        .once('error', reject)
+        .once('finish', resolve)
     })
   }
 
-  async export (cond: Record<string, any>) {
-    const ds = await this.db.find(cond) as IDbData[]
-    const tmpDir = path.join(tmpPath, Math.random().toString(36).substr(2))
-    fs.ensureDirSync(path.join(tmpDir, 'media'));
-
-    (await this.db.find({
-      type: 'media',
-      _id: {
-        $in: Array.from(new Set(ds
-          .reduce((prev, c) => [...prev, ...(c.references || [])], [] as string[]))),
-      },
-    })).map((el) => {
-      const { url } = el as IDbData
-
-      if (url && fs.existsSync(path.join(mediaPath, url))) {
-        fs.copyFileSync(path.join(mediaPath, url), path.join(tmpDir, 'media', url))
-      }
-    })
-
-    const dstDb = new DbData(path.join(tmpDir, 'data.nedb'))
-    await dstDb.init()
-    await dstDb.insert(...ds)
-    await dstDb.close()
-
-    const zip = new AdmZip(path.join(tmpDir, 'data.zip'))
-    zip.addLocalFile(path.join(tmpDir, 'data.db'))
-    zip.addLocalFolder(path.join(tmpDir, 'media'))
-    zip.writeZip()
-
-    return {
-      path: path.join(tmpDir, 'data.zip'),
+  async render (slug: string): Promise<any> {
+    if (!this.user) {
+      return null
     }
-  }
 
-  async render (id: string): Promise<IDbData> {
-    const r = await this.db.findOne({ _id: id })
+    const r = await DbCardModel.findById(slug)
 
     if (r) {
-      let { markdown, references } = r as IDbData
+      let { markdown, ref } = r
 
-      if (references) {
-        const contexts = await this.db.find({ _id: { $in: references } })
-        if (markdown) {
-          contexts.map((ctx) => {
-            markdown = hbs.compile(markdown)({
-              [ctx._id]: ctx,
-            })
+      if (ref && markdown) {
+        const contexts = await DbCardModel.find({ _id: { $in: ref } })
+        contexts.map((ctx) => {
+          markdown = hbs.compile(markdown)({
+            [ctx._id]: ctx,
           })
-        }
+        })
 
         return {
           ...r,
@@ -207,71 +186,111 @@ class DbData {
         }
       }
 
-      return r as IDbData
+      return r
     }
 
-    throw new Error(`Cannot find item _id: ${id}`)
+    throw new Error(`Cannot find item slug: ${slug}`)
   }
 
-  async markRight (id: number) {
-    return this._updateSrsLevel(+1, id)
-  }
+  markRight = this._updateSrsLevel(+1)
+  markWrong = this._updateSrsLevel(-1)
+  markRepeat = this._updateSrsLevel(0)
 
-  async markWrong (id: number) {
-    return this._updateSrsLevel(-1, id)
-  }
+  private _updateSrsLevel (dSrsLevel: number) {
+    return async (slug: string) => {
+      if (!this.user) {
+        return null
+      }
 
-  async markRepeat (id: number) {
-    return this._updateSrsLevel(0, id)
-  }
+      const card = await DbCardModel.findById(slug).select({ quizId: 1 })
 
-  private async _updateSrsLevel (dSrsLevel: number, id: number) {
-    const c = await this.db.findOne({ _id: id }, {
-      srsLevel: 1,
-      streak: 1,
-    })
-    if (!c) {
-      throw new Error(`Card ${id} not found.`)
+      if (!card) {
+        throw new Error(`Card ${slug} not found.`)
+      }
+
+      const quiz = await DbQuizModel.findById(card.quizId).select({ stat: 1, srsLevel: 1 })
+
+      let srsLevel = 0
+      let stat = {
+        streak: {
+          right: 0,
+          wrong: 0,
+          maxRight: 0,
+          maxWrong: 0,
+        },
+      }
+      let nextReview = repeatReview()
+
+      if (quiz) {
+        srsLevel = quiz.srsLevel
+        if (quiz.stat) {
+          stat = quiz.stat
+        }
+      }
+
+      if (dSrsLevel > 0) {
+        stat.streak.right = stat.streak.right + 1
+        stat.streak.wrong = 0
+
+        if (stat.streak.right > stat.streak.maxRight) {
+          stat.streak.maxRight = stat.streak.right
+        }
+      } else if (dSrsLevel < 0) {
+        stat.streak.wrong = stat.streak.wrong + 1
+        stat.streak.right = 0
+
+        if (stat.streak.wrong > stat.streak.maxWrong) {
+          stat.streak.maxWrong = stat.streak.wrong
+        }
+      }
+
+      srsLevel += dSrsLevel
+
+      if (srsLevel >= srsMap.length) {
+        srsLevel = srsMap.length - 1
+      }
+
+      if (srsLevel < 0) {
+        srsLevel = 0
+      }
+
+      if (dSrsLevel > 0) {
+        nextReview = getNextReview(srsLevel)
+      }
+
+      if (!quiz) {
+        const item = await DbQuizModel.create({
+          srsLevel,
+          stat,
+          nextReview,
+        })
+        await DbCardModel.updateOne({ slug }, {
+          $set: {
+            quizId: item._id,
+          },
+        })
+      } else {
+        await DbQuizModel.findByIdAndUpdate(quiz._id, {
+          $set: {
+            srsLevel,
+            stat,
+            nextReview,
+          },
+        })
+      }
     }
-
-    const card = c as Partial<IDbData>
-    card.srsLevel = card.srsLevel || 0
-    card.streak = card.streak || {
-      right: 0,
-      wrong: 0,
-    }
-
-    if (dSrsLevel > 0) {
-      card.streak.right = (card.streak.right || 0) + 1
-    } else if (dSrsLevel < 0) {
-      card.streak.wrong = (card.streak.wrong || 0) + 1
-    }
-
-    card.srsLevel += dSrsLevel
-
-    if (card.srsLevel >= srsMap.length) {
-      card.srsLevel = srsMap.length - 1
-    }
-
-    if (card.srsLevel < 0) {
-      card.srsLevel = 0
-    }
-
-    if (dSrsLevel > 0) {
-      card.nextReview = getNextReview(card.srsLevel).toISOString()
-    } else {
-      card.nextReview = repeatReview().toISOString()
-    }
-
-    const { srsLevel, streak, nextReview } = card
-
-    await this.set({ _id: id }, { srsLevel, streak, nextReview })
   }
 }
 
-export let db: DbData
+export let db: Db
 
-export async function initDatabase (filename: string) {
-  db = new DbData(filename)
-  await db.init()
+export async function initDatabase (mongoUri: string) {
+  await mongoose.connect(mongoUri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: true,
+  })
+
+  db = new Db()
 }

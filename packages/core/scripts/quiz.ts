@@ -8,7 +8,7 @@ import { Matter } from '../src/matter'
 import { initDatabase, db } from '../src/schema'
 
 const DECK_NAME = ''
-const ROOT = '../../user'
+const ROOT = '/Users/patarapolw/GitHubProjects/zhlab/user'
 
 async function main () {
   const files = await glob('**/*.md', {
