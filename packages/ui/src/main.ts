@@ -1,12 +1,17 @@
 import Vue from 'vue'
 import dayjs from 'dayjs'
+import firebase from 'firebase/app'
+import 'firebase/analytics'
 
 import App from './App.vue'
 import router from './router'
+import firebaseConfig from '../firebase.config.js'
 
 import './plugins/buefy'
 import './plugins/fontawesome'
 import './plugins/mq'
+
+firebase.initializeApp(firebaseConfig)
 
 Vue.config.productionTip = false
 
