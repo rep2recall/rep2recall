@@ -3,12 +3,16 @@ import path from 'path'
 import fastify from 'fastify'
 import fastifyStatic from 'fastify-static'
 
-import { config, appPath } from './config'
+import { config } from './config'
 import router from './router'
-import { initDatabase } from './db/schema';
+import { initDatabase } from './db/schema'
+
+try {
+  require('dotenv').config()
+} catch (_) {}
 
 (async () => {
-  await initDatabase(path.join(appPath, 'data.nedb'))
+  await initDatabase(process.env.MONGO_URI!)
 
   const app = fastify({
     logger: (() => {

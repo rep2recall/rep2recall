@@ -50,7 +50,13 @@ export default class MakeHtml {
       replace: (_: string, p1: string) => {
         return `<script>${p1}</script>`
       },
-    }, 'css')
+    }, 'js')
+
+    this.md.addExtension({
+      type: 'lang',
+      regex: /\n===\n/gs,
+      replace: '<hr/>',
+    }, 'hr')
 
     this.hp = new HyperPug({
       markdown: (s) => this.mdConvert(s),

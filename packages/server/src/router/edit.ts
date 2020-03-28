@@ -21,57 +21,57 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     return await db.render(id)
   })
 
-  f.post('/', {
-    schema: {
-      tags: ['edit'],
-      summary: 'Query for items',
-      body: {
-        type: 'object',
-        required: ['q', 'offset', 'limit', 'sort'],
-        properties: {
-          q: { type: ['string', 'object'] },
-          cond: { type: 'object' },
-          offset: { type: 'integer' },
-          limit: { type: ['integer', 'null'] },
-          sort: {
-            type: 'object',
-            properties: {
-              key: { type: 'string' },
-              desc: { type: 'boolean' },
-            },
-          },
-        },
-      },
-    },
-  }, async (req) => {
-    let { q, cond, offset = 0, limit, sort } = req.body
+  // f.post('/', {
+  //   schema: {
+  //     tags: ['edit'],
+  //     summary: 'Query for items',
+  //     body: {
+  //       type: 'object',
+  //       required: ['q', 'offset', 'limit', 'sort'],
+  //       properties: {
+  //         q: { type: ['string', 'object'] },
+  //         cond: { type: 'object' },
+  //         offset: { type: 'integer' },
+  //         limit: { type: ['integer', 'null'] },
+  //         sort: {
+  //           type: 'object',
+  //           properties: {
+  //             key: { type: 'string' },
+  //             desc: { type: 'boolean' },
+  //           },
+  //         },
+  //       },
+  //     },
+  //   },
+  // }, async (req) => {
+  //   let { q, cond, offset = 0, limit, sort } = req.body
 
-    if (typeof q === 'string') {
-      q = db.qSearch.parse(q).cond
-    }
+  //   if (typeof q === 'string') {
+  //     q = db.qSearch.parse(q).cond
+  //   }
 
-    if (cond) {
-      q = { $and: [q, cond] }
-    }
+  //   if (cond) {
+  //     q = { $and: [q, cond] }
+  //   }
 
-    let c = db.db.find(q).sort({
-      [sort.key]: sort.desc ? -1 : 1,
-    }).skip(offset)
+  //   let c = db.db.find(q).sort({
+  //     [sort.key]: sort.desc ? -1 : 1,
+  //   }).skip(offset)
 
-    if (limit) {
-      c = c.limit(limit)
-    }
+  //   if (limit) {
+  //     c = c.limit(limit)
+  //   }
 
-    const [rData, rCount] = await Promise.all([
-      c,
-      db.db.count(q),
-    ])
+  //   const [rData, rCount] = await Promise.all([
+  //     c,
+  //     db.db.count(q),
+  //   ])
 
-    return {
-      data: rData,
-      count: rCount,
-    }
-  })
+  //   return {
+  //     data: rData,
+  //     count: rCount,
+  //   }
+  // })
 
   f.put('/', {
     schema: {
@@ -81,22 +81,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         200: {
           type: 'object',
           properties: {
-            id: { type: 'integer' },
+            ids: { type: 'array', items: { type: 'string' } },
           },
         },
       },
     },
   }, async (req) => {
-    const docs = await db.insert(req.body)
-    const { error } = docs as any
-
-    if (error) {
-      console.error(error)
-      throw new Error('Cannot insert')
-    }
+    const docs = await db.create(req.body)
 
     return {
-      ids: (docs as any[]).map((el) => el._id),
+      ids: (docs || []).map((el) => el._id),
     }
   })
 
@@ -115,9 +109,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, set } = req.body
-    await db.set({
-      _id: { $in: ids },
-    }, set)
+    await db.update(ids, set)
 
     return {
       error: null,
@@ -138,9 +130,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids } = req.body
-    await db.db.remove({
-      _id: { $in: ids },
-    }, { multi: true })
+    await db.delete(...ids)
 
     return {
       error: null,
@@ -162,11 +152,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, tags } = req.body
-    await db.db.update({
-      _id: { $in: ids },
-    }, {
-      $addToSet: { tag: { $each: tags } },
-    })
+    await db.addTags(ids, tags)
 
     return {
       error: null,
@@ -188,11 +174,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     },
   }, async (req) => {
     const { ids, tags } = req.body
-    await db.db.update({
-      _id: { $in: ids },
-    }, {
-      $pull: { tag: { $in: tags } },
-    })
+    await db.removeTags(ids, tags)
 
     return {
       error: null,

@@ -1,20 +1,25 @@
-import { Readable } from 'stream'
-
 import t from 'runtypes'
 import mongoose from 'mongoose'
-import hbs from 'handlebars'
 import { prop, getModelForClass, index, DocumentType } from '@typegoose/typegoose'
-import { GridFSBucket } from 'mongodb'
 import nanoid from 'nanoid'
+import dayjs from 'dayjs'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
+import { mapAsync, ser } from '../utils'
 
 class DbUser {
   @prop({ default: () => nanoid() }) _id?: string
   @prop({ required: true }) email!: string
 }
 
-export const DbUserModel = getModelForClass(DbUser)
+export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
+
+class DbTag {
+  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ required: true }) name!: string
+}
+
+export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
 
 class DbQuiz {
   @prop({ default: () => nanoid() }) _id?: string
@@ -28,9 +33,11 @@ class DbQuiz {
       maxWrong: number
     }
   }
+
+  @prop({ required: true }) cardId!: string
 }
 
-export const DbQuizModel = getModelForClass(DbQuiz)
+export const DbQuizModel = getModelForClass(DbQuiz, { schemaOptions: { collection: 'quiz', timestamps: true } })
 
 @index({ h: 1, userId: 1 }, { unique: true })
 class DbCard {
@@ -39,16 +46,15 @@ class DbCard {
    */
   @prop({ default: () => nanoid() }) _id?: string
   @prop({ required: true }) userId!: string
-  @prop() deck?: string
+  @prop({ required: true }) deck!: string
 
   /**
    * Frontmatter
    */
   @prop({ unique: true }) h?: string
   @prop() data?: Record<string, any>
-  @prop() tag?: string[]
-  @prop() ref?: string[] // Self-reference
-  @prop() media?: string[] // GridFS-reference
+  @prop() tag?: string[] // TagId-reference
+  @prop() ref?: string[] // SelfId-reference
 
   /**
    * Content
@@ -58,44 +64,28 @@ class DbCard {
   /**
    * Quiz
    */
-  @prop({ ref: 'DbQuiz' }) quizId?: string
+  // @prop({ ref: 'DbQuiz' }) quizId?: string
 }
 
-export const DbCardModel = getModelForClass(DbCard)
-
-export const getDbMediaBucket = () => new GridFSBucket(mongoose.connection.db)
+export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
 
 const tNullUndefined = t.Null.Or(t.Undefined)
 
 export const DbSchema = t.Record({
-  quiz: t.Array(t.Record({
-    _id: t.String,
-    nextReview: t.Unknown.withConstraint<Date>((el) => el instanceof Date),
-    srsLevel: t.Number,
-    stat: t.Unknown,
-  })),
-  card: t.Array(t.Record({
-    _id: t.String,
-    deck: t.String.Or(tNullUndefined),
-    h: t.String.Or(tNullUndefined),
-    data: t.Unknown.Or(tNullUndefined),
-    tag: t.Array(t.String).Or(tNullUndefined),
-    ref: t.Array(t.String).Or(tNullUndefined),
-    media: t.Array(t.String).Or(tNullUndefined),
-    markdown: t.String.Or(tNullUndefined),
-    quizId: t.String.Or(tNullUndefined),
-  })),
-  media: t.Array(t.Record({
-    filename: t.String,
-    data: t.Unknown,
-    meta: t.Unknown.Or(tNullUndefined),
-  })),
+  deck: t.String.Or(tNullUndefined),
+  h: t.String.Or(tNullUndefined),
+  data: t.Unknown.Or(tNullUndefined),
+  tag: t.Array(t.String).Or(tNullUndefined),
+  ref: t.Array(t.String).Or(tNullUndefined),
+  markdown: t.String.Or(tNullUndefined),
+  nextReview: t.Unknown.withConstraint<Date>((d) => !d || d instanceof Date).Or(t.String).Or(tNullUndefined),
+  srsLevel: t.Number.Or(tNullUndefined),
+  stat: t.Unknown,
 })
 
 export type IDbSchema = t.Static<typeof DbSchema>
 
 class Db {
-  mediaBucket = getDbMediaBucket()
   user: DocumentType<DbUser> | null = null
 
   async signIn (email: string) {
@@ -115,81 +105,225 @@ class Db {
     await mongoose.disconnect()
   }
 
-  async insert (entry: IDbSchema) {
+  async aggregate (preConds: any[], postConds: any[]) {
     if (!this.user) {
       return null
     }
 
-    DbSchema.check(entry)
-
-    const [cs] = await Promise.all([
-      DbCardModel.insertMany(entry.card.map((c) => ({
-        ...c,
-        userId: this.user!._id,
-      })), { ordered: false }),
-      DbQuizModel.insertMany(entry.quiz, { ordered: false }),
-      Promise.allSettled(entry.media.map((media) => {
-        return this.uploadMedia(media as any)
-      })),
+    return await DbCardModel.aggregate([
+      { match: { userId: this.user._id } },
+      ...preConds,
+      {
+        $lookup: {
+          from: 'quiz',
+          localField: '_id',
+          foreignField: 'cardId',
+          as: 'q',
+        },
+      },
+      { $unwind: { path: '$q', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'tag',
+          localField: 'tag',
+          foreignField: '_id',
+          as: 't',
+        },
+      },
+      {
+        $project: {
+          deck: 1,
+          h: 1,
+          data: 1,
+          tag: '$t.name',
+          ref: 1,
+          markdown: 1,
+          nextReview: '$q.nextReview',
+          srsLevel: '$q.srsLevel',
+          stat: '$q.stat',
+        },
+      },
+      ...postConds,
     ])
-
-    return cs.map((c) => c._id)
   }
 
-  async uploadMedia (media: {
-    data: Buffer
-    filename: string
-    meta?: any
-  }) {
+  async create (...entries: IDbSchema[]) {
     if (!this.user) {
       return null
     }
 
-    return new Promise((resolve, reject) => {
-      new Readable({
-        read () {
-          this.push(media.data)
+    entries.map((el) => {
+      DbSchema.check(el)
+    })
+
+    const allTags = entries
+      .map((el) => el.tag)
+      .filter((ts) => ts)
+      .reduce((prev, c) => [...prev!, ...c!], [])!
+      .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
+
+    await mapAsync(Object.keys(allTags), async (t) => {
+      const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, { upsert: true })
+      allTags[t] = el!._id
+    })
+
+    const items = await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
+      userId: this.user!._id,
+      deck: el.deck || '',
+      h: el.h || undefined,
+      data: el.data || undefined,
+      tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
+      ref: el.ref || undefined,
+    }))))
+
+    await DbQuizModel.insertMany(entries
+      .map((el, i) => {
+        const { nextReview, srsLevel, stat } = el
+        if (!(nextReview && typeof srsLevel === 'number' && stat)) {
+          return null
+        }
+
+        return { nextReview: dayjs(nextReview).toDate(), srsLevel, stat, cardId: items[i]._id }
+      })
+      .filter((el) => el))
+
+    return items
+  }
+
+  async delete (...ids: string[]) {
+    if (!this.user) {
+      return null
+    }
+
+    await Promise.all([
+      DbCardModel.deleteMany({ _id: { $in: ids } }),
+      DbQuizModel.deleteMany({ cardId: { $in: ids } }),
+    ])
+  }
+
+  async update (ids: string[], set: IDbSchema) {
+    if (!this.user) {
+      return null
+    }
+
+    const {
+      tag,
+      srsLevel, nextReview, stat,
+      ...card
+    } = set
+
+    if (typeof srsLevel === 'number' || nextReview || stat) {
+      await DbQuizModel.updateMany({ cardId: { $in: ids } }, {
+        $set: ser.clone({
+          srsLevel,
+          stat,
+          nextReview: nextReview ? dayjs(nextReview).toDate() : undefined,
+        }),
+      })
+    }
+
+    if (tag) {
+      const allTags = tag
+        .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
+
+      await mapAsync(Object.keys(allTags), async (t) => {
+        const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, { upsert: true })
+        allTags[t] = el!._id
+      })
+
+      await DbCardModel.updateMany({ _id: { $in: ids } }, {
+        $set: {
+          ...card,
+          tag: tag.map((t) => allTags[t]),
         },
       })
-        .pipe(this.mediaBucket.openUploadStream(media.filename, {
-          metadata: {
-            ...(media.meta || {}),
-            userId: this.user!._id,
-          },
-        }))
-        .once('error', reject)
-        .once('finish', resolve)
+    } else {
+      await DbCardModel.updateMany({ _id: { $in: ids } }, {
+        $set: card,
+      })
+    }
+  }
+
+  async addTags (ids: string[], tags: string[]) {
+    if (!this.user) {
+      return null
+    }
+
+    await DbCardModel.updateMany({ _id: { $in: ids } }, {
+      $addToSet: { tag: { $each: tags } },
     })
   }
 
-  async render (slug: string): Promise<any> {
+  async removeTags (ids: string[], tags: string[]) {
     if (!this.user) {
       return null
     }
 
-    const r = await DbCardModel.findById(slug)
+    await DbCardModel.updateMany({ _id: { $in: ids } }, {
+      $pull: { tag: { $in: tags } },
+    })
+  }
 
-    if (r) {
-      let { markdown, ref } = r
-
-      if (ref && markdown) {
-        const contexts = await DbCardModel.find({ _id: { $in: ref } })
-        contexts.map((ctx) => {
-          markdown = hbs.compile(markdown)({
-            [ctx._id]: ctx,
-          })
-        })
-
-        return {
-          ...r,
-          markdown,
-        }
-      }
-
-      return r
+  async render (slug: string, minify: boolean = false): Promise<any> {
+    if (!this.user) {
+      return null
     }
 
-    throw new Error(`Cannot find item slug: ${slug}`)
+    if (minify) {
+      const r = await DbCardModel.aggregate([
+        { $match: { userId: this.user._id, _id: slug } },
+        {
+          $lookup: {
+            from: 'card',
+            localField: 'ref',
+            foreignField: '_id',
+            as: 'ctx',
+          },
+        },
+        {
+          $project: {
+            data: 1,
+            ctx: 1,
+            markdown: 1,
+          },
+        },
+      ])
+
+      return r[0] || null
+    } else {
+      const r = await this.aggregate([
+        { $match: { _id: slug } },
+      ], [
+        {
+          $lookup: {
+            from: 'card',
+            localField: 'ref',
+            foreignField: '_id',
+            as: 'ctx',
+          },
+        },
+        {
+          $project: {
+            deck: 1,
+            h: 1,
+            data: 1,
+            tag: 1,
+            ref: 1,
+            markdown: 1,
+            nextReview: 1,
+            srsLevel: 1,
+            stat: 1,
+            ctx: 1,
+          },
+        },
+      ])
+
+      if (!r) {
+        return null
+      }
+
+      return r[0] || null
+    }
   }
 
   markRight = this._updateSrsLevel(+1)
@@ -208,7 +342,7 @@ class Db {
         throw new Error(`Card ${slug} not found.`)
       }
 
-      const quiz = await DbQuizModel.findById(card.quizId).select({ stat: 1, srsLevel: 1 })
+      const quiz = await DbQuizModel.findOne({ cardId: slug }).select({ stat: 1, srsLevel: 1 })
 
       let srsLevel = 0
       let stat = {
