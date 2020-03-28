@@ -48,7 +48,7 @@ export default class MakeHtml {
       type: 'lang',
       regex: /\n```js parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
-        return `<script>${p1}</script>`
+        return `<script type="module">${p1}</script>`
       },
     }, 'js')
 

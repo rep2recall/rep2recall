@@ -9,7 +9,7 @@ section.columns.editor
       div(
         slot="trigger" slot-scope="props" class="card-header" role="button" aria-controls="requiredHeader"
       )
-        p {{id}}
+        h1.card-header-title {{title}}
         div(style="flex-grow: 1;")
         .buttons.header-buttons(@click.stop)
           b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
@@ -24,7 +24,7 @@ section.columns.editor
             v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
             allow-new open-on-focus :data="filteredTags" @typing="getFilteredTags"
           )
-    codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange" style="height: calc(100% - 90px);")
+    codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
   .column.is-6(v-show="hasPreview")
     iframe(frameborder="0" style="height: 100%; width: 100%; padding: 1em;" ref="output")
 </template>
@@ -36,9 +36,11 @@ import Ajv from 'ajv'
 import CodeMirror from 'codemirror'
 import { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
+import hbs from 'handlebars'
+
 import 'firebase/storage'
 
-import { normalizeArray } from '../utils'
+import { normalizeArray, nullifyObject } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -64,21 +66,22 @@ export default class Edit extends Vue {
   isEdited = false
   markdown = ''
   scrollSize = 0
-  guid = Math.random().toString(36).substr(2)
+  key = Math.random().toString(36).substr(2)
 
   deck = ''
   tag: string[] = []
   filteredTags: string[] = []
   allTags: string[] | null = []
+  ctx = {} as any
 
   readonly matter = new Matter()
 
-  get id () {
-    return normalizeArray(this.$route.query.id)
+  get title () {
+    return this.matter.header.key || this.$route.query.key
   }
 
   get makeHtml () {
-    return new MakeHtml(this.guid)
+    return new MakeHtml(this.key)
   }
 
   get codemirror (): CodeMirror.Editor {
@@ -147,8 +150,8 @@ export default class Edit extends Vue {
     window.onbeforeunload = null
   }
 
-  async getApi () {
-    return await this.$store.getters.api as AxiosInstance
+  async getApi (silent?: boolean) {
+    return await this.$store.dispatch('api', silent) as AxiosInstance
   }
 
   formatDate (d: Date) {
@@ -189,7 +192,7 @@ export default class Edit extends Vue {
     const validator = ajv.compile({
       type: 'object',
       properties: {
-        h: { type: getType('string') },
+        key: { type: getType('string') },
         ref: { type: 'array', items: { type: getType('string') } },
         data: { type: getType('object') },
         nextReview: { type: getType('string') },
@@ -209,7 +212,7 @@ export default class Edit extends Vue {
     }
 
     return header as {
-      h?: string
+      key?: string
       ref?: string[]
       data?: Record<string, any>
       nextReview?: string
@@ -218,42 +221,55 @@ export default class Edit extends Vue {
     }
   }
 
-  @Watch('$route.query.id')
+  @Watch('$route.query.key')
   async load () {
-    this.guid = Math.random().toString(36).substr(2)
+    let isSet = false
 
-    if (this.id) {
+    if (this.$route.query.key) {
+      this.key = normalizeArray(this.$route.query.key)!
+
       const api = await this.getApi()
 
       const r = (await api.get('/api/edit/', {
         params: {
-          id: this.id
+          key: this.key
         }
       }))
 
       if (r.data) {
         const {
-          _id,
           deck, tag,
-          ref, h, data,
+          key, ref, h, data,
           nextReview, srsLevel, stat,
-          markdown
+          markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
         Object.assign(header, {
-          ref, h, data,
+          key, ref, h, data,
           srsLevel, stat,
           nextReview: nextReview ? dayjs(nextReview).format('YYYY-MM-DD HH:mm Z') : undefined,
         })
 
-        this.markdown = this.matter.stringify(content, header)
-
-        setTimeout(() => {
-          this.isEdited = false
-        }, 100)
+        this.markdown = this.matter.stringify(content, nullifyObject(header))
+        this.deck = deck
+        this.$set(this, 'tag', tag)
+        isSet = true
       }
+    } else {
+      this.key = Math.random().toString(36).substr(2)
+      this.matter.header = {}
     }
+
+    if (!isSet) {
+      this.markdown = ''
+      this.deck = ''
+      this.$set(this, 'tag', [])
+    }
+
+    setTimeout(() => {
+      this.isEdited = false
+    }, 100)
   }
 
   async save () {
@@ -269,14 +285,14 @@ export default class Edit extends Vue {
 
     const content = {
       ...header,
-      markdown: this.matter.parse(this.markdown).content,
+      markdown: this.markdown,
       deck: this.deck,
       tag: this.tag,
     }
 
     const api = await this.getApi()
 
-    if (!this.id) {
+    if (!this.$route.query.key) {
       /**
        * Create a post
        */
@@ -284,14 +300,24 @@ export default class Edit extends Vue {
 
       this.$router.push({
         query: {
-          id: r.data.id
+          key: r.data.key
         }
       })
     } else {
       await api.patch('/api/edit/', {
-        id: this.id,
-        update: content
+        keys: [this.key],
+        set: content
       })
+
+      this.key = header.key || this.key
+
+      if (this.$route.query.key !== this.key) {
+        this.$router.push({
+          query: {
+            key: this.key
+          }
+        })
+      }
     }
 
     this.$buefy.snackbar.open('Saved')
@@ -301,13 +327,42 @@ export default class Edit extends Vue {
     }, 100)
   }
 
-  onCmCodeChange () {
+  async onCmCodeChange () {
     this.isEdited = true
     this.getAndValidateHeader(false)
+    this.key = this.key || this.matter.header.key
+
+    await Promise.all((this.matter.header.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
-      this.makeHtml.render(document.body, this.markdown)
+      this.makeHtml.render(document.body, hbs.compile(this.markdown)(this.ctx))
+      this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
+        el.setAttribute('data-loaded', '1')
+
+        const el1 = el.cloneNode(true) as HTMLScriptElement
+        el.replaceWith(el1)
+      })
+    }
+  }
+
+  @Watch('deck')
+  @Watch('tag', { deep: true })
+  onHeaderChange () {
+    this.isEdited = true
+  }
+
+  async onCtxChange (key: string) {
+    if (!this.ctx[key]) {
+      const api = await this.getApi(true)
+      try {
+        const r = await api.get('/api/edit/', {
+          params: {
+            key
+          }
+        })
+        this.ctx[key] = r.data
+      } catch (_) {}
     }
   }
 
@@ -327,5 +382,9 @@ export default class Edit extends Vue {
   > .button {
     margin-bottom: 0 !important;
   }
+}
+
+.CodeMirror-scroll {
+  min-height: 500px;
 }
 </style>
