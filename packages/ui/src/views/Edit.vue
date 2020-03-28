@@ -1,19 +1,32 @@
 <template lang="pug">
 section.columns.editor
   .column(
-    style="max-height: 100%; overflow-y: scroll;"
+    style="height: 100vh; overflow-y: scroll;"
     :class="hasPreview ? 'is-6' : 'is-12'"
     @scroll="onScroll"
   )
-    .card(aria-id="header" style="margin-bottom: 1em;")
-      .card-header(style="align-items: center;")
+    b-collapse(class="card" animation="slide" aria-id="requiredHeader" style="margin-top: 1em; margin-bottom: 1em;")
+      div(
+        slot="trigger" slot-scope="props" class="card-header" role="button" aria-controls="requiredHeader"
+      )
+        p {{id}}
         div(style="flex-grow: 1;")
-        .buttons.header-buttons(@click.stop style="margin-right: 1em; white-space: nowrap; display: block;")
+        .buttons.header-buttons(@click.stop)
           b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
           b-button.is-success(:disabled="!isEdited" @click="save") Save
-    codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
+        a.card-header-icon
+          b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
+      .card-content
+        b-field(label="Deck" label-position="on-border")
+          b-input(v-model="deck")
+        b-field(label="Tag" label-position="on-border")
+          b-taginput(
+            v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
+            allow-new open-on-focus :data="filteredTags" @typing="getFilteredTags"
+          )
+    codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange" style="height: calc(100% - 90px);")
   .column.is-6(v-show="hasPreview")
-    iframe(frameborder="0" style="height: 100%; width: 100%;" ref="output")
+    iframe(frameborder="0" style="height: 100%; width: 100%; padding: 1em;" ref="output")
 </template>
 
 <script lang="ts">
@@ -23,7 +36,9 @@ import Ajv from 'ajv'
 import CodeMirror from 'codemirror'
 import axios from 'axios'
 
-import { Matter, normalizeArray } from '../utils'
+import { normalizeArray } from '../utils'
+import { Matter } from '../make-html/matter'
+import MakeHtml from '../make-html'
 
 @Component<Edit>({
   beforeRouteLeave (to, from, next) {
@@ -49,14 +64,32 @@ export default class Edit extends Vue {
   scrollSize = 0
   guid = Math.random().toString(36).substr(2)
 
+  deck = ''
+  tag: string[] = []
+  filteredTags: string[] = []
+  allTags: string[] | null = []
+
   readonly matter = new Matter()
 
   get id () {
     return normalizeArray(this.$route.query.id)
   }
 
+  get makeHtml () {
+    return new MakeHtml(this.guid)
+  }
+
   get codemirror (): CodeMirror.Editor {
     return (this.$refs.codemirror as any).codemirror
+  }
+
+  get outputWindow () {
+    const output = this.$refs.output as HTMLIFrameElement
+    if (output) {
+      return output.contentWindow
+    }
+
+    return null
   }
 
   get canSave () {
@@ -113,6 +146,14 @@ export default class Edit extends Vue {
     return dayjs(d).format('YYYY-MM-DD HH:mm Z')
   }
 
+  getFilteredTags (text: string) {
+    if (this.allTags) {
+      this.filteredTags = this.allTags.filter((t) => {
+        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+      })
+    }
+  }
+
   getAndValidateHeader (isFinal = true) {
     const { header } = this.matter.parse(this.markdown)
 
@@ -139,12 +180,15 @@ export default class Edit extends Vue {
     const validator = ajv.compile({
       type: 'object',
       properties: {
-        tag: { type: 'array', items: { type: getType('string') } },
-        type: { type: getType('string') },
+        h: { type: getType('string') },
+        ref: { type: 'array', items: { type: getType('string') } },
+        media: { type: 'array', items: { type: getType('string') } },
         data: { type: getType('object') },
-        deck: { type: getType('string') },
         source: { type: getType('string') },
-        link: { type: getType('string') }
+        link: { type: getType('string') },
+        nextReview: { type: getType('string') },
+        srsLevel: { type: getType('integer') },
+        stat: { type: getType('object') }
       }
     })
     valid = !!validator(header)
@@ -240,6 +284,11 @@ export default class Edit extends Vue {
   onCmCodeChange () {
     this.isEdited = true
     this.getAndValidateHeader(false)
+
+    if (this.outputWindow) {
+      const document = this.outputWindow.document
+      this.makeHtml.render(document.body, this.markdown)
+    }
   }
 
   onScroll (evt: any) {
@@ -247,3 +296,16 @@ export default class Edit extends Vue {
   }
 }
 </script>
+
+<style lang="scss">
+.header-buttons {
+  white-space: nowrap;
+  display: block;
+  margin-bottom: 0 !important;
+  align-self: center;
+
+  > .button {
+    margin-bottom: 0 !important;
+  }
+}
+</style>

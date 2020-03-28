@@ -10,6 +10,10 @@ const router = new VueRouter({
       alias: '/',
       component: () => import('@/views/Quiz.vue'),
     },
+    {
+      path: '/edit',
+      component: () => import('@/views/Edit.vue'),
+    },
   ],
 })
 

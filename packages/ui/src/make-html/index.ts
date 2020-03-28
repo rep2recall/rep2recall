@@ -1,19 +1,33 @@
 import showdown from 'showdown'
 import HyperPug from 'hyperpug'
 import stylis from 'stylis'
+import { elementOpen, elementClose, patch } from 'incremental-dom'
+
+import { makeIncremental } from './incremental'
 
 export default class MakeHtml {
   md = new showdown.Converter({
+    parseImgDimensions: true,
+    simplifiedAutoLink: true,
+    strikethrough: true,
+    tables: true,
+    backslashEscapesHTMLTags: true,
+    emoji: true,
+    literalMidWordUnderscores: true,
+    smoothLivePreview: true,
     metadata: true,
   })
 
   hp: HyperPug
 
   html = ''
+  private el: HTMLDivElement | null = null
 
   constructor (
-    public id = 'el-' + Math.random().toString(36).substr(2),
+    public id = Math.random().toString(36).substr(2),
   ) {
+    this.id = 'el-' + id
+
     this.md.addExtension({
       type: 'lang',
       regex: /\n```pug parsed\n(.+)\n```\n/gs,
@@ -30,6 +44,14 @@ export default class MakeHtml {
       },
     }, 'css')
 
+    this.md.addExtension({
+      type: 'lang',
+      regex: /\n```js parsed\n(.+)\n```\n/gs,
+      replace: (_: string, p1: string) => {
+        return `<script>${p1}</script>`
+      },
+    }, 'css')
+
     this.hp = new HyperPug({
       markdown: (s) => this.mdConvert(s),
       css: (s) => this.mdConvert(s),
@@ -40,9 +62,6 @@ export default class MakeHtml {
     try {
       this.html = this.mdConvert(s)
     } catch (e) {}
-
-    const { elementOpen, elementClose, patch } = require('incremental-dom')
-    const { makeIncremental } = require('./make-incremental')
 
     try {
       patch(dom, () => {
@@ -64,18 +83,29 @@ export default class MakeHtml {
     output.className = this.id
     output.innerHTML = this.html
 
+    this.el = output
+
     return output
   }
 
-  pugConvert (s: string) {
+  activate () {
+    if (this.el) {
+      this.el.querySelectorAll('script').forEach((el) => {
+        const el1 = el.cloneNode()
+        el.replaceWith(el1)
+      })
+    }
+  }
+
+  private pugConvert (s: string) {
     return this.hp.parse(s)
   }
 
-  mdConvert (s: string) {
+  private mdConvert (s: string) {
     return this.md.makeHtml(s)
   }
 
-  makeCss (s: string) {
+  private makeCss (s: string) {
     return `<style>${stylis(`.${this.id}`, s.replace(/\s+/gs, ' '))}</style>`
   }
 }
