@@ -34,7 +34,9 @@ import { Vue, Component, Watch } from 'vue-property-decorator'
 import dayjs from 'dayjs'
 import Ajv from 'ajv'
 import CodeMirror from 'codemirror'
-import axios from 'axios'
+import { AxiosInstance } from 'axios'
+import firebase from 'firebase/app'
+import 'firebase/storage'
 
 import { normalizeArray } from '../utils'
 import { Matter } from '../make-html/matter'
@@ -116,14 +118,17 @@ export default class Edit extends Vue {
           const item = items[k]
           if (item.kind === 'file') {
             evt.preventDefault()
-            const blob: File = item.getAsFile()
-            const formData = new FormData()
-            formData.append('file', blob)
+            const f: File = item.getAsFile()
 
             const cursor = ins.getCursor()
+            let filename = f.name
 
-            const { data: r } = await axios.post('/api/media/upload', formData)
-            ins.getDoc().replaceRange(`![${r.filename}](${r.url})`, cursor)
+            if (filename === 'image.png') {
+              filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
+            }
+
+            const snapshot = await firebase.storage().ref().child(filename).put(f)
+            ins.getDoc().replaceRange(`![${filename}](${snapshot.downloadURL})`, cursor)
           }
         }
       }
@@ -140,6 +145,10 @@ export default class Edit extends Vue {
 
   beforeDestroy () {
     window.onbeforeunload = null
+  }
+
+  async getApi () {
+    return await this.$store.getters.api as AxiosInstance
   }
 
   formatDate (d: Date) {
@@ -182,10 +191,7 @@ export default class Edit extends Vue {
       properties: {
         h: { type: getType('string') },
         ref: { type: 'array', items: { type: getType('string') } },
-        media: { type: 'array', items: { type: getType('string') } },
         data: { type: getType('object') },
-        source: { type: getType('string') },
-        link: { type: getType('string') },
         nextReview: { type: getType('string') },
         srsLevel: { type: getType('integer') },
         stat: { type: getType('object') }
@@ -203,12 +209,12 @@ export default class Edit extends Vue {
     }
 
     return header as {
-      tag?: string[]
-      type?: string,
-      data?: any
-      deck?: string
-      source?: string
-      link?: string[]
+      h?: string
+      ref?: string[]
+      data?: Record<string, any>
+      nextReview?: string
+      srsLevel?: number
+      stat?: any
     }
   }
 
@@ -217,21 +223,31 @@ export default class Edit extends Vue {
     this.guid = Math.random().toString(36).substr(2)
 
     if (this.id) {
-      const r = (await axios.get('/api/post/', {
+      const api = await this.getApi()
+
+      const r = (await api.get('/api/edit/', {
         params: {
           id: this.id
         }
       }))
 
       if (r.data) {
-        const { markdown, nextReview } = r.data
+        const {
+          _id,
+          deck, tag,
+          ref, h, data,
+          nextReview, srsLevel, stat,
+          markdown
+        } = r.data
 
-        const { header: rawHeader, content } = this.matter.parse(markdown)
-        Object.assign(rawHeader, {
+        const { header, content } = this.matter.parse(markdown)
+        Object.assign(header, {
+          ref, h, data,
+          srsLevel, stat,
           nextReview: nextReview ? dayjs(nextReview).format('YYYY-MM-DD HH:mm Z') : undefined,
         })
 
-        this.markdown = this.matter.stringify(content, rawHeader)
+        this.markdown = this.matter.stringify(content, header)
 
         setTimeout(() => {
           this.isEdited = false
@@ -252,15 +268,19 @@ export default class Edit extends Vue {
     }
 
     const content = {
-      markdown: this.markdown,
-      ...header
+      ...header,
+      markdown: this.matter.parse(this.markdown).content,
+      deck: this.deck,
+      tag: this.tag,
     }
+
+    const api = await this.getApi()
 
     if (!this.id) {
       /**
        * Create a post
        */
-      const r = await axios.put('/api/post/', content)
+      const r = await api.put('/api/edit/', content)
 
       this.$router.push({
         query: {
@@ -268,7 +288,7 @@ export default class Edit extends Vue {
         }
       })
     } else {
-      await axios.patch('/api/post/', {
+      await api.patch('/api/edit/', {
         id: this.id,
         update: content
       })

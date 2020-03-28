@@ -2,7 +2,6 @@ import { FastifyInstance } from 'fastify'
 import swagger from 'fastify-oas'
 
 import editRouter from './edit'
-import mediaRouter from './media'
 import quizRouter from './quiz'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
@@ -18,7 +17,6 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       produces: ['application/json'],
       tags: [
         { name: 'edit', description: 'Editing related endpoints' },
-        { name: 'media', description: 'Media related endpoints' },
         { name: 'quiz', description: 'Quizzing related endpoints' },
       ],
       components: {
@@ -34,7 +32,6 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
   })
 
   f.register(editRouter, { prefix: '/edit' })
-  f.register(mediaRouter, { prefix: '/media' })
   f.register(quizRouter, { prefix: '/quiz' })
   next()
 }
