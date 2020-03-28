@@ -14,15 +14,16 @@
       router-link.flex-center-left-inline(to="/settings")
         fontawesome(icon="cog")
         span Settings
-      router-link.flex-center-left-inline(to="/community")
+      span.flex-center-left-inline(style="color: gray; cursor: not-allowed;")
         fontawesome(icon="users")
         span Community
     div(style="flex-grow: 1;")
-    nav#icon-nav
-      nav(v-if="$mq !== 'lg'" role="button" @click="isNavShown = !isNavShown")
-        .arrow-up(v-if="!isNavShown")
-        .arrow-down(v-else)
-      router-link.flex-center-left-inline(to="/login")
+    nav#icon-nav(style="margin-bottom: 0.5em;")
+      a.flex-center-left-inline(v-if="user" @click="doLogout")
+        figure.image.is-48x48(style="margin-left: 0.5em; margin-right: 1em;")
+          img.is-rounded(:src="getGravatarUrl(user.email)" :alt="user.email")
+        span {{user.email}}
+      a.flex-center-left-inline(v-else role="button")
         fontawesome(icon="user-slash")
         span Not Logged In
   #burger
@@ -35,14 +36,72 @@
       span
   #main-view
     router-view
+  b-modal(:active.sync="isLoginModal" :can-cancel="false")
+    div(ref="auth")
 </template>
 
 <script lang="ts">
 import { Vue, Component, Watch } from "vue-property-decorator"
+import firebase from 'firebase/app'
+import { auth as authUI } from 'firebaseui'
+import SparkMD5 from 'spark-md5'
+
+import 'firebase/auth'
+import 'firebaseui/dist/firebaseui.css'
+
+let firebaseUI: authUI.AuthUI | null
 
 @Component
 export default class App extends Vue {
-  isDrawer = true
+  isDrawer = false
+  isLoginModal = false
+
+  user: firebase.User | null = null
+
+  mounted () {
+    // @ts-ignore
+    this.isDrawer = this.$mq === 'lg'
+
+    firebase.auth().onAuthStateChanged((user) => {
+      this.user = user
+      
+      if (!user) {
+        this.isLoginModal = true
+      }
+    })
+  }
+
+  @Watch('isLoginModal')
+  onLogin () {
+    this.$nextTick(() => {
+      if (this.$refs.auth) {
+        if (!firebaseUI) {
+          firebaseUI = new authUI.AuthUI(firebase.auth())
+        }
+
+        firebaseUI.start(this.$refs.auth as HTMLDivElement, {
+          signInSuccessUrl: (
+            process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://rep2recall.herokuapp.com'
+          ),
+          signInOptions: [
+            firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+            // firebase.auth.FacebookAuthProvider.PROVIDER_ID,
+            // firebase.auth.TwitterAuthProvider.PROVIDER_ID,
+            // firebase.auth.GithubAuthProvider.PROVIDER_ID,
+          ],
+          signInFlow: 'popup'
+        })
+      }
+    })
+  }
+
+  doLogout () {
+    firebase.auth().signOut()
+  }
+
+  getGravatarUrl (email: string) {
+    return `https://www.gravatar.com/avatar/${SparkMD5.hash(email.trim().toLocaleLowerCase())}?d=mp`
+  }
 }
 </script>
 
@@ -63,10 +122,10 @@ body,
 #main-nav {
   border-right: 1px solid lightgray;
   overflow: visible;
-  z-index: 100;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  width: 200px;
+  width: 250px;
 
   nav {
     display: flex;
