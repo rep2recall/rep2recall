@@ -50,20 +50,22 @@ import 'firebase/auth'
 import 'firebaseui/dist/firebaseui.css'
 
 let firebaseUI: authUI.AuthUI | null
+declare const process: any
 
 @Component
 export default class App extends Vue {
   isDrawer = false
   isLoginModal = false
 
-  user: firebase.User | null = null
+  get user () {
+    return this.$store.state.user
+  }
 
   mounted () {
-    // @ts-ignore
     this.isDrawer = this.$mq === 'lg'
 
     firebase.auth().onAuthStateChanged((user) => {
-      this.user = user
+      this.$store.commit('setUser', user)
       
       if (!user) {
         this.isLoginModal = true
