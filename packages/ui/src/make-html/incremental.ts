@@ -7,6 +7,7 @@ const ser = new Serialize()
 export function makeIncremental (s: string): () => void {
   const open = (name: string, attr?: Record<string, string>) => {
     let isRendered = false
+    const h = name + '-' + ser.hash(attr || {})
 
     if (name === 'reveal') {
       name = 'iframe'
@@ -41,7 +42,7 @@ export function makeIncremental (s: string): () => void {
     }
 
     if (!isRendered) {
-      elementOpen(name, name + '-' + ser.hash(attr || {}), attr ? Object.values(attr).flat() : [])
+      elementOpen(name, h, attr ? Object.entries(attr).flat() : [])
     }
   }
 

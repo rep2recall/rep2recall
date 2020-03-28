@@ -18,8 +18,11 @@
     "any-serialize": "^1.4.12",
     "dayjs": "^1.8.22",
     "fastify": "^2.12.1",
+    "fastify-cookie": "^3.6.0",
     "fastify-oas": "^2.5.2",
+    "fastify-session": "^3.3.0",
     "fastify-static": "^2.6.0",
+    "firebase-admin": "^8.10.0",
     "mongoose": "^5.9.6",
     "nanoid": "^2.1.11",
     "runtypes": "^4.2.0"

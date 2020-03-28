@@ -9,16 +9,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Get info of an item',
       querystring: {
         type: 'object',
-        required: ['id'],
+        required: ['key'],
         properties: {
-          id: { type: 'string' },
+          key: { type: 'string' },
         },
       },
     },
   }, async (req) => {
-    const { id } = req.query
+    const { key } = req.query
 
-    return await db.render(id)
+    return await db.render(key)
   })
 
   // f.post('/', {
@@ -81,7 +81,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         200: {
           type: 'object',
           properties: {
-            ids: { type: 'array', items: { type: 'string' } },
+            key: { type: 'string' },
           },
         },
       },
@@ -90,7 +90,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const docs = await db.create(req.body)
 
     return {
-      ids: (docs || []).map((el) => el._id),
+      key: (docs || []).map((el) => el.key)[0],
     }
   })
 
@@ -100,16 +100,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['edit'],
       body: {
         type: 'object',
-        required: ['ids', 'set'],
+        required: ['keys', 'set'],
         properties: {
-          ids: { type: 'array', items: { type: 'integer' } },
+          keys: { type: 'array', items: { type: 'string' } },
           set: { type: 'object' },
         },
       },
     },
   }, async (req) => {
-    const { ids, set } = req.body
-    await db.update(ids, set)
+    const { keys, set } = req.body
+    await db.update(keys, set)
 
     return {
       error: null,
@@ -122,15 +122,15 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['edit'],
       body: {
         type: 'object',
-        required: ['ids'],
+        required: ['keys'],
         properties: {
-          ids: { type: 'array', items: { type: 'integer' } },
+          keys: { type: 'array', items: { type: 'string' } },
         },
       },
     },
   }, async (req) => {
-    const { ids } = req.body
-    await db.delete(...ids)
+    const { keys } = req.body
+    await db.delete(...keys)
 
     return {
       error: null,
@@ -143,16 +143,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['edit'],
       body: {
         type: 'object',
-        required: ['ids', 'tags'],
+        required: ['keys', 'tags'],
         properties: {
-          ids: { type: 'array', items: { type: 'integer' } },
+          keys: { type: 'array', items: { type: 'string' } },
           tags: { type: 'array', items: { type: 'string' } },
         },
       },
     },
   }, async (req) => {
-    const { ids, tags } = req.body
-    await db.addTags(ids, tags)
+    const { keys, tags } = req.body
+    await db.addTags(keys, tags)
 
     return {
       error: null,
@@ -165,16 +165,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['edit'],
       body: {
         type: 'object',
-        required: ['ids', 'tags'],
+        required: ['keys', 'tags'],
         properties: {
-          ids: { type: 'array', items: { type: 'integer' } },
+          keys: { type: 'array', items: { type: 'string' } },
           tags: { type: 'array', items: { type: 'string' } },
         },
       },
     },
   }, async (req) => {
-    const { ids, tags } = req.body
-    await db.removeTags(ids, tags)
+    const { keys, tags } = req.body
+    await db.removeTags(keys, tags)
 
     return {
       error: null,

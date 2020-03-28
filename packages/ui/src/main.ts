@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import firebase from 'firebase/app'
 
 import 'firebase/analytics'
+import 'firebase/auth'
 
 import App from './App.vue'
 import router from './router'
@@ -35,8 +36,17 @@ Vue.filter('formatDate', (v: any) => {
   return dayjs(v).format('YYYY-MM-DD HH:mm')
 })
 
-new Vue({
-  router,
-  store,
-  render: (h) => h(App),
-}).$mount('#app')
+let isAuthReady = false
+
+firebase.auth().onAuthStateChanged((user) => {
+  store.commit('setUser', user)
+
+  if (!isAuthReady) {
+    isAuthReady = true
+    new Vue({
+      router,
+      store,
+      render: (h) => h(App),
+    }).$mount('#app')
+  }
+})

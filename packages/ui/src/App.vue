@@ -17,6 +17,9 @@
       span.flex-center-left-inline(style="color: gray; cursor: not-allowed;")
         fontawesome(icon="users")
         span Community
+      a.flex-center-left-inline(href="https://github.com/patarapolw/rep2recall" target="_blank" rel="noopener")
+        fontawesome(:icon="['fab', 'github']")
+        span About
     div(style="flex-grow: 1;")
     nav#icon-nav(style="margin-bottom: 0.5em;")
       a.flex-center-left-inline(v-if="user" @click="doLogout")
@@ -63,14 +66,9 @@ export default class App extends Vue {
 
   mounted () {
     this.isDrawer = this.$mq === 'lg'
-
-    firebase.auth().onAuthStateChanged((user) => {
-      this.$store.commit('setUser', user)
-      
-      if (!user) {
-        this.isLoginModal = true
-      }
-    })
+    if (!this.user) {
+      this.isLoginModal = true
+    }
   }
 
   @Watch('isLoginModal')

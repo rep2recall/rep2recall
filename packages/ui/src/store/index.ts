@@ -23,47 +23,49 @@ const store = new Vuex.Store({
       state.user = null
     },
   },
-  getters: {
-    async api (state) {
+  actions: {
+    async api ({ state }, silent = false) {
       const api = axios.create()
 
       if (state.user) {
         api.defaults.headers.Authorization = `Bearer ${await state.user.getIdToken()}`
       }
 
-      api.interceptors.request.use((config) => {
-        if (!loading) {
-          loading = Loading.open({
-            isFullPage: true,
-            canCancel: true,
-            onCancel: () => {
-              if (loading && !loading.requestEnded) {
-                Snackbar.open('API request is loading in background.')
-              }
-            },
-          })
-        }
+      if (!silent) {
+        api.interceptors.request.use((config) => {
+          if (!loading) {
+            loading = Loading.open({
+              isFullPage: true,
+              canCancel: true,
+              onCancel: () => {
+                if (loading && !loading.requestEnded) {
+                  Snackbar.open('API request is loading in background.')
+                }
+              },
+            })
+          }
 
-        return config
-      })
+          return config
+        })
 
-      api.interceptors.response.use((config) => {
-        if (loading) {
-          loading.requestEnded = true
-          loading.close()
-          loading = null
-        }
+        api.interceptors.response.use((config) => {
+          if (loading) {
+            loading.requestEnded = true
+            loading.close()
+            loading = null
+          }
 
-        return config
-      }, (err) => {
-        if (loading) {
-          loading.close()
-          loading = null
-        }
+          return config
+        }, (err) => {
+          if (loading) {
+            loading.close()
+            loading = null
+          }
 
-        Snackbar.open(err.message)
-        return err
-      })
+          Snackbar.open(err.message)
+          return err
+        })
+      }
 
       return api
     },

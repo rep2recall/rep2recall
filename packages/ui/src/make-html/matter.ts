@@ -7,9 +7,13 @@ export class Matter {
     const m = /^---\n(.+?)\n---\n(.+)$/s.exec(s)
     if (m) {
       try {
-        this.header = yaml.safeLoad(m[1], {
+        this.header = yaml.safeLoad(m[1] || '', {
           schema: yaml.JSON_SCHEMA,
-        })
+        }) || {}
+
+        if (typeof this.header !== 'object') {
+          this.header = {}
+        }
       } catch (_) {}
 
       return {
@@ -25,7 +29,7 @@ export class Matter {
   }
 
   stringify (content: string, header: any) {
-    if (header) {
+    if (header && typeof header === 'object' && Object.keys(header).length > 0) {
       try {
         return `---\n${yaml.safeDump(header, {
           schema: yaml.JSON_SCHEMA,

@@ -1,6 +1,6 @@
-import t from 'runtypes'
+import * as t from 'runtypes'
 import mongoose from 'mongoose'
-import { prop, getModelForClass, index, DocumentType } from '@typegoose/typegoose'
+import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typegoose'
 import nanoid from 'nanoid'
 import dayjs from 'dayjs'
 
@@ -21,39 +21,21 @@ class DbTag {
 
 export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
 
-class DbQuiz {
-  @prop({ default: () => nanoid() }) _id?: string
-  @prop({ required: true }) nextReview!: Date
-  @prop({ required: true }) srsLevel!: number
-  @prop() stat?: {
-    streak: {
-      right: number
-      wrong: number
-      maxRight: number
-      maxWrong: number
-    }
-  }
-
-  @prop({ required: true }) cardId!: string
-}
-
-export const DbQuizModel = getModelForClass(DbQuiz, { schemaOptions: { collection: 'quiz', timestamps: true } })
-
-@index({ h: 1, userId: 1 }, { unique: true })
+@index({ key: 1, userId: 1 }, { unique: true, sparse: true })
 class DbCard {
-  /**
-   * Filename and deck
-   */
-  @prop({ default: () => nanoid() }) _id?: string
   @prop({ required: true }) userId!: string
-  @prop({ required: true }) deck!: string
+
+  /**
+   * Explicit fields
+   */
+  @prop() deck?: string
+  @prop() tag?: string[] // TagId-reference
 
   /**
    * Frontmatter
    */
-  @prop({ unique: true }) h?: string
+  @prop({ default: () => nanoid() }) key?: string
   @prop() data?: Record<string, any>
-  @prop() tag?: string[] // TagId-reference
   @prop() ref?: string[] // SelfId-reference
 
   /**
@@ -69,11 +51,29 @@ class DbCard {
 
 export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
 
+class DbQuiz {
+  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ required: true }) nextReview!: Date
+  @prop({ required: true }) srsLevel!: number
+  @prop() stat?: {
+    streak: {
+      right: number
+      wrong: number
+      maxRight: number
+      maxWrong: number
+    }
+  }
+
+  @prop({ required: true, ref: 'DbCard' }) cardId!: Ref<DbCard>
+}
+
+export const DbQuizModel = getModelForClass(DbQuiz, { schemaOptions: { collection: 'quiz', timestamps: true } })
+
 const tNullUndefined = t.Null.Or(t.Undefined)
 
 export const DbSchema = t.Record({
   deck: t.String.Or(tNullUndefined),
-  h: t.String.Or(tNullUndefined),
+  key: t.String.Or(tNullUndefined),
   data: t.Unknown.Or(tNullUndefined),
   tag: t.Array(t.String).Or(tNullUndefined),
   ref: t.Array(t.String).Or(tNullUndefined),
@@ -90,7 +90,7 @@ class Db {
 
   async signIn (email: string) {
     this.user = await DbUserModel.findOne({ email })
-    if (this.user) {
+    if (!this.user) {
       this.user = await DbUserModel.create({ email })
     }
 
@@ -107,11 +107,11 @@ class Db {
 
   async aggregate (preConds: any[], postConds: any[]) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
     return await DbCardModel.aggregate([
-      { match: { userId: this.user._id } },
+      { $match: { userId: this.user._id } },
       ...preConds,
       {
         $lookup: {
@@ -133,7 +133,7 @@ class Db {
       {
         $project: {
           deck: 1,
-          h: 1,
+          key: 1,
           data: 1,
           tag: '$t.name',
           ref: 1,
@@ -149,7 +149,7 @@ class Db {
 
   async create (...entries: IDbSchema[]) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
     entries.map((el) => {
@@ -163,17 +163,20 @@ class Db {
       .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
 
     await mapAsync(Object.keys(allTags), async (t) => {
-      const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, { upsert: true })
-      allTags[t] = el!._id
+      const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
+        upsert: true, new: true, setDefaultsOnInsert: true,
+      })
+      allTags[t] = el._id
     })
 
     const items = await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
       userId: this.user!._id,
-      deck: el.deck || '',
-      h: el.h || undefined,
+      deck: el.deck || undefined,
+      key: el.key || undefined,
       data: el.data || undefined,
       tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
       ref: el.ref || undefined,
+      markdown: el.markdown || undefined,
     }))))
 
     await DbQuizModel.insertMany(entries
@@ -190,10 +193,12 @@ class Db {
     return items
   }
 
-  async delete (...ids: string[]) {
+  async delete (...keys: string[]) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
+
+    const ids = (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
 
     await Promise.all([
       DbCardModel.deleteMany({ _id: { $in: ids } }),
@@ -201,9 +206,9 @@ class Db {
     ])
   }
 
-  async update (ids: string[], set: IDbSchema) {
+  async update (keys: string[], set: IDbSchema) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
     const {
@@ -212,7 +217,11 @@ class Db {
       ...card
     } = set
 
+    let ids: any[] | null = null
+
     if (typeof srsLevel === 'number' || nextReview || stat) {
+      ids = (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
+
       await DbQuizModel.updateMany({ cardId: { $in: ids } }, {
         $set: ser.clone({
           srsLevel,
@@ -223,12 +232,16 @@ class Db {
     }
 
     if (tag) {
+      ids = ids || (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
+
       const allTags = tag
         .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
 
       await mapAsync(Object.keys(allTags), async (t) => {
-        const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, { upsert: true })
-        allTags[t] = el!._id
+        const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
+          upsert: true, new: true, setDefaultsOnInsert: true,
+        })
+        allTags[t] = el._id
       })
 
       await DbCardModel.updateMany({ _id: { $in: ids } }, {
@@ -238,52 +251,44 @@ class Db {
         },
       })
     } else {
-      await DbCardModel.updateMany({ _id: { $in: ids } }, {
+      await DbCardModel.updateMany({ key: { $in: keys } }, {
         $set: card,
       })
     }
   }
 
-  async addTags (ids: string[], tags: string[]) {
+  async addTags (keys: string[], tags: string[]) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
-    await DbCardModel.updateMany({ _id: { $in: ids } }, {
+    await DbCardModel.updateMany({ key: { $in: keys } }, {
       $addToSet: { tag: { $each: tags } },
     })
   }
 
-  async removeTags (ids: string[], tags: string[]) {
+  async removeTags (keys: string[], tags: string[]) {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
-    await DbCardModel.updateMany({ _id: { $in: ids } }, {
+    await DbCardModel.updateMany({ key: { $in: keys } }, {
       $pull: { tag: { $in: tags } },
     })
   }
 
-  async render (slug: string, minify: boolean = false): Promise<any> {
+  async render (key: string, minify: boolean = false): Promise<any> {
     if (!this.user) {
-      return null
+      throw new Error('Not logged in')
     }
 
     if (minify) {
       const r = await DbCardModel.aggregate([
-        { $match: { userId: this.user._id, _id: slug } },
-        {
-          $lookup: {
-            from: 'card',
-            localField: 'ref',
-            foreignField: '_id',
-            as: 'ctx',
-          },
-        },
+        { $match: { userId: this.user._id, key } },
         {
           $project: {
             data: 1,
-            ctx: 1,
+            ref: 1,
             markdown: 1,
           },
         },
@@ -292,20 +297,12 @@ class Db {
       return r[0] || null
     } else {
       const r = await this.aggregate([
-        { $match: { _id: slug } },
+        { $match: { key } },
       ], [
-        {
-          $lookup: {
-            from: 'card',
-            localField: 'ref',
-            foreignField: '_id',
-            as: 'ctx',
-          },
-        },
         {
           $project: {
             deck: 1,
-            h: 1,
+            key: 1,
             data: 1,
             tag: 1,
             ref: 1,
@@ -313,7 +310,6 @@ class Db {
             nextReview: 1,
             srsLevel: 1,
             stat: 1,
-            ctx: 1,
           },
         },
       ])
@@ -331,18 +327,18 @@ class Db {
   markRepeat = this._updateSrsLevel(0)
 
   private _updateSrsLevel (dSrsLevel: number) {
-    return async (slug: string) => {
+    return async (key: string) => {
       if (!this.user) {
-        return null
+        throw new Error('Not logged in')
       }
 
-      const card = await DbCardModel.findById(slug).select({ quizId: 1 })
+      const card = await DbCardModel.findOne({ key }).select({ quizId: 1 })
 
       if (!card) {
-        throw new Error(`Card ${slug} not found.`)
+        throw new Error(`Card ${key} not found.`)
       }
 
-      const quiz = await DbQuizModel.findOne({ cardId: slug }).select({ stat: 1, srsLevel: 1 })
+      const quiz = await DbQuizModel.findOne({ cardId: card._id }).select({ stat: 1, srsLevel: 1 })
 
       let srsLevel = 0
       let stat = {
@@ -398,7 +394,7 @@ class Db {
           stat,
           nextReview,
         })
-        await DbCardModel.updateOne({ slug }, {
+        await DbCardModel.updateOne({ key }, {
           $set: {
             quizId: item._id,
           },
@@ -423,7 +419,7 @@ export async function initDatabase (mongoUri: string) {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
-    useFindAndModify: true,
+    useFindAndModify: false,
   })
 
   db = new Db()
