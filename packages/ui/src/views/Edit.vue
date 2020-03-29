@@ -9,7 +9,7 @@ section.columns.editor
       div(
         slot="trigger" slot-scope="props" class="card-header" role="button" aria-controls="requiredHeader"
       )
-        h1.card-header-title {{title}}
+        h1.card-header-title(style="font-family: monospace;") {{title}}
         div(style="flex-grow: 1;")
         .buttons.header-buttons(@click.stop)
           b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
@@ -18,11 +18,14 @@ section.columns.editor
           b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
       .card-content
         b-field(label="Deck" label-position="on-border")
-          b-input(v-model="deck")
+          b-autocomplete(
+            v-model="deck"
+            open-on-focus :data="filteredDecks" @focus="initFilteredDecks" @typing="getFilteredDecks"
+          )
         b-field(label="Tag" label-position="on-border")
           b-taginput(
             v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
-            allow-new open-on-focus :data="filteredTags" @typing="getFilteredTags"
+            allow-new open-on-focus :data="filteredTags" @focus="initFilteredTags" @typing="getFilteredTags"
           )
     codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
   .column.is-6(v-show="hasPreview")
@@ -40,7 +43,7 @@ import hbs from 'handlebars'
 
 import 'firebase/storage'
 
-import { normalizeArray, nullifyObject } from '../utils'
+import { normalizeArray, nullifyObject, stringSorter } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -69,9 +72,13 @@ export default class Edit extends Vue {
   key = Math.random().toString(36).substr(2)
 
   deck = ''
+  filteredDecks: string[] = []
+  allDecks: string[] | null = null
+
   tag: string[] = []
   filteredTags: string[] = []
-  allTags: string[] | null = []
+  allTags: string[] | null = null
+
   ctx = {} as any
 
   readonly matter = new Matter()
@@ -158,15 +165,36 @@ export default class Edit extends Vue {
     return dayjs(d).format('YYYY-MM-DD HH:mm Z')
   }
 
-  async getFilteredTags (text: string) {
+  async initFilteredDecks () {
+    if (!this.allDecks) {
+      const api = await this.getApi(true)
+      this.allDecks = (await api.get('/api/edit/deck')).data.decks
+    }
+    this.allDecks = stringSorter(Array.from(new Set([...this.allDecks!, this.deck])))
+  }
+
+  async getFilteredDecks (text: string) {
+    if (this.allDecks) {
+      this.filteredDecks = this.allDecks.filter((t) => {
+        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+      })
+    }
+  }
+
+  async initFilteredTags () {
     if (!this.allTags) {
-      const api = await this.getApi()
+      const api = await this.getApi(true)
       this.allTags = (await api.get('/api/edit/tag')).data.tags
     }
+    this.allTags = stringSorter(Array.from(new Set([...this.allTags!, ...this.tag])))
+  }
 
-    this.filteredTags = this.allTags!.filter((t) => {
-      return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-    })
+  async getFilteredTags (text: string) {
+    if (this.allTags) {
+      this.filteredTags = this.allTags.filter((t) => {
+        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+      })
+    }
   }
 
   getAndValidateHeader (isFinal = true) {
@@ -242,14 +270,14 @@ export default class Edit extends Vue {
       if (r.data) {
         const {
           deck, tag,
-          key, ref, h, data,
+          key, ref, data,
           nextReview, srsLevel, stat,
           markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
         Object.assign(header, {
-          key, ref, h, data,
+          key, ref, data,
           srsLevel, stat,
           nextReview: nextReview ? dayjs(nextReview).format('YYYY-MM-DD HH:mm Z') : undefined,
         })
@@ -300,12 +328,7 @@ export default class Edit extends Vue {
        * Create a post
        */
       const r = await api.put('/api/edit/', content)
-
-      this.$router.push({
-        query: {
-          key: r.data.key
-        }
-      })
+      this.key = r.data.key
     } else {
       await api.patch('/api/edit/', {
         keys: [this.key],
@@ -313,14 +336,17 @@ export default class Edit extends Vue {
       })
 
       this.key = header.key || this.key
+    }
 
-      if (this.$route.query.key !== this.key) {
-        this.$router.push({
-          query: {
-            key: this.key
-          }
-        })
-      }
+    this.initFilteredDecks()
+    this.initFilteredTags()
+
+    if (this.$route.query.key !== this.key) {
+      this.$router.push({
+        query: {
+          key: this.key
+        }
+      })
     }
 
     this.$buefy.snackbar.open('Saved')
@@ -365,6 +391,7 @@ export default class Edit extends Vue {
           }
         })
         this.ctx[key] = r.data
+        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
       } catch (_) {}
     }
   }
