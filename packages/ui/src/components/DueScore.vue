@@ -1,8 +1,8 @@
 <template lang="pug">
-.due-score
-  .count(style="color: red;") {{count('leech') | nonZero | format}}
-  .count(style="color: blue;") {{count('due') | nonZero | format}}
-  .count(style="color: green;") {{count('new') | nonZero | format}}
+.due-score(v-if="count('leech') + count('due') + count('new') > 0")
+  .count(style="color: red;") {{count('leech') | format}}
+  .count(style="color: blue;") {{count('due') | format}}
+  .count(style="color: green;") {{count('new') | format}}
 </template>
 
 <script lang="ts">
