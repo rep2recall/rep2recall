@@ -2,9 +2,9 @@
 .container
   b-navbar.elevation-1
     template(slot="start")
-      field.field(@submit.prevent="onSearch" style="display: flex; align-items: center;")
+      form.field(@submit.prevent="onSearch" style="display: flex; align-items: center;")
         p.control.has-icons-left
-          input.input(type="search" v-model="q" placeholder="Search..." @keydown.enter="onSearch")
+          input.input(type="search" v-model="q" placeholder="Search...")
           span.icon.is-small.is-left
             fontawesome(icon="search")
     template(slot="end")
