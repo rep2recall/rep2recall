@@ -24,7 +24,7 @@ const store = new Vuex.Store({
     },
   },
   actions: {
-    async api ({ state }, silent = false) {
+    async getApi ({ state }, silent = false) {
       const api = axios.create()
 
       if (state.user) {

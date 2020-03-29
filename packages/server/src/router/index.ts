@@ -43,31 +43,23 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.register(fCoookie)
   f.register(fSession, { secret: process.env.SECRET! })
 
-  f.addHook('preHandler', (req, reply, done) => {
+  f.addHook('preHandler', async (req, reply) => {
     if (req.req.url && req.req.url.startsWith('/api/doc')) {
-      return done()
+      return
     }
 
     const m = /^Bearer (.+)$/.exec(req.headers.authorization || '')
 
     if (!m) {
-      return done(new Error('Bearer token not specified.'))
+      throw new Error('Bearer token not specified.')
     }
 
-    admin.auth().verifyIdToken(m[1], true)
-      .then(async (ticket) => {
-        try {
-          req.session.user = ticket
-          if (!db.user) {
-            await db.signIn(ticket.email)
-          }
+    const ticket = await admin.auth().verifyIdToken(m[1], true)
 
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
-      .catch(done)
+    req.session.user = ticket
+    if (!db.user) {
+      await db.signIn(ticket.email)
+    }
   })
 
   f.register(editRouter, { prefix: '/edit' })

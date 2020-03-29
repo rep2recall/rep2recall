@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-import { db } from '../db/schema'
+import { db, DbTagModel } from '../db/schema'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.get('/', {
@@ -21,57 +21,60 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     return await db.render(key)
   })
 
-  // f.post('/', {
-  //   schema: {
-  //     tags: ['edit'],
-  //     summary: 'Query for items',
-  //     body: {
-  //       type: 'object',
-  //       required: ['q', 'offset', 'limit', 'sort'],
-  //       properties: {
-  //         q: { type: ['string', 'object'] },
-  //         cond: { type: 'object' },
-  //         offset: { type: 'integer' },
-  //         limit: { type: ['integer', 'null'] },
-  //         sort: {
-  //           type: 'object',
-  //           properties: {
-  //             key: { type: 'string' },
-  //             desc: { type: 'boolean' },
-  //           },
-  //         },
-  //       },
-  //     },
-  //   },
-  // }, async (req) => {
-  //   let { q, cond, offset = 0, limit, sort } = req.body
+  f.post('/', {
+    schema: {
+      tags: ['edit'],
+      summary: 'Query for items',
+      body: {
+        type: 'object',
+        required: ['q', 'offset', 'limit', 'sort'],
+        properties: {
+          q: { type: ['string', 'object'] },
+          cond: { type: 'object' },
+          offset: { type: 'integer' },
+          limit: { type: ['integer', 'null'] },
+          sort: {
+            type: 'object',
+            properties: {
+              key: { type: 'string' },
+              desc: { type: 'boolean' },
+            },
+          },
+          count: { type: 'boolean' },
+        },
+      },
+    },
+  }, async (req) => {
+    let { q, cond, offset = 0, limit, sort, count } = req.body
 
-  //   if (typeof q === 'string') {
-  //     q = db.qSearch.parse(q).cond
-  //   }
+    if (typeof q === 'string') {
+      q = db.qSearch.parse(q).cond
+    }
 
-  //   if (cond) {
-  //     q = { $and: [q, cond] }
-  //   }
+    if (cond) {
+      q = { $and: [q, cond] }
+    }
 
-  //   let c = db.db.find(q).sort({
-  //     [sort.key]: sort.desc ? -1 : 1,
-  //   }).skip(offset)
+    const [rData, rCount] = await Promise.all([
+      db.aggregate([], [
+        { $match: q },
+        { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
+        { $skip: offset },
+        ...(limit ? [
+          { $limit: limit },
+        ] : []),
+      ]),
+      count ? db.aggregate([], [
+        { $match: q },
+        { $count: 'count' },
+      ]) : null,
+    ])
 
-  //   if (limit) {
-  //     c = c.limit(limit)
-  //   }
-
-  //   const [rData, rCount] = await Promise.all([
-  //     c,
-  //     db.db.count(q),
-  //   ])
-
-  //   return {
-  //     data: rData,
-  //     count: rCount,
-  //   }
-  // })
+    return {
+      data: rData,
+      count: rCount ? ((rCount[0] || {}).count || 0) : undefined,
+    }
+  })
 
   f.put('/', {
     schema: {
@@ -134,6 +137,17 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
     return {
       error: null,
+    }
+  })
+
+  f.get('/tag', {
+    schema: {
+      summary: 'Get tags',
+      tags: ['edit'],
+    },
+  }, async () => {
+    return {
+      tags: (await DbTagModel.find().select({ name: 1 })).map((t) => t.name),
     }
   })
 
