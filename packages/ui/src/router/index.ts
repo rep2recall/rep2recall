@@ -14,6 +14,10 @@ const router = new VueRouter({
       path: '/edit',
       component: () => import('@/views/Edit.vue'),
     },
+    {
+      path: '/browse',
+      component: () => import('@/views/Browse.vue'),
+    },
   ],
 })
 

@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typegoose'
 import nanoid from 'nanoid'
 import dayjs from 'dayjs'
+import QSearch from '@patarapolw/qsearch'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
@@ -87,6 +88,17 @@ export type IDbSchema = t.Static<typeof DbSchema>
 
 class Db {
   user: DocumentType<DbUser> | null = null
+
+  readonly qSearch = new QSearch({
+    dialect: 'mongodb',
+    schema: {
+      deck: {},
+      key: {},
+      tag: {},
+      nextReview: { type: 'date' },
+      srsLevel: { type: 'number' },
+    },
+  })
 
   async signIn (email: string) {
     this.user = await DbUserModel.findOne({ email })

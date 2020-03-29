@@ -151,19 +151,22 @@ export default class Edit extends Vue {
   }
 
   async getApi (silent?: boolean) {
-    return await this.$store.dispatch('api', silent) as AxiosInstance
+    return await this.$store.dispatch('getApi', silent) as AxiosInstance
   }
 
   formatDate (d: Date) {
     return dayjs(d).format('YYYY-MM-DD HH:mm Z')
   }
 
-  getFilteredTags (text: string) {
-    if (this.allTags) {
-      this.filteredTags = this.allTags.filter((t) => {
-        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-      })
+  async getFilteredTags (text: string) {
+    if (!this.allTags) {
+      const api = await this.getApi()
+      this.allTags = (await api.get('/api/edit/tag')).data.tags
     }
+
+    this.filteredTags = this.allTags!.filter((t) => {
+      return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+    })
   }
 
   getAndValidateHeader (isFinal = true) {

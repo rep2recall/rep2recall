@@ -32,3 +32,9 @@ export function nullifyObject (a: Record<string, any>) {
     .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any),
   )
 }
+
+export function stringSorter (arr: string[]) {
+  return arr.sort((a, b) => {
+    return a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase())
+  })
+}
