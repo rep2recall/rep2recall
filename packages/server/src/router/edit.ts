@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-import { db, DbTagModel } from '../db/schema'
+import { db, DbTagModel, DbDeckModel } from '../db/schema'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.get('/', {
@@ -137,6 +137,17 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
     return {
       error: null,
+    }
+  })
+
+  f.get('/deck', {
+    schema: {
+      summary: 'Get decks',
+      tags: ['edit'],
+    },
+  }, async () => {
+    return {
+      decks: (await DbDeckModel.find().select({ name: 1 })).map((t) => t.name),
     }
   })
 

@@ -96,7 +96,7 @@ export default class Query extends Vue {
   filteredTags: string[] = []
   tagList: string[] = []
   sort = {
-    key: 'date',
+    key: 'updatedAt',
     type: 'desc'
   }
 

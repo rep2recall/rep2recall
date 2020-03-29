@@ -1,26 +1,33 @@
 import * as t from 'runtypes'
 import mongoose from 'mongoose'
 import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typegoose'
-import nanoid from 'nanoid'
 import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
+import shortid from 'shortid'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
 
 class DbUser {
-  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id?: string
   @prop({ required: true }) email!: string
 }
 
 export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
 
 class DbTag {
-  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id?: string
   @prop({ required: true }) name!: string
 }
 
 export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
+
+class DbDeck {
+  @prop({ default: () => shortid.generate() }) _id?: string
+  @prop({ required: true }) name!: string
+}
+
+export const DbDeckModel = getModelForClass(DbDeck, { schemaOptions: { collection: 'deck', timestamps: true } })
 
 @index({ key: 1, userId: 1 }, { unique: true, sparse: true })
 class DbCard {
@@ -29,13 +36,13 @@ class DbCard {
   /**
    * Explicit fields
    */
-  @prop() deck?: string
+  @prop() deckId?: string
   @prop() tag?: string[] // TagId-reference
 
   /**
    * Frontmatter
    */
-  @prop({ default: () => nanoid() }) key?: string
+  @prop({ default: () => shortid.generate() }) key?: string
   @prop() data?: Record<string, any>
   @prop() ref?: string[] // SelfId-reference
 
@@ -53,7 +60,7 @@ class DbCard {
 export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
 
 class DbQuiz {
-  @prop({ default: () => nanoid() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id?: string
   @prop({ required: true }) nextReview!: Date
   @prop({ required: true }) srsLevel!: number
   @prop() stat?: {
@@ -136,6 +143,15 @@ class Db {
       { $unwind: { path: '$q', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
+          from: 'deck',
+          localField: 'deckId',
+          foreignField: '_id',
+          as: 'd',
+        },
+      },
+      { $unwind: { path: '$d', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: 'tag',
           localField: 'tag',
           foreignField: '_id',
@@ -144,7 +160,7 @@ class Db {
       },
       {
         $project: {
-          deck: 1,
+          deck: '$d.name',
           key: 1,
           data: 1,
           tag: '$t.name',
@@ -153,6 +169,8 @@ class Db {
           nextReview: '$q.nextReview',
           srsLevel: '$q.srsLevel',
           stat: '$q.stat',
+          createdAt: 1,
+          updatedAt: 1,
         },
       },
       ...postConds,
@@ -181,9 +199,21 @@ class Db {
       allTags[t] = el._id
     })
 
+    const allDecks = entries
+      .map((el) => el.deck)
+      .filter((d) => d)
+      .reduce((prev, c) => ({ ...prev, [c!]: null }), {} as Record<string, string | null>)
+
+    await mapAsync(Object.keys(allDecks), async (t) => {
+      const el = await DbDeckModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
+        upsert: true, new: true, setDefaultsOnInsert: true,
+      })
+      allDecks[t] = el._id
+    })
+
     const items = await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
       userId: this.user!._id,
-      deck: el.deck || undefined,
+      deckId: el.deck ? allDecks[el.deck] : undefined,
       key: el.key || undefined,
       data: el.data || undefined,
       tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
@@ -226,6 +256,7 @@ class Db {
     const {
       tag,
       srsLevel, nextReview, stat,
+      deck,
       ...card
     } = set
 
@@ -254,15 +285,20 @@ class Db {
           upsert: true, new: true, setDefaultsOnInsert: true,
         })
         allTags[t] = el._id
-      })
+      });
 
-      await DbCardModel.updateMany({ _id: { $in: ids } }, {
-        $set: {
-          ...card,
-          tag: tag.map((t) => allTags[t]),
-        },
-      })
-    } else {
+      (card as any).tag = tag.map((t) => allTags[t])
+    }
+
+    if (deck) {
+      const el = await DbDeckModel.findOneAndUpdate({ name: deck }, { $set: { name: deck } }, {
+        upsert: true, new: true, setDefaultsOnInsert: true,
+      });
+
+      (card as any).deckId = el._id
+    }
+
+    if (Object.keys(card).length > 0) {
       await DbCardModel.updateMany({ key: { $in: keys } }, {
         $set: card,
       })
