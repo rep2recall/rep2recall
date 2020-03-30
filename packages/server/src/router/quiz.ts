@@ -1,52 +1,50 @@
 import { FastifyInstance } from 'fastify'
-import dayjs from 'dayjs'
 import escapeRegExp from 'escape-string-regexp'
 
 import { db } from '../db/schema'
+import { shuffle } from '../utils'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.post('/', {
     schema: {
-      summary: 'Query for card ids, for use in due treeview',
+      summary: 'Query for card ids, for use in quiz',
       tags: ['quiz'],
       body: {
         type: 'object',
-        required: ['q'],
+        required: ['q', 'deck'],
         properties: {
           q: { type: ['string', 'object'] },
           deck: { type: 'string' },
-          type: { type: 'string' },
-          due: { type: 'string' },
+          type: { type: 'string', enum: ['all', 'due', 'leech', 'new'] },
         },
       },
     },
   }, async (req) => {
-    const { q, deck, type, due } = req.body
+    const { q, deck, type } = req.body
 
     let $or = [
       typeof q === 'string' ? db.qSearch.parse(q).cond : q,
     ]
 
+    $or = $or.map((cond) => {
+      return [
+        {
+          ...cond,
+          deck,
+        },
+        {
+          ...cond,
+          deck: new RegExp(`^${escapeRegExp(deck)}/`),
+        },
+      ]
+    }).reduce((a, b) => [...a, ...b])
+
     let dueOrNew = false
-    if (deck) {
-      $or = $or.map((cond) => {
-        return [
-          {
-            ...cond,
-            deck,
-          },
-          {
-            ...cond,
-            deck: { $regex: `^${escapeRegExp(deck)}/` },
-          },
-        ]
-      }).reduce((a, b) => [...a, ...b])
-    }
 
     if (type !== 'all') {
       if (type === 'due') {
         $or.map((cond) => {
-          cond.nextReview = { $lte: new Date().toISOString() }
+          cond.nextReview = { $lte: new Date() }
         })
       } else if (type === 'leech') {
         $or.map((cond) => {
@@ -61,22 +59,6 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
 
-    if (due) {
-      const m = /(-?\d+(?:\.\d+)?\S+)/.exec(due)
-      if (m) {
-        try {
-          $or.map((cond) => {
-            cond.nextReview = { $lte: +dayjs().add(parseFloat(m[1]), m[2] as any).toISOString() }
-          })
-        } catch (e) {
-          console.error(e)
-          dueOrNew = true
-        }
-      } else {
-        dueOrNew = true
-      }
-    }
-
     if (dueOrNew) {
       $or = $or.map((cond) => {
         return [
@@ -86,7 +68,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           },
           {
             ...cond,
-            nextReview: { $lte: new Date().toISOString() },
+            nextReview: { $lte: new Date() },
           },
         ]
       }).reduce((a, b) => [...a, ...b])
@@ -94,6 +76,36 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
     const rs = await db.aggregate([], [
       { $match: { $or } },
+      {
+        $project: {
+          key: 1,
+        },
+      },
+    ])
+
+    return {
+      keys: shuffle(rs.map((c) => c.key)),
+    }
+  })
+
+  f.post('/stat', {
+    schema: {
+      summary: 'Query for card statistics, for use in due treeview',
+      tags: ['quiz'],
+      body: {
+        type: 'object',
+        required: ['q'],
+        properties: {
+          q: { type: ['string', 'object'] },
+        },
+      },
+    },
+  }, async (req) => {
+    const { q } = req.body
+    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
+
+    const rs = await db.aggregate([], [
+      { $match: cond },
       {
         $project: {
           deck: 1,
@@ -140,11 +152,11 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Render a quiz item',
       tags: ['quiz'],
       querystring: {
-        id: { type: 'integer' },
+        key: { type: 'string' },
       },
     },
   }, async (req) => {
-    return await db.render(req.query.id, true)
+    return await db.render(req.query.key, true)
   })
 
   f.patch('/right', {
@@ -152,11 +164,11 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark as right',
       tags: ['quiz'],
       querystring: {
-        id: { type: 'integer' },
+        key: { type: 'string' },
       },
     },
   }, async (req) => {
-    await db.markRight(req.query.id)
+    await db.markRight(req.query.key)
     return {
       error: null,
     }
@@ -167,11 +179,11 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark as wrong',
       tags: ['quiz'],
       querystring: {
-        id: { type: 'integer' },
+        key: { type: 'string' },
       },
     },
   }, async (req) => {
-    await db.markWrong(req.query.id)
+    await db.markWrong(req.query.key)
     return {
       error: null,
     }
@@ -182,11 +194,11 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark for repetition',
       tags: ['quiz'],
       querystring: {
-        id: { type: 'integer' },
+        key: { type: 'string' },
       },
     },
   }, async (req) => {
-    await db.markRepeat(req.query.id)
+    await db.markRepeat(req.query.key)
     return {
       error: null,
     }

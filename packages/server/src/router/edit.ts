@@ -35,6 +35,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           limit: { type: ['integer', 'null'] },
           sort: {
             type: 'object',
+            required: ['key'],
             properties: {
               key: { type: 'string' },
               desc: { type: 'boolean' },

@@ -104,6 +104,7 @@ class Db {
       tag: {},
       nextReview: { type: 'date' },
       srsLevel: { type: 'number' },
+      markdown: { isAny: false },
     },
   })
 
@@ -437,15 +438,11 @@ class Db {
       }
 
       if (!quiz) {
-        const item = await DbQuizModel.create({
+        await DbQuizModel.create({
           srsLevel,
           stat,
           nextReview,
-        })
-        await DbCardModel.updateOne({ key }, {
-          $set: {
-            quizId: item._id,
-          },
+          cardId: card._id,
         })
       } else {
         await DbQuizModel.findByIdAndUpdate(quiz._id, {
