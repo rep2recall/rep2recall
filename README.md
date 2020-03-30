@@ -1,8 +1,8 @@
 # Rep2Recall
 
-Repeat until recall. Is this possible?
+Repeat until recall, with widening intervals.
 
-![Screen GIF](http://recordit.co/Z36oOSy8fU)
+[![Gfycat screenshot](https://thumbs.gfycat.com/ChillyHospitableBison-size_restricted.gif)](https://gfycat.com/chillyhospitablebison)
 
 This is a remake of <https://github.com/patarapolw/rep2recall-web>.
 
@@ -37,7 +37,14 @@ This app uses [showdownjs](https://github.com/showdownjs/showdown) with the foll
 
 So, Emojis are supported. Settings are roughly similar to <https://patarapolw.github.io/showdown-extra>.
 
+## Running on your machine
+
+Requirements are
+
+- MongoDB
+- Firebase (both on UI-side and server-side)
+
 ## Plans
 
-- Expose the API, probably via OAuth2 or API keys, so that the deck can programmatically generated.
+- Expose the API, probably via OAuth2 or API keys, so that entries can programmatically generated.
 - Offline support.
