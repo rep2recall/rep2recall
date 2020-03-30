@@ -110,7 +110,7 @@ export default class Query extends Vue {
   q = ''
 
   headers = [
-    { label: 'Key', field: 'key', width: 200, sortable: true },
+    { label: 'Key', field: 'key', width: 150, sortable: true },
     { label: 'Deck', field: 'deck', width: 200, sortable: true },
     { label: 'Markdown', field: 'markdown' },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
@@ -165,12 +165,11 @@ export default class Query extends Vue {
     })
 
     this.count = r.data.count
-    const matter = new Matter()
 
     this.$set(this, 'items', r.data.data.map((el: any) => {
       return {
         ...el,
-        markdown: matter.parse(el.markdown || '').content.substr(0, 140),
+        markdown: (el.markdown || '').substr(0, 140),
         tag: stringSorter(el.tag || []),
         nextReview: el.nextReview ? new Date(el.nextReview) : undefined
       }

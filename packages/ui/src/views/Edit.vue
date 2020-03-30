@@ -279,7 +279,7 @@ export default class Edit extends Vue {
         Object.assign(header, {
           key, ref, data,
           srsLevel, stat,
-          nextReview: nextReview ? dayjs(nextReview).format('YYYY-MM-DD HH:mm Z') : undefined,
+          nextReview,
         })
 
         this.markdown = this.matter.stringify(content, nullifyObject(header))
@@ -314,9 +314,16 @@ export default class Edit extends Vue {
       return
     }
 
+    const { key, ref, data, srsLevel, stat, nextReview } = header
+
+    let { content: markdown } = this.matter.parse(this.markdown)
+    markdown = this.matter.stringify(markdown, Object.entries(header)
+      .filter(([k]) => !['key', 'ref', 'data', 'srsLevel', 'stat', 'nextReview'].includes(k))
+      .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any))
+
     const content = {
-      ...header,
-      markdown: this.markdown,
+      key, ref, data, srsLevel, stat, nextReview,
+      markdown,
       deck: this.deck,
       tag: this.tag,
     }

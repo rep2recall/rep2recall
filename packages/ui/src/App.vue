@@ -110,7 +110,7 @@ html,
 body,
 #app {
   box-sizing: border-box;
-  overscroll-behavior: none;
+  /* overscroll-behavior: none; */
 }
 
 #app {

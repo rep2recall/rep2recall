@@ -4,26 +4,27 @@ import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typ
 import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
 import shortid from 'shortid'
+import dotProp from 'dot-prop'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
 
 class DbUser {
-  @prop({ default: () => shortid.generate() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id!: string
   @prop({ required: true }) email!: string
 }
 
 export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
 
 class DbTag {
-  @prop({ default: () => shortid.generate() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id!: string
   @prop({ required: true }) name!: string
 }
 
 export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
 
 class DbDeck {
-  @prop({ default: () => shortid.generate() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id!: string
   @prop({ required: true }) name!: string
 }
 
@@ -42,7 +43,7 @@ class DbCard {
   /**
    * Frontmatter
    */
-  @prop({ default: () => shortid.generate() }) key?: string
+  @prop({ default: () => shortid.generate() }) key!: string
   @prop() data?: Record<string, any>
   @prop() ref?: string[] // SelfId-reference
 
@@ -60,16 +61,18 @@ class DbCard {
 export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
 
 class DbQuiz {
-  @prop({ default: () => shortid.generate() }) _id?: string
+  @prop({ default: () => shortid.generate() }) _id!: string
   @prop({ required: true }) nextReview!: Date
   @prop({ required: true }) srsLevel!: number
-  @prop() stat?: {
-    streak: {
-      right: number
-      wrong: number
-      maxRight: number
-      maxWrong: number
+  @prop({ default: () => ({}) }) stat!: {
+    streak?: {
+      right?: number
+      wrong?: number
+      maxRight?: number
+      maxWrong?: number
     }
+    lastRight?: Date
+    lastWrong?: Date
   }
 
   @prop({ required: true, ref: 'DbCard' }) cardId!: Ref<DbCard>
@@ -390,36 +393,29 @@ class Db {
       const quiz = await DbQuizModel.findOne({ cardId: card._id }).select({ stat: 1, srsLevel: 1 })
 
       let srsLevel = 0
-      let stat = {
-        streak: {
-          right: 0,
-          wrong: 0,
-          maxRight: 0,
-          maxWrong: 0,
-        },
-      }
+      let stat = {}
       let nextReview = repeatReview()
 
       if (quiz) {
         srsLevel = quiz.srsLevel
-        if (quiz.stat) {
-          stat = quiz.stat
-        }
+        stat = quiz.stat
       }
 
       if (dSrsLevel > 0) {
-        stat.streak.right = stat.streak.right + 1
-        stat.streak.wrong = 0
+        dotProp.set(stat, 'streak.right', dotProp.get(stat, 'streak.right', 0) + 1)
+        dotProp.set(stat, 'streak.wrong', 0)
+        dotProp.set(stat, 'lastRight', new Date())
 
-        if (stat.streak.right > stat.streak.maxRight) {
-          stat.streak.maxRight = stat.streak.right
+        if (dotProp.get(stat, 'streak.right', 1) > dotProp.get(stat, 'streak.maxRight', 0)) {
+          dotProp.set(stat, 'streak.maxRight', dotProp.get(stat, 'streak.right', 1))
         }
       } else if (dSrsLevel < 0) {
-        stat.streak.wrong = stat.streak.wrong + 1
-        stat.streak.right = 0
+        dotProp.set(stat, 'streak.wrong', dotProp.get(stat, 'streak.wrong', 0) + 1)
+        dotProp.set(stat, 'streak.right', 0)
+        dotProp.set(stat, 'lastWrong', new Date())
 
-        if (stat.streak.wrong > stat.streak.maxWrong) {
-          stat.streak.maxWrong = stat.streak.wrong
+        if (dotProp.get(stat, 'streak.wrong', 1) > dotProp.get(stat, 'streak.maxWrong', 0)) {
+          dotProp.set(stat, 'streak.maxWrong', dotProp.get(stat, 'streak.wrong', 1))
         }
       }
 
