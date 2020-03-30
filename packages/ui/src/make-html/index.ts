@@ -64,7 +64,7 @@ export default class MakeHtml {
     })
   }
 
-  render (dom: Element, s: string) {
+  patch (dom: Element, s: string) {
     try {
       this.html = this.mdConvert(s)
     } catch (e) {}
@@ -80,7 +80,17 @@ export default class MakeHtml {
     } catch (_) {}
   }
 
-  getDOM (s: string) {
+  render (dom: Element, s: string) {
+    const replacement = this.getDOM(s)
+    dom.textContent = ''
+    dom.appendChild(replacement)
+  }
+
+  getHTML (s: string) {
+    return this.getDOM(s).outerHTML
+  }
+
+  private getDOM (s: string) {
     try {
       this.html = this.mdConvert(s)
     } catch (e) {}
@@ -92,15 +102,6 @@ export default class MakeHtml {
     this.el = output
 
     return output
-  }
-
-  activate () {
-    if (this.el) {
-      this.el.querySelectorAll('script').forEach((el) => {
-        const el1 = el.cloneNode()
-        el.replaceWith(el1)
-      })
-    }
   }
 
   private pugConvert (s: string) {

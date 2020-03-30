@@ -1,23 +1,19 @@
 <template lang="pug">
 ul.menu-list
   li(v-for="it in decksAtThisLevel" :key="it.deck")
-    div(v-if="subDecksExists(it.deck)")
-      a
-        .caret(@click="open = !open")
+    a
+      .caret(@click="open = !open")
+        span(v-if="subDecksExists(it.deck)")
           fontawesome(v-if="open" icon="caret-down")
           fontawesome(v-else icon="caret-right")
-        b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
-          span {{it.deck.split('/')[depth]}}
-        div(style="flex-grow: 1;")
-        DueScore(:data="data" :deck="it.deck" :exact="open" @has-review="it.hasReview = $event")
-      Treeview(v-if="open" :data="data" :depth="depth + 1")
-    div(v-else)
-      a
-        .caret
-        b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
-          span {{it.deck.split('/')[depth]}}
-        div(style="flex-grow: 1;")
-        DueScore(:data="data" :deck="it.deck" @has-review="it.hasReview = $event")
+      b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
+        span(role="button" @click="handler.quiz(it.deck)") {{it.deck.split('/')[depth]}}
+      div(style="flex-grow: 1;")
+      DueScore(
+        :is-tip="!subDecksExists(it.deck)"
+        :data="data" :deck="it.deck" :exact="open" @has-review="it.hasReview = $event"
+      )
+    Treeview(v-if="open && subDecksExists(it.deck)" :data="data" :depth="depth + 1" :handler="handler")
 </template>
 
 <script lang="ts">
@@ -34,6 +30,7 @@ import DueScore from './DueScore.vue'
 export default class Treeview extends Vue {
   @Prop({ required: true }) data!: any[]
   @Prop({ default: 0 }) depth!: number
+  @Prop({ required: true }) handler!: any
 
   open = true
 

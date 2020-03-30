@@ -365,7 +365,7 @@ export default class Edit extends Vue {
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
-      this.makeHtml.render(document.body, hbs.compile(this.markdown)(this.ctx))
+      this.makeHtml.patch(document.body, hbs.compile(this.markdown)(this.ctx))
       this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
         el.setAttribute('data-loaded', '1')
 

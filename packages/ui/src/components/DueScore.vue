@@ -1,38 +1,40 @@
 <template lang="pug">
-.due-score(v-if="count('leech') + count('due') + count('new') > 0")
+.due-score(v-if="isTip || totalCount > 0")
   .count(style="color: red;") {{count('leech') | format}}
   .count(style="color: blue;") {{count('due') | format}}
   .count(style="color: green;") {{count('new') | format}}
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
 
 @Component
 export default class DueScore extends Vue {
   @Prop({ required: true }) data!: any[]
   @Prop({ required: true }) deck!: string
   @Prop({ default: false }) exact!: string
+  @Prop({ required: true }) isTip!: boolean
 
   get decksOrSubDecks () {
     return this.data
       .filter(it => (this.exact ? false : it.deck.startsWith(`${this.deck}/`)) || it.deck === this.deck)
   }
 
-  mounted () {
-    if (this.count('leech') + this.count('due') + this.count('new') > 0) {
-      this.$emit('has-review', true)
-    } else {
-      this.$emit('has-review', false)
-    }
+  get totalCount () {
+    return this.count('leech') + this.count('due') + this.count('new')
   }
 
-  updated () {
-    if (this.count('leech') + this.count('due') + this.count('new') > 0) {
-      this.$emit('has-review', true)
-    } else {
-      this.$emit('has-review', false)
-    }
+  get dueCount () {
+    return this.count('due')
+  }
+
+  mounted () {
+    this.checkHasReview()
+  }
+
+  @Watch('dueCount')
+  checkHasReview () {
+    this.$emit('has-review', this.count('due') > 0)
   }
 
   count (key: string) {

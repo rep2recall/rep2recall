@@ -4,7 +4,10 @@
     template(slot="start")
       form.field(@submit.prevent="onSearch" style="display: flex; align-items: center;")
         p.control.has-icons-left
-          input.input(type="search" v-model="q" placeholder="Search...")
+          input.input(
+            type="search" v-model="q" placeholder="Search..."
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          )
           span.icon.is-small.is-left
             fontawesome(icon="search")
     template(slot="end")
@@ -46,12 +49,12 @@
         @sort="onSort"
       )
         template(slot-scope="props")
-          b-table-column(v-for="h in headers" :key="h.field"
+          b-table-column(v-for="h in headers" :key="h.field" :field="h.field"
               :label="h.label" :width="h.width" :sortable="h.sortable")
             span(v-if="h.field === 'tag'")
               b-taglist
                 b-tag(v-for="t in props.row.tag" :key="t") {{t}}
-            span(v-else) {{props.row[h.field]}}
+            span(v-else) {{props.row[h.field] | format}}
         template(slot="detail" slot-scope="props")
           .container(style="max-width: 800px; max-height: 300px; overflow: scroll;")
             .content(
@@ -136,7 +139,7 @@ export default class Query extends Vue {
 
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
-    return makeHtml.getDOM(item.markdown).outerHTML
+    return makeHtml.getHTML(item.markdown)
   }
 
   async getApi (silent?: boolean) {
@@ -169,7 +172,7 @@ export default class Query extends Vue {
         ...el,
         markdown: matter.parse(el.markdown || '').content.substr(0, 140),
         tag: stringSorter(el.tag || []),
-        date: el.date ? dayjs(el.date).format('YYYY-MM-DD HH:mm Z') : ''
+        nextReview: el.nextReview ? new Date(el.nextReview) : undefined
       }
     }))
   }

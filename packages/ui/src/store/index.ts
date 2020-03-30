@@ -10,6 +10,7 @@ let loading: {
   close(): any
   requestEnded?: boolean
 } | null = null
+let requestTimeout: NodeJS.Timeout | null = null
 
 const store = new Vuex.Store({
   state: {
@@ -34,15 +35,24 @@ const store = new Vuex.Store({
       if (!silent) {
         api.interceptors.request.use((config) => {
           if (!loading) {
-            loading = Loading.open({
-              isFullPage: true,
-              canCancel: true,
-              onCancel: () => {
-                if (loading && !loading.requestEnded) {
-                  Snackbar.open('API request is loading in background.')
-                }
-              },
-            })
+            if (requestTimeout) {
+              clearTimeout(requestTimeout)
+              requestTimeout = null
+            }
+
+            requestTimeout = setTimeout(() => {
+              if (!loading) {
+                loading = Loading.open({
+                  isFullPage: true,
+                  canCancel: true,
+                  onCancel: () => {
+                    if (loading && !loading.requestEnded) {
+                      Snackbar.open('API request is loading in background.')
+                    }
+                  },
+                })
+              }
+            }, 1000)
           }
 
           return config
@@ -55,11 +65,21 @@ const store = new Vuex.Store({
             loading = null
           }
 
+          if (requestTimeout) {
+            clearTimeout(requestTimeout)
+            requestTimeout = null
+          }
+
           return config
         }, (err) => {
           if (loading) {
             loading.close()
             loading = null
+          }
+
+          if (requestTimeout) {
+            clearTimeout(requestTimeout)
+            requestTimeout = null
           }
 
           Snackbar.open(err.message)
