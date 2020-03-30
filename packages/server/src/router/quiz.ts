@@ -63,12 +63,12 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       $or = $or.map((cond) => {
         return [
           {
-            ...cond,
             nextReview: { $exists: false },
+            ...cond,
           },
           {
-            ...cond,
             nextReview: { $lte: new Date() },
+            ...cond,
           },
         ]
       }).reduce((a, b) => [...a, ...b])
@@ -135,7 +135,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           deckStat[c.deck].new += 1
         } else if (c.nextReview < now) {
           deckStat[c.deck].due += 1
-        } else if (c.srsLevel === 0) {
+        }
+
+        if (c.srsLevel === 0) {
           deckStat[c.deck].leech += 1
         }
       }

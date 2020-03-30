@@ -5,7 +5,7 @@
       form.field(@submit.prevent="onSearch")
         label.label
           span Search
-          b-tooltip(label="Click here to learn how-to" position="is-right")
+          b-tooltip(label="Click here to learn how to search" position="is-right")
             a.button.is-text(href="https://github.com/patarapolw/qsearch" target="_blank" style="font-size: 13px;") ?
         div.control.has-icons-left
           input.input(
@@ -31,7 +31,7 @@
         button.button.is-success(@click="markRight") Right
         button.button.is-danger(@click="markWrong") Wrong
         button.button.is-warning(@click="markRepeat") Repeat
-        router-link.button.is-info(:to="getEditTo(key)" target="_blank") Edit
+        a.button.is-info(:href="getEditTo(key)" target="_blank") Edit
 </template>
 
 <script lang="ts">
@@ -144,12 +144,11 @@ export default class Quiz extends Vue {
           const makeHtml = new MakeHtml()
           if (keys.length > 0) {
             makeHtml.render(d.body, `${keys.length.toLocaleString()} entries to go. :muscle:`)
-            console.log(this.quizKeys)
           } else {
             makeHtml.render(
               d.body,
               `Pending next hour: ${next.hour.toLocaleString()}. :clock1:\n\n` +
-              `Pending next day: ${next.day.toLocaleString()}. ${next.hour ? ':sweat_smile:': ''}`
+              `Pending next day: ${next.day.toLocaleString()}. ${next.day ? ':sweat_smile:': ''}`
             )
           }
         }
@@ -253,7 +252,7 @@ export default class Quiz extends Vue {
       query: {
         key
       }
-    })
+    }).href
   }
 
   endQuiz () {
