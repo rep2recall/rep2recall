@@ -280,9 +280,25 @@ export default class Quiz extends Vue {
 
 <style lang="scss">
 .quiz-modal {
+  .modal-content {
+    height: calc(100vh - 160px);
+
+    > .card {
+      height: calc(100% - 5px);
+    }
+  }
+
+  @media screen and (min-width: 769px), print {
+    .modal-content {
+      height: calc(100vh - 40px);
+    }
+  }
+
   .card-content {
+    height: calc(100% - 60px);
+
     > iframe {
-      height: calc(90vh - 80px);
+      height: 100%;
       width: 90vw;
       border-bottom: 1px solid #ccc;
     }
