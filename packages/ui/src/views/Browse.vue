@@ -172,10 +172,8 @@ export default class Query extends Vue {
     this.$set(this, 'items', r.data.data.map((el: any) => {
       return {
         ...el,
-        data: el.data ? JSON.stringify(el.data) : undefined,
         // markdown: (el.markdown || '').substr(0, 140),
         tag: stringSorter(el.tag || []),
-        nextReview: el.nextReview ? new Date(el.nextReview) : undefined
       }
     }))
   }

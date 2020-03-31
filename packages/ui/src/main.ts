@@ -28,6 +28,8 @@ Vue.filter('format', (v: any) => {
     return (v || v === 0) ? v.toLocaleString() : ''
   } else if (v instanceof Date) {
     return dayjs(v).format('YYYY-MM-DD HH:mm')
+  } else if (v && typeof v === 'object') {
+    return JSON.stringify(v)
   }
   return v
 })
