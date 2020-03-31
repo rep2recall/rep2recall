@@ -1,35 +1,36 @@
 <template lang="pug">
-section.columns.editor
-  .column(
-    style="height: 100vh; overflow-y: scroll;"
-    :class="hasPreview ? 'is-6' : 'is-12'"
-    @scroll="onScroll"
-  )
-    b-collapse(class="card" animation="slide" aria-id="requiredHeader" style="margin-top: 1em; margin-bottom: 1em;")
-      div(
-        slot="trigger" slot-scope="props" class="card-header" role="button" aria-controls="requiredHeader"
-      )
-        h1.card-header-title(style="font-family: monospace;") {{title}}
-        div(style="flex-grow: 1;")
-        .buttons.header-buttons(@click.stop)
-          b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
-          b-button.is-success(:disabled="!isEdited" @click="save") Save
-        a.card-header-icon
-          b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
-      .card-content
-        b-field(label="Deck" label-position="on-border")
-          b-autocomplete(
-            v-model="deck"
-            open-on-focus :data="filteredDecks" @focus="initFilteredDecks" @typing="getFilteredDecks"
-          )
-        b-field(label="Tag" label-position="on-border")
-          b-taginput(
-            v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
-            allow-new open-on-focus :data="filteredTags" @focus="initFilteredTags" @typing="getFilteredTags"
-          )
-    codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
-  .column.is-6(v-show="hasPreview")
-    iframe(frameborder="0" style="height: 100%; width: 100%; padding: 1em;" ref="output")
+section.editor
+  .buttons.header-buttons
+    div(style="flex-grow: 1;")
+    b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
+    b-button.is-success(:disabled="!isEdited" @click="save") Save
+  .columns
+    .column(
+      style="height: 100vh; overflow-y: scroll;"
+      :class="hasPreview ? ($mq === 'lg' ? 'is-6' : 'd-none') : 'is-12'"
+      @scroll="onScroll"
+    )
+      b-collapse(class="card" animation="slide" aria-id="requiredHeader" style="margin-bottom: 1em;")
+        div(
+          slot="trigger" slot-scope="props" class="card-header" role="button" aria-controls="requiredHeader"
+        )
+          h1.card-header-title(style="font-family: monospace;") {{title}}
+          a.card-header-icon
+            b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
+        .card-content
+          b-field(label="Deck" label-position="on-border")
+            b-autocomplete(
+              v-model="deck"
+              open-on-focus :data="filteredDecks" @focus="initFilteredDecks" @typing="getFilteredDecks"
+            )
+          b-field(label="Tag" label-position="on-border")
+            b-taginput(
+              v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
+              allow-new open-on-focus :data="filteredTags" @focus="initFilteredTags" @typing="getFilteredTags"
+            )
+      codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
+    .column.is-6(v-show="hasPreview")
+      iframe(frameborder="0" style="height: 100%; width: 100%; padding: 1em;" ref="output")
 </template>
 
 <script lang="ts">
@@ -65,7 +66,7 @@ import MakeHtml from '../make-html'
   }
 })
 export default class Edit extends Vue {
-  hasPreview = true
+  hasPreview = this.$mq === 'lg'
   isEdited = false
   markdown = ''
   scrollSize = 0
@@ -417,9 +418,14 @@ export default class Edit extends Vue {
 <style lang="scss">
 .header-buttons {
   white-space: nowrap;
-  display: block;
-  margin-bottom: 0 !important;
+  display: flex;
+  padding-left: 1em;
+  padding-right: 1em;
+  padding-bottom: 5px;
+  margin-bottom: 1em !important;
   align-self: center;
+  justify-content: flex-end;
+  box-shadow: 0 1px #ccc;
 
   > .button {
     margin-bottom: 0 !important;
@@ -427,6 +433,20 @@ export default class Edit extends Vue {
 }
 
 .CodeMirror-scroll {
-  min-height: 500px;
+  min-height: calc(100vh - 200px);
+}
+
+.d-none {
+  display: none;
+}
+
+.editor {
+  margin-top: 1em;
+}
+
+@media screen and (max-width: 800px) {
+  .editor {
+    margin-top: unset;
+  }
 }
 </style>

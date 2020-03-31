@@ -8,13 +8,15 @@
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
     "preinstall": "if !(test -x is-npm); then is-npm; fi",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "postbuild": "cd ../../heroku && npm i"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@patarapolw/qsearch": "^1.2.0",
+    "@patarapolw/qsearch": "^1.2.1",
     "@typegoose/typegoose": "^6.4.0",
     "any-serialize": "^1.4.12",
     "dayjs": "^1.8.22",
@@ -37,7 +39,11 @@
     "@types/shortid": "0.0.29",
     "dotenv": "^8.2.0",
     "pino-pretty": "^3.6.1",
+    "ts-loader": "^6.2.2",
     "ts-node-dev": "^1.0.0-pre.44",
-    "typescript": "^3.8.3"
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11",
+    "webpack-node-externals": "^1.7.2"
   }
 }
