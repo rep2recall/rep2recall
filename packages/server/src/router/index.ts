@@ -51,7 +51,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const m = /^Bearer (.+)$/.exec(req.headers.authorization || '')
 
     if (!m) {
-      throw new Error('Bearer token not specified.')
+      reply.status(401).send()
+      return
     }
 
     const ticket = await admin.auth().verifyIdToken(m[1], true)

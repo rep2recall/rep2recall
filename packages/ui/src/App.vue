@@ -29,16 +29,16 @@
       a.flex-center-left-inline(v-else role="button")
         fontawesome(icon="user-slash")
         span Not Logged In
-  #burger
-    a.navbar-burger(
-      :class="{ 'is-active': isDrawer }" @click="isDrawer = !isDrawer"
-      style="display: block !important;" 
-    )
-      span
-      span
-      span
-  #main-view
-    router-view
+  main#main
+    #burger
+      a.navbar-burger(
+        :class="{ 'is-active': isDrawer }" @click="isDrawer = !isDrawer"
+      )
+        span
+        span
+        span
+    #main-view
+      router-view
   b-modal(:active.sync="isLoginModal" :can-cancel="false")
     div(ref="auth")
 </template>
@@ -180,6 +180,27 @@ body,
     60% {
       transform: translateY(-5px);
     }
+  }
+}
+
+#main {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+@media screen and (max-width: 800px) {
+  #main {
+    flex-direction: column;
+  }
+}
+
+#burger {
+  display: flex;
+
+  > .navbar-burger {
+    margin-left: unset;
+    display: block !important;
   }
 }
 

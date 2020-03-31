@@ -15,40 +15,34 @@ try {
   await initDatabase(process.env.MONGO_URI!)
 
   const app = fastify({
-    logger: (() => {
-      try {
-        require.resolve('pino-pretty')
-        return {
-          prettyPrint: true,
-        }
-      } catch (_) {}
-    })(),
+    logger: process.env.NODE_ENV === 'development' ? {
+      prettyPrint: true,
+    } : true,
   })
-  app.addHook('preHandler', function (req, reply, done) {
-    if (req.body) {
-      req.log.info({ body: req.body }, 'body')
-    }
 
-    done()
-  })
+  if (process.env.NODE_ENV === 'development') {
+    app.addHook('preHandler', function (req, reply, done) {
+      if (req.body) {
+        req.log.info({ body: req.body }, 'body')
+      }
+
+      done()
+    })
+  }
 
   const port = parseInt(process.env.PORT || (config.port || 24000).toString())
-
-  if (process.env.ADMIN) {
-    app.register(require('fastify-cors'))
-  }
 
   app.register(router, { prefix: '/api' })
 
   app.register(fastifyStatic, {
-    root: path.join(__dirname, 'public'),
+    root: path.resolve('public'),
   })
 
   app.get('*', (req, reply) => {
     reply.sendFile('index.html')
   })
 
-  app.listen(port, (err) => {
+  app.listen(port, process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0', (err) => {
     if (err) {
       throw err
     }
