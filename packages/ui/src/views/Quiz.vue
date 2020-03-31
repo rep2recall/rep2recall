@@ -168,7 +168,7 @@ export default class Quiz extends Vue {
     if (this.key) {
       if (!this.currentQuizMarkdown) {
         const api = await this.getApi()
-        const r = await api.get('/api/quiz/', {
+        const r = await api.get('/api/edit/', {
           params: {
             key: this.key
           }
@@ -176,6 +176,7 @@ export default class Quiz extends Vue {
 
         const matter = new Matter()
         const { header, content } = matter.parse(r.data.markdown || '')
+        this.ctx.self = r.data
         await Promise.all((header.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
         this.currentQuizMarkdown = content

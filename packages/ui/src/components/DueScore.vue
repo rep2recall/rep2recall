@@ -1,8 +1,11 @@
 <template lang="pug">
 .due-score(v-if="isTip || totalCount > 0")
-  .count(style="color: red;") {{count('leech') | format}}
-  .count(style="color: blue;") {{count('due') | format}}
-  .count(style="color: green;") {{count('new') | format}}
+  b-tooltip(label="Leech")
+    .count(style="color: red;") {{count('leech') | format}}
+  b-tooltip(label="Due")
+    .count(style="color: blue;") {{count('due') | format}}
+  b-tooltip(label="New")
+    .count(style="color: green;") {{count('new') | format}}
 </template>
 
 <script lang="ts">

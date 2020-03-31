@@ -173,11 +173,11 @@ export default class Edit extends Vue {
     this.allDecks = stringSorter(Array.from(new Set([...this.allDecks!, this.deck])))
   }
 
-  async getFilteredDecks (text: string) {
+  async getFilteredDecks (text?: string) {
     if (this.allDecks) {
-      this.filteredDecks = this.allDecks.filter((t) => {
+      this.filteredDecks = text ? this.allDecks.filter((t) => t).filter((t) => {
         return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-      })
+      }) : this.allDecks
     }
   }
 
@@ -189,11 +189,14 @@ export default class Edit extends Vue {
     this.allTags = stringSorter(Array.from(new Set([...this.allTags!, ...this.tag])))
   }
 
-  async getFilteredTags (text: string) {
+  async getFilteredTags (text?: string) {
     if (this.allTags) {
-      this.filteredTags = this.allTags.filter((t) => {
-        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-      })
+      this.filteredTags = text ? this.allTags
+        .filter((t) => t)
+        .filter((t) => !this.tag.includes(t))
+        .filter((t) => {
+          return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+        }) : this.allTags
     }
   }
 
@@ -234,11 +237,10 @@ export default class Edit extends Vue {
     valid = !!validator(header)
 
     if (!valid) {
-      for (const e of validator.errors || []) {
-        this.$buefy.snackbar.open(JSON.stringify(e))
-        console.error(e)
-      }
-
+      // for (const e of validator.errors || []) {
+      //   this.$buefy.snackbar.open(e.message || '')
+      //   console.error(e)
+      // }
       return null
     }
 
@@ -365,14 +367,17 @@ export default class Edit extends Vue {
 
   async onCmCodeChange () {
     this.isEdited = true
-    this.getAndValidateHeader(false)
+    const self = this.getAndValidateHeader(false)
     this.key = this.key || this.matter.header.key
 
     await Promise.all((this.matter.header.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
-      this.makeHtml.patch(document.body, hbs.compile(this.markdown)(this.ctx))
+      this.makeHtml.patch(document.body, hbs.compile(this.markdown)({
+        self,
+        ...this.ctx
+      }))
       this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
         el.setAttribute('data-loaded', '1')
 

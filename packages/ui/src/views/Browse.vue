@@ -54,7 +54,8 @@
             span(v-if="h.field === 'tag'")
               b-taglist
                 b-tag(v-for="t in props.row.tag" :key="t") {{t}}
-            span(v-else) {{props.row[h.field] | format}}
+            div(v-else style="max-height: 200px; overflow: scroll;")
+              span {{props.row[h.field] | format}}
         template(slot="detail" slot-scope="props")
           .container(style="max-width: 800px; max-height: 300px; overflow: scroll;")
             .content(
@@ -112,7 +113,7 @@ export default class Query extends Vue {
   headers = [
     { label: 'Key', field: 'key', width: 150, sortable: true },
     { label: 'Deck', field: 'deck', width: 200, sortable: true },
-    { label: 'Markdown', field: 'markdown' },
+    { label: 'Data', field: 'data' },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
     { label: 'Tag', field: 'tag', width: 200 }
@@ -139,7 +140,9 @@ export default class Query extends Vue {
 
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
-    return makeHtml.getHTML(item.markdown)
+    return makeHtml.getHTML(hbs.compile(item.markdown)({
+      self: item
+    }))
   }
 
   async getApi (silent?: boolean) {
@@ -169,7 +172,8 @@ export default class Query extends Vue {
     this.$set(this, 'items', r.data.data.map((el: any) => {
       return {
         ...el,
-        markdown: (el.markdown || '').substr(0, 140),
+        data: el.data ? JSON.stringify(el.data) : undefined,
+        // markdown: (el.markdown || '').substr(0, 140),
         tag: stringSorter(el.tag || []),
         nextReview: el.nextReview ? new Date(el.nextReview) : undefined
       }
