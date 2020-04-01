@@ -143,7 +143,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     })
 
-    return Object.entries(deckStat).map(([k, v]) => ({
+    return Object.entries(deckStat).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => ({
       ...v,
       deck: k,
     }))

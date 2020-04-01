@@ -98,6 +98,34 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   })
 
+  f.put('/multi', {
+    schema: {
+      summary: 'Create multiple items',
+      tags: ['edit'],
+      body: {
+        type: 'object',
+        required: ['entries'],
+        properties: {
+          entries: { type: 'array', items: { type: 'object' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            keys: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  }, async (req) => {
+    const docs = await db.create(...req.body.entries)
+
+    return {
+      keys: (docs || []).map((el) => el.key),
+    }
+  })
+
   f.patch('/', {
     schema: {
       summary: 'Update items',

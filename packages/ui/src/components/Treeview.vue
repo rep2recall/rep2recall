@@ -3,17 +3,17 @@ ul.menu-list
   li(v-for="it in decksAtThisLevel" :key="it.deck")
     a
       .caret(@click="open = !open")
-        span(v-if="subDecksExists(it.deck)")
+        span(v-if="subDecks(it.deck).length > 0")
           fontawesome(v-if="open" icon="caret-down")
           fontawesome(v-else icon="caret-right")
       b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
-        span(role="button" @click="handler.quiz(it.deck)") {{it.deck.split('/')[depth]}}
+        span(role="button" @click="handler.quiz(it.deck)") {{it.ds[depth]}}
       div(style="flex-grow: 1;")
       DueScore(
-        :is-tip="!subDecksExists(it.deck)"
+        :is-tip="subDecks(it.deck).length === 0"
         :data="data" :deck="it.deck" :exact="open" @has-review="it.hasReview = $event"
       )
-    Treeview(v-if="open && subDecksExists(it.deck)" :data="data" :depth="depth + 1" :handler="handler")
+    Treeview(v-if="open && subDecks(it.deck).length > 0" :data="subDecks(it.deck)" :depth="depth + 1" :handler="handler")
 </template>
 
 <script lang="ts">
@@ -29,35 +29,41 @@ import DueScore from './DueScore.vue'
 })
 export default class Treeview extends Vue {
   @Prop({ required: true }) data!: any[]
-  @Prop({ default: 0 }) depth!: number
   @Prop({ required: true }) handler!: any
+  @Prop({ default: 0 }) depth!: number
 
-  open = true
+  open = this.depth < 3
 
   get decksAtThisLevel () {
-    const subData = this.data
-      .filter(it => it.deck.split('/').length >= this.depth + 1)
-      .map(it => {
-        return {
-          ...it,
-          hasReview: false,
-          deck: it.deck.split('/').slice(0, this.depth + 1).join('/')
+    const subData = {} as any
+
+    this.data
+      .map((d) => ({
+        ...d,
+        ds: d.deck.split('/')
+      }))
+      .filter(({ ds }) => ds.length >= this.depth + 1)
+      .map((it) => {
+        const deck = it.ds.slice(0, this.depth + 1).join('/')
+
+        if (!subData[deck]) {
+          subData[deck] = {
+            ...it,
+            hasReview: false,
+            deck
+          }
         }
       })
     
-    const decks = subData.map(it => it.deck)
-    
-    return subData.filter((it, i) => decks.indexOf(it.deck) === i)
+    return Object.entries(subData).sort(([a], [b]) => a.localeCompare(b)).map(([_, v]) => v)
   }
 
   mounted () {
     this.$forceUpdate()
   }
 
-  subDecksExists (deck: string) {
-    return this.data
-      .filter(it => it.deck.startsWith(`${deck}/`))
-      .length > 0
+  subDecks (deck: string) {
+    return this.data.filter(it => it.deck.startsWith(`${deck}/`))
   }
 }
 </script>

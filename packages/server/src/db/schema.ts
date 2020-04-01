@@ -11,21 +11,59 @@ import { mapAsync, ser } from '../utils'
 
 class DbUser {
   @prop({ default: () => shortid.generate() }) _id!: string
-  @prop({ required: true }) email!: string
+  @prop({ required: true, unique: true }) email!: string
 }
 
 export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
 
 class DbTag {
   @prop({ default: () => shortid.generate() }) _id!: string
-  @prop({ required: true }) name!: string
+  @prop({ required: true, unique: true }) name!: string
+
+  static async upsert (name: string) {
+    let id: string | null = null
+    try {
+      let item = await DbTagModel.findOne({ name })
+      if (!item) {
+        item = await DbTagModel.create({ name })
+      }
+
+      id = item._id
+    } catch (_) {
+      const item = await DbTagModel.findOne({ name })
+      if (item) {
+        id = item._id
+      }
+    }
+
+    return id
+  }
 }
 
 export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
 
 class DbDeck {
   @prop({ default: () => shortid.generate() }) _id!: string
-  @prop({ required: true }) name!: string
+  @prop({ required: true, unique: true }) name!: string
+
+  static async upsert (name: string) {
+    let id: string | null = null
+    try {
+      let item = await DbDeckModel.findOne({ name })
+      if (!item) {
+        item = await DbDeckModel.create({ name })
+      }
+
+      id = item._id
+    } catch (_) {
+      const item = await DbDeckModel.findOne({ name })
+      if (item) {
+        id = item._id
+      }
+    }
+
+    return id
+  }
 }
 
 export const DbDeckModel = getModelForClass(DbDeck, { schemaOptions: { collection: 'deck', timestamps: true } })
@@ -197,10 +235,7 @@ class Db {
       .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
 
     await mapAsync(Object.keys(allTags), async (t) => {
-      const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
-        upsert: true, new: true, setDefaultsOnInsert: true,
-      })
-      allTags[t] = el._id
+      allTags[t] = await DbTagModel.upsert(t)
     })
 
     const allDecks = entries
@@ -209,10 +244,7 @@ class Db {
       .reduce((prev, c) => ({ ...prev, [c!]: null }), {} as Record<string, string | null>)
 
     await mapAsync(Object.keys(allDecks), async (t) => {
-      const el = await DbDeckModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
-        upsert: true, new: true, setDefaultsOnInsert: true,
-      })
-      allDecks[t] = el._id
+      allDecks[t] = await DbDeckModel.upsert(t)
     })
 
     const items = await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
@@ -285,21 +317,14 @@ class Db {
         .reduce((prev, c) => ({ ...prev, [c]: null }), {} as Record<string, string | null>)
 
       await mapAsync(Object.keys(allTags), async (t) => {
-        const el = await DbTagModel.findOneAndUpdate({ name: t }, { $set: { name: t } }, {
-          upsert: true, new: true, setDefaultsOnInsert: true,
-        })
-        allTags[t] = el._id
+        allTags[t] = await DbTagModel.upsert(t)
       });
 
       (card as any).tag = tag.map((t) => allTags[t])
     }
 
     if (deck) {
-      const el = await DbDeckModel.findOneAndUpdate({ name: deck }, { $set: { name: deck } }, {
-        upsert: true, new: true, setDefaultsOnInsert: true,
-      });
-
-      (card as any).deckId = el._id
+      (card as any).deckId = await DbDeckModel.upsert(deck)
     }
 
     if (Object.keys(card).length > 0) {
