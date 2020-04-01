@@ -20,13 +20,21 @@
     .card
       .card-content
         iframe(ref="quizIframe" frameborder="0")
-      .buttons(v-if="currentQuizIndex < 0 && quizKeys.length > 0")
+      .buttons-area.buttons(v-if="currentQuizIndex < 0 && quizKeys.length > 0")
         button.button.is-success(@click="nextQuizItem") Start quiz
-      .buttons(v-else-if="!key")
+      .buttons-area.buttons(v-else-if="!key")
         button.button.is-warning(@click="endQuiz") End quiz
-      .buttons(v-else-if="!isQuizShownAnswer")
+      .buttons-area.buttons(v-else-if="!isQuizShownAnswer")
         button.button.is-warning(@click="isQuizShownAnswer = true") Show answer
-      .buttons(v-else)
+      .buttons-area(v-else-if="$mq === 'sm'" style="display: flex; flex-direction: column;")
+        .buttons
+          button.button.is-success(@click="markRight") Right
+          button.button.is-danger(@click="markWrong") Wrong
+          button.button.is-warning(@click="markRepeat") Repeat
+        .buttons
+          button.button.is-warning(@click="isQuizShownAnswer = false") Hide answer
+          a.button.is-info(:href="getEditTo(key)" target="_blank") Edit
+      .buttons-area.buttons(v-else)
         button.button.is-warning(@click="isQuizShownAnswer = false") Hide answer
         button.button.is-success(@click="markRight") Right
         button.button.is-danger(@click="markWrong") Wrong
@@ -302,6 +310,21 @@ export default class Quiz extends Vue {
       height: 100%;
       width: 90vw;
       border-bottom: 1px solid #ccc;
+    }
+  }
+
+  @media screen and (max-width: 500px) {
+    .card-content {
+      height: calc(100% - 100px);
+    }
+
+    .buttons {
+      padding-bottom: 0 !important;
+      margin-bottom: 0;
+    }
+
+    .buttons-area {
+      height: 100px;
     }
   }
 

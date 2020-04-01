@@ -6,7 +6,7 @@ section.editor
     b-button.is-success(:disabled="!isEdited" @click="save") Save
   .columns
     .column(
-      style="height: 100vh; overflow-y: scroll;"
+      style="height: calc(100vh - 60px); overflow-y: scroll;"
       :class="hasPreview ? ($mq === 'lg' ? 'is-6' : 'd-none') : 'is-12'"
       @scroll="onScroll"
     )
@@ -66,7 +66,7 @@ import MakeHtml from '../make-html'
   }
 })
 export default class Edit extends Vue {
-  hasPreview = this.$mq === 'lg'
+  hasPreview = false
   isEdited = false
   markdown = ''
   scrollSize = 0
@@ -110,6 +110,7 @@ export default class Edit extends Vue {
   }
 
   created () {
+    this.hasPreview = this.$mq === 'lg'
     this.load()
   }
 

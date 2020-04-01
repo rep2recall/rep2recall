@@ -70,20 +70,20 @@ export const DbDeckModel = getModelForClass(DbDeck, { schemaOptions: { collectio
 
 @index({ key: 1, userId: 1 }, { unique: true, sparse: true })
 class DbCard {
-  @prop({ required: true }) userId!: string
+  @prop({ required: true, index: true }) userId!: string
 
   /**
    * Explicit fields
    */
-  @prop() deckId?: string
-  @prop() tag?: string[] // TagId-reference
+  @prop({ index: true }) deckId?: string
+  @prop({ index: true }) tag?: string[] // TagId-reference
 
   /**
    * Frontmatter
    */
   @prop({ default: () => shortid.generate() }) key!: string
   @prop() data?: Record<string, any>
-  @prop() ref?: string[] // SelfId-reference
+  @prop({ index: true }) ref?: string[] // SelfId-reference
 
   /**
    * Content
