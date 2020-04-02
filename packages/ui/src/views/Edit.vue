@@ -376,8 +376,8 @@ export default class Edit extends Vue {
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
-      this.makeHtml.patch(document.body, hbs.compile(this.markdown)({
-        self,
+      this.makeHtml.patch(document.body, hbs.compile(new Matter().parse(this.markdown).content)({
+        [this.key]: self,
         ...this.ctx
       }))
       this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {

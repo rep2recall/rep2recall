@@ -91,10 +91,10 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       },
     },
   }, async (req) => {
-    const docs = await db.create(req.body)
+    const keys = await db.create(req.body)
 
     return {
-      key: (docs || []).map((el) => el.key)[0],
+      key: keys[0],
     }
   })
 
@@ -119,10 +119,10 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       },
     },
   }, async (req) => {
-    const docs = await db.create(...req.body.entries)
+    const keys = await db.create(...req.body.entries)
 
     return {
-      keys: (docs || []).map((el) => el.key),
+      keys,
     }
   })
 

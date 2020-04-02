@@ -247,7 +247,7 @@ class Db {
       allDecks[t] = await DbDeckModel.upsert(t)
     })
 
-    const items = await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
+    const items = (await DbCardModel.insertMany(ser.clone(entries.map((el) => ({
       userId: this.user!._id,
       deckId: el.deck ? allDecks[el.deck] : undefined,
       key: el.key || undefined,
@@ -255,20 +255,21 @@ class Db {
       tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
       ref: el.ref || undefined,
       markdown: el.markdown || undefined,
-    }))))
+    }))), { ordered: false })).reduce((prev, c) => ({ ...prev, [c.key]: c._id }), {} as any)
 
     await DbQuizModel.insertMany(entries
-      .map((el, i) => {
-        const { nextReview, srsLevel, stat } = el
+      .filter((el) => el.key && items[el.key])
+      .map((el) => {
+        const { nextReview, srsLevel, stat, key } = el
         if (!(nextReview && typeof srsLevel === 'number' && stat)) {
           return null
         }
 
-        return { nextReview: dayjs(nextReview).toDate(), srsLevel, stat, cardId: items[i]._id }
+        return { nextReview: dayjs(nextReview).toDate(), srsLevel, stat, cardId: items[key!] }
       })
-      .filter((el) => el))
+      .filter((el) => el), { ordered: false })
 
-    return items
+    return Object.keys(items) as string[]
   }
 
   async delete (...keys: string[]) {

@@ -183,9 +183,9 @@ export default class Quiz extends Vue {
         })
 
         const matter = new Matter()
-        const { header, content } = matter.parse(r.data.markdown || '')
-        this.ctx.self = r.data
-        await Promise.all((header.ref || []).map((r0: string) => this.onCtxChange(r0)))
+        const { content } = matter.parse(r.data.markdown || '')
+        this.ctx[this.key] = r.data
+        await Promise.all((r.data.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
         this.currentQuizMarkdown = content
       }
