@@ -10,10 +10,10 @@ ul.menu-list
         span(role="button" @click="handler.quiz(it.deck)") {{it.ds[depth]}}
       div(style="flex-grow: 1;")
       DueScore(
-        :is-tip="subDecks(it.deck).length === 0"
+        :is-tip="!hasTreeview(it.deck)"
         :data="data" :deck="it.deck" :exact="open" @has-review="it.hasReview = $event"
       )
-    Treeview(v-if="open && subDecks(it.deck).length > 0" :data="subDecks(it.deck)" :depth="depth + 1" :handler="handler")
+    Treeview(v-if="hasTreeview(it.deck)" :data="subDecks(it.deck)" :depth="depth + 1" :handler="handler")
 </template>
 
 <script lang="ts">
@@ -64,6 +64,10 @@ export default class Treeview extends Vue {
 
   subDecks (deck: string) {
     return this.data.filter(it => it.deck.startsWith(`${deck}/`))
+  }
+
+  hasTreeview (deck: string) {
+    return this.open && this.subDecks(deck).length > 0
   }
 }
 </script>
