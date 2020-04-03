@@ -6,8 +6,12 @@ Vue.use(VueRouter)
 const router = new VueRouter({
   routes: [
     {
-      path: '/quiz',
+      path: '/lesson',
       alias: '/',
+      component: () => import('@/views/Lesson.vue'),
+    },
+    {
+      path: '/quiz/:name',
       component: () => import('@/views/Quiz.vue'),
     },
     {

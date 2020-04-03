@@ -82,6 +82,10 @@ export default class Quiz extends Vue {
     return this.quizKeys[this.currentQuizIndex]
   }
 
+  get lessonName () {
+    return this.$route.params.name
+  }
+
   mounted () {
     this.load()
   }
@@ -101,7 +105,7 @@ export default class Quiz extends Vue {
 
   async load (silent?: boolean) {
     const api = await this.getApi(silent)
-    const data = (await api.post('/api/quiz/stat', { q: this.q })).data
+    const data = (await api.post('/api/quiz/stat', { q: this.q, lesson: this.lessonName })).data
     this.$set(this, 'data', data)
   }
 
@@ -112,7 +116,7 @@ export default class Quiz extends Vue {
 
   onSearch () {
     this.$router.push({
-      path: '/quiz',
+      path: `/quiz/${this.lessonName}`,
       query: {
         q: this.q
       }
@@ -123,7 +127,11 @@ export default class Quiz extends Vue {
   async onActiveDeckChange () {
     if (this.activeDeck) {
       const api = await this.getApi()
-      const keys: string[] = (await api.post('/api/quiz/', { q: this.q, deck: this.activeDeck })).data.keys
+      const keys: string[] = (await api.post('/api/quiz/', {
+        q: this.q,
+        lesson: this.lessonName,
+        deck: this.activeDeck
+      })).data.keys
       let next = {
         hour: 0,
         day: 0
@@ -133,8 +141,16 @@ export default class Quiz extends Vue {
 
       if (!(keys.length > 0)) {
         const [hour, day] = await Promise.all([
-          api.post('/api/quiz/', { q: `${this.q} nextReview<+1h`, deck: this.activeDeck }),
-          api.post('/api/quiz/', { q: `${this.q} nextReview<+1d`, deck: this.activeDeck })
+          api.post('/api/quiz/', {
+            q: `${this.q} nextReview<+1h`,
+            lesson: this.lessonName,
+            deck: this.activeDeck
+          }),
+          api.post('/api/quiz/', {
+            q: `${this.q} nextReview<+1d`,
+            lesson: this.lessonName,
+            deck: this.activeDeck
+          })
         ])
         next = {
           hour: hour.data.keys.length,
