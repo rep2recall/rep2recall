@@ -5,25 +5,36 @@ import { db } from '../db/schema'
 import { shuffle } from '../utils'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
+  f.get('/lessons', {
+    schema: {
+      summary: 'List all lessons',
+      tags: ['quiz'],
+    },
+  }, async () => {
+    return {
+      entries: await db.listLessons(),
+    }
+  })
+
   f.post('/', {
     schema: {
       summary: 'Query for card ids, for use in quiz',
       tags: ['quiz'],
       body: {
         type: 'object',
-        required: ['q', 'deck'],
+        required: ['q', 'deck', 'lesson'],
         properties: {
           q: { type: ['string', 'object'] },
           deck: { type: 'string' },
-          type: { type: 'string', enum: ['all', 'due', 'leech', 'new'] },
+          lesson: { type: 'string' },
         },
       },
     },
   }, async (req) => {
-    const { q, deck, type } = req.body
+    const { q, deck, lesson } = req.body
 
     let $or = [
-      typeof q === 'string' ? db.qSearch.parse(q).cond : q,
+      typeof q === 'string' ? db.lessonSearch.parse(q).cond : q,
     ]
 
     $or = $or.map((cond) => {
@@ -39,42 +50,22 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       ]
     }).reduce((a, b) => [...a, ...b])
 
-    let dueOrNew = false
+    $or = $or.map((cond) => {
+      return [
+        {
+          nextReview: { $exists: false },
+          ...cond,
+        },
+        {
+          nextReview: { $lte: new Date() },
+          ...cond,
+        },
+      ]
+    }).reduce((a, b) => [...a, ...b])
 
-    if (type !== 'all') {
-      if (type === 'due') {
-        $or.map((cond) => {
-          cond.nextReview = { $lte: new Date() }
-        })
-      } else if (type === 'leech') {
-        $or.map((cond) => {
-          cond.srsLevel = 0
-        })
-      } else if (type === 'new') {
-        $or.map((cond) => {
-          cond.nextReview = { $exists: false }
-        })
-      } else {
-        dueOrNew = true
-      }
-    }
-
-    if (dueOrNew) {
-      $or = $or.map((cond) => {
-        return [
-          {
-            nextReview: { $exists: false },
-            ...cond,
-          },
-          {
-            nextReview: { $lte: new Date() },
-            ...cond,
-          },
-        ]
-      }).reduce((a, b) => [...a, ...b])
-    }
-
-    const rs = await db.aggregate([], [
+    const rs = await db.aggregateLesson([
+      { $match: { key: lesson } },
+    ], [
       { $match: { $or } },
       {
         $project: {
@@ -94,18 +85,23 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['quiz'],
       body: {
         type: 'object',
-        required: ['q'],
+        required: ['q', 'lesson'],
         properties: {
           q: { type: ['string', 'object'] },
+          lesson: { type: 'string' },
         },
       },
     },
   }, async (req) => {
-    const { q } = req.body
-    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
+    const { q, lesson } = req.body
+    const cond = typeof q === 'string' ? db.lessonSearch.parse(q).cond : q
 
-    const rs = await db.aggregate([], [
-      { $match: cond },
+    const rs = await db.aggregateLesson([
+      { $match: { key: lesson } },
+    ], [
+      {
+        $match: cond,
+      },
       {
         $project: {
           deck: 1,

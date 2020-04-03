@@ -2,31 +2,31 @@
 #app
   nav#main-nav(v-if="isDrawer")
     nav#icon-nav(style="margin-top: 1em;")
-      router-link.flex-center-left-inline(to="/quiz")
-        fontawesome(:icon="['far', 'question-circle']")
-        span Quiz
-      router-link.flex-center-left-inline(to="/edit")
+      router-link.nav-link(to="/lesson" :class="{ active: $route.path === '/lesson' }")
+        fontawesome(icon="chalkboard-teacher")
+        span Lesson
+      router-link.nav-link(to="/edit" :class="{ active: $route.path === '/edit' }")
         fontawesome(:icon="['far', 'edit']")
         span Edit
-      router-link.flex-center-left-inline(to="/browse")
+      router-link.nav-link(to="/browse" :class="{ active: $route.path === '/browse' }")
         fontawesome(icon="list")
         span Browse
-      span.flex-center-left-inline(style="color: gray; cursor: not-allowed;")
+      span.nav-link(style="color: gray; cursor: not-allowed;")
         fontawesome(icon="cog")
         span Settings
-      router-link.flex-center-left-inline(to="/community")
+      router-link.nav-link(to="/community" :class="{ active: $route.path === '/community' }")
         fontawesome(icon="users")
         span Community
-      a.flex-center-left-inline(href="https://github.com/patarapolw/rep2recall" target="_blank" rel="noopener")
+      a.nav-link(href="https://github.com/patarapolw/rep2recall" target="_blank" rel="noopener")
         fontawesome(:icon="['fab', 'github']")
         span About
     div(style="flex-grow: 1;")
     nav#icon-nav(style="margin-bottom: 0.5em;")
-      a.flex-center-left-inline(v-if="user" @click="doLogout")
+      a.nav-link(v-if="user" @click="doLogout")
         figure.image.is-48x48(style="margin-left: 0.5em; margin-right: 1em;")
           img.is-rounded(:src="getGravatarUrl(user.email)" :alt="user.email")
         span {{user.email}}
-      a.flex-center-left-inline(v-else role="button")
+      a.nav-link(v-else role="button")
         fontawesome(icon="user-slash")
         span Not Logged In
   main#main
@@ -156,40 +156,13 @@ body,
     align-self: center;
   }
 
-  .arrow-up,
-  .arrow-down {
-    margin: 0 auto;
-    margin-bottom: 1em;
+  .nav-link {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 
-    width: 0;
-    height: 20px;
-    border-left: 20px solid transparent;
-    border-right: 20px solid transparent;
-
-    animation: bounce 2s infinite;
-  }
-
-  .arrow-up {
-    border-bottom: 15px solid gray;
-  }
-
-  .arrow-down {
-    border-top: 15px solid gray;
-  }
-
-  @keyframes bounce {
-    0%,
-    20%,
-    50%,
-    80%,
-    100% {
-      transform: translateY(0);
-    }
-    40% {
-      transform: translateY(-10px);
-    }
-    60% {
-      transform: translateY(-5px);
+    &.active {
+      background-color: #eee;
     }
   }
 }
@@ -221,11 +194,5 @@ body,
   flex-grow: 1;
   margin-left: 1em;
   margin-right: 1em;
-}
-
-.flex-center-left-inline {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
 }
 </style>

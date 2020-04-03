@@ -18,11 +18,6 @@ section.editor
           a.card-header-icon
             b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
         .card-content
-          b-field(label="Deck" label-position="on-border")
-            b-autocomplete(
-              v-model="deck"
-              open-on-focus :data="filteredDecks" @focus="initFilteredDecks" @typing="getFilteredDecks"
-            )
           b-field(label="Tag" label-position="on-border")
             b-taginput(
               v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
@@ -71,10 +66,6 @@ export default class Edit extends Vue {
   markdown = ''
   scrollSize = 0
   key = Math.random().toString(36).substr(2)
-
-  deck = ''
-  filteredDecks: string[] = []
-  allDecks: string[] | null = null
 
   tag: string[] = []
   filteredTags: string[] = []
@@ -167,22 +158,6 @@ export default class Edit extends Vue {
     return dayjs(d).format('YYYY-MM-DD HH:mm Z')
   }
 
-  async initFilteredDecks () {
-    if (!this.allDecks) {
-      const api = await this.getApi(true)
-      this.allDecks = (await api.get('/api/edit/deck')).data.decks
-    }
-    this.allDecks = stringSorter(Array.from(new Set([...this.allDecks!, this.deck])))
-  }
-
-  async getFilteredDecks (text?: string) {
-    if (this.allDecks) {
-      this.filteredDecks = text ? this.allDecks.filter((t) => t).filter((t) => {
-        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-      }) : this.allDecks
-    }
-  }
-
   async initFilteredTags () {
     if (!this.allTags) {
       const api = await this.getApi(true)
@@ -233,7 +208,20 @@ export default class Edit extends Vue {
         data: { type: getType('object') },
         nextReview: { type: getType('string') },
         srsLevel: { type: getType('integer') },
-        stat: { type: getType('object') }
+        stat: { type: getType('object') },
+        lesson: {
+          type: 'object',
+          items: {
+            type: 'object',
+            required: ['key', 'name', 'deck'],
+            properties: {
+              key: { type: 'string' },
+              name: { type: 'string' },
+              description: { type: 'string' },
+              deck: { type: 'string' }
+            }
+          }
+        }
       }
     })
     valid = !!validator(header)
@@ -253,6 +241,12 @@ export default class Edit extends Vue {
       nextReview?: string
       srsLevel?: number
       stat?: any
+      lesson?: {
+        key: string
+        name: string
+        deck: string
+        description?: string
+      }[]
     }
   }
 
@@ -273,21 +267,20 @@ export default class Edit extends Vue {
 
       if (r.data) {
         const {
-          deck, tag,
-          key, ref, data,
+          tag,
+          key, ref, lesson, data,
           nextReview, srsLevel, stat,
           markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
         Object.assign(header, {
-          key, ref, data,
+          key, ref, lesson, data,
           srsLevel, stat,
           nextReview,
         })
 
         this.markdown = this.matter.stringify(content, nullifyObject(header))
-        this.deck = deck
         this.$set(this, 'tag', tag)
         isSet = true
       }
@@ -298,7 +291,6 @@ export default class Edit extends Vue {
 
     if (!isSet) {
       this.markdown = ''
-      this.deck = ''
       this.$set(this, 'tag', [])
     }
 
@@ -318,17 +310,16 @@ export default class Edit extends Vue {
       return
     }
 
-    const { key, ref, data, srsLevel, stat, nextReview } = header
+    const { key, ref, data, srsLevel, stat, nextReview, lesson } = header
 
     let { content: markdown } = this.matter.parse(this.markdown)
     markdown = this.matter.stringify(markdown, Object.entries(header)
-      .filter(([k]) => !['key', 'ref', 'data', 'srsLevel', 'stat', 'nextReview'].includes(k))
+      .filter(([k]) => !['key', 'ref', 'data', 'srsLevel', 'stat', 'nextReview', 'lesson'].includes(k))
       .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any))
 
     const content = {
-      key, ref, data, srsLevel, stat, nextReview,
+      key, ref, data, srsLevel, stat, nextReview, lesson,
       markdown,
-      deck: this.deck,
       tag: this.tag,
     }
 
@@ -349,7 +340,6 @@ export default class Edit extends Vue {
       this.key = header.key || this.key
     }
 
-    this.initFilteredDecks()
     this.initFilteredTags()
 
     if (this.$route.query.key !== this.key) {

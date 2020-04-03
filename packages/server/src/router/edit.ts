@@ -49,7 +49,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     let { q, cond, offset = 0, limit, sort, count } = req.body
 
     if (typeof q === 'string') {
-      q = db.qSearch.parse(q).cond
+      q = db.cardSearch.parse(q).cond
     }
 
     if (cond) {
@@ -57,7 +57,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
 
     const [rData, rCount] = await Promise.all([
-      db.aggregate([], [
+      db.aggregateCard([], [
         { $match: q },
         { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
         { $skip: offset },
@@ -65,7 +65,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           { $limit: limit },
         ] : []),
       ]),
-      count ? db.aggregate([], [
+      count ? db.aggregateCard([], [
         { $match: q },
         { $count: 'count' },
       ]) : null,
