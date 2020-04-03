@@ -11,10 +11,10 @@
       router-link.flex-center-left-inline(to="/browse")
         fontawesome(icon="list")
         span Browse
-      router-link.flex-center-left-inline(to="/settings")
+      span.flex-center-left-inline(style="color: gray; cursor: not-allowed;")
         fontawesome(icon="cog")
         span Settings
-      span.flex-center-left-inline(style="color: gray; cursor: not-allowed;")
+      router-link.flex-center-left-inline(to="/community")
         fontawesome(icon="users")
         span Community
       a.flex-center-left-inline(href="https://github.com/patarapolw/rep2recall" target="_blank" rel="noopener")
@@ -64,6 +64,10 @@ export default class App extends Vue {
     return this.$store.state.user
   }
 
+  get isAuthenticated () {
+    return this.$store.state.lastStatus !== 401
+  }
+
   mounted () {
     this.isDrawer = this.$mq === 'lg'
     if (!this.user) {
@@ -93,6 +97,13 @@ export default class App extends Vue {
         })
       }
     })
+  }
+
+  @Watch('isAuthenticated')
+  onLogout () {
+    if (!this.isAuthenticated) {
+      this.isLoginModal = true
+    }
   }
 
   doLogout () {
@@ -125,7 +136,7 @@ body,
   z-index: 10;
   display: flex;
   flex-direction: column;
-  width: 250px;
+  width: 300px;
 
   nav {
     display: flex;
@@ -187,6 +198,8 @@ body,
   display: flex;
   flex-direction: row;
   width: 100%;
+  height: 100vh;
+  overflow: scroll;
 }
 
 @media screen and (max-width: 800px) {

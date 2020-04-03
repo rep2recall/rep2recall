@@ -120,6 +120,7 @@ export default class Query extends Vue {
   ]
 
   perPage = 5
+  ctx: any = {}
 
   get page () {
     return parseInt(normalizeArray(this.$route.query.page) || '1')
@@ -141,7 +142,8 @@ export default class Query extends Vue {
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
     return makeHtml.getHTML(hbs.compile(item.markdown)({
-      self: item
+      [item.key]: item,
+      ...this.ctx
     }))
   }
 
@@ -166,6 +168,11 @@ export default class Query extends Vue {
       },
       count: true
     })
+
+    await Promise.all((r.data.data as any[])
+      .map((el) => el.ref || [])
+      .reduce((prev, c) => [...prev, ...c], [])
+      .map((r0: string) => this.onCtxChange(r0)))
 
     this.count = r.data.count
 
@@ -256,6 +263,21 @@ export default class Query extends Vue {
 
       this.load()
     })
+  }
+
+  async onCtxChange (key: string) {
+    if (!this.ctx[key]) {
+      const api = await this.getApi(true)
+      try {
+        const r = await api.get('/api/edit/', {
+          params: {
+            key
+          }
+        })
+        this.ctx[key] = r.data
+        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+      } catch (_) {}
+    }
   }
 }
 </script>

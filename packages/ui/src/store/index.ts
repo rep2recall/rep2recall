@@ -15,6 +15,7 @@ let requestTimeout: NodeJS.Timeout | null = null
 const store = new Vuex.Store({
   state: {
     user: null as User | null,
+    lastStatus: 200,
   },
   mutations: {
     setUser (state, user) {
@@ -23,10 +24,23 @@ const store = new Vuex.Store({
     removeUser (state) {
       state.user = null
     },
+    setLastStatus (state, status) {
+      state.lastStatus = status
+    },
   },
   actions: {
-    async getApi ({ state }, silent = false) {
-      const api = axios.create()
+    async getApi ({ state, commit }, silent = false) {
+      const api = axios.create({
+        validateStatus: (status) => {
+          commit('setLastStatus', status)
+
+          if (status === 401) {
+            return true
+          }
+
+          return status >= 200 && status < 300 // default
+        },
+      })
 
       if (state.user) {
         api.defaults.headers.Authorization = `Bearer ${await state.user.getIdToken()}`
@@ -81,6 +95,8 @@ const store = new Vuex.Store({
             clearTimeout(requestTimeout)
             requestTimeout = null
           }
+
+          console.error(JSON.stringify(err))
 
           Snackbar.open(err.message)
           return err
