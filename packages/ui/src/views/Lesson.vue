@@ -29,7 +29,7 @@ export default class Lesson extends Vue {
   created () {
     this.load()
   }
-  
+
   async getApi (silent?: boolean) {
     return await this.$store.dispatch('getApi', silent) as AxiosInstance
   }

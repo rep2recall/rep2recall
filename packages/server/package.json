@@ -29,12 +29,14 @@
     "fastify-static": "^2.6.0",
     "firebase-admin": "^8.10.0",
     "mongoose": "^5.9.6",
+    "nanoid": "^3.0.2",
     "runtypes": "^4.2.0",
     "shortid": "^2.2.15"
   },
   "devDependencies": {
     "@types/mongodb": "^3.5.3",
     "@types/mongoose": "^5.7.7",
+    "@types/nanoid": "^2.1.0",
     "@types/node": "^13.9.1",
     "@types/shortid": "0.0.29",
     "dotenv": "^8.2.0",

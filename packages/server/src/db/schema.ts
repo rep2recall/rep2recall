@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
 import shortid from 'shortid'
 import dotProp from 'dot-prop'
+import { nanoid } from 'nanoid'
 
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
@@ -37,76 +38,10 @@ class DbTag {
 
 export const DbTagModel = getModelForClass(DbTag, { schemaOptions: { collection: 'tag', timestamps: true } })
 
-@index({ userId: 1, key: 1 }, { unique: true })
 class DbLesson {
-  @prop({ required: true, ref: 'DbUser' }) userId!: Ref<DbUser>
-  @prop({ required: true }) key!: string
+  @prop({ default: () => nanoid() }) _id!: string
   @prop({ required: true }) name!: string
-  @prop({ default: '' }) description!: string
-
-  static async upsert (entry: {
-    userId: Ref<DbUser>
-    key: string
-    name?: string
-    description?: string
-  }) {
-    const { userId, key } = entry
-
-    let item: DocumentType<DbLesson> | null = null
-    try {
-      item = await DbLessonModel.findOne({ userId, key })
-      if (!item) {
-        // if (!entry.name) {
-        //   throw new Error('Name is required.')
-        // }
-        item = await DbLessonModel.create(entry)
-      }
-    } catch (_) {
-      item = await DbLessonModel.findOne({ userId, key })
-    }
-
-    return item
-  }
-
-  static async upsertAll (userId: any, allLessons: {
-    [key: string]: {
-      _id?: Ref<DbLesson>
-      name?: string | null
-      description?: string | null
-      decks: {
-        [name: string]: Ref<DbCard>[]
-      }
-    }
-  }) {
-    await mapAsync(Object.entries(allLessons), async ([key, ls]) => {
-      const lesson = await DbLessonModel.upsert({
-        userId,
-        key,
-        name: ls.name || undefined,
-        description: ls.description || '',
-      })
-      allLessons[key]._id = lesson!._id
-    })
-
-    const lsPromises: Promise<any>[] = []
-
-    Object.entries(allLessons).map(([key, ls]) => {
-      Object.entries(ls.decks).map(([deck, ids]) => {
-        lsPromises.push((async () => {
-          const d = (await DbDeck.upsert({
-            name: deck,
-            lessonId: ls._id!,
-          }))!
-
-          d.cardIds.push(...ids)
-          d.cardIds = Array.from(new Set(d.cardIds))
-          await d.save()
-        })())
-      })
-    })
-
-    await Promise.all(lsPromises)
-  }
+  @prop() description?: string
 }
 
 export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { collection: 'lesson', timestamps: true } })
@@ -114,7 +49,7 @@ export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { colle
 class DbDeck {
   @prop({ required: true }) name!: string
   @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: Ref<DbCard>[]
-  @prop({ required: true, ref: 'DbLesson' }) lessonId!: Ref<DbLesson>
+  @prop({ ref: 'DbLesson' }) lessonId?: Ref<DbLesson>
 
   static async upsert (entry: {
     name: string
@@ -150,7 +85,7 @@ class DbCard {
    */
   @prop({ required: true }) key!: string
   @prop() data?: Record<string, any>
-  @prop({ index: true }) ref?: string[] // SelfId-reference
+  @prop({ index: true }) ref?: string[] // SelfKey-reference
 
   /**
    * Content
@@ -184,6 +119,7 @@ const tNullUndefined = t.Null.Or(t.Undefined)
 
 export const DbSchema = t.Record({
   overwrite: t.Boolean.Or(tNullUndefined),
+  deck: t.String.Or(tNullUndefined),
   lesson: t.Array(t.Record({
     key: t.String,
     name: t.String.Or(tNullUndefined),
@@ -467,34 +403,7 @@ class Db {
       }
     })
 
-    const allLessons: {
-      [key: string]: {
-        _id?: Ref<DbLesson>
-        name?: string | null
-        description?: string | null
-        decks: {
-          [name: string]: Ref<DbCard>[]
-        }
-      }
-    } = {}
-
-    entries_.filter((el) => el.key).map(({ _id, lesson }) => {
-      if (lesson) {
-        lesson.map(({ key, name, description, deck }) => {
-          if (!allLessons[key]) {
-            allLessons[key] = { name, description, decks: {} }
-          }
-
-          if (!allLessons[key].decks[deck]) {
-            allLessons[key].decks[deck] = []
-          }
-
-          allLessons[key].decks[deck].push(_id)
-        })
-      }
-    })
-
-    await DbLessonModel.upsertAll(user._id, allLessons)
+    await this.upsertLessonAndDeck(...entries_)
 
     await DbQuizModel.insertMany(entries_
       .map((el) => {
@@ -539,7 +448,7 @@ class Db {
     const {
       tag,
       srsLevel, nextReview, stat,
-      lesson,
+      lesson, deck,
       ...card
     } = set
 
@@ -570,32 +479,9 @@ class Db {
       (card as any).tag = tag.map((t) => allTags[t])
     }
 
-    if (lesson) {
+    if (lesson || deck) {
       ids = ids || (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
-      const allLessons: {
-        [key: string]: {
-          _id?: Ref<DbLesson>
-          name?: string | null
-          description?: string | null
-          decks: {
-            [name: string]: Ref<DbCard>[]
-          }
-        }
-      } = {}
-
-      lesson.map(({ key, name, description, deck }) => {
-        if (!allLessons[key]) {
-          allLessons[key] = { name, description, decks: {} }
-        }
-
-        if (!allLessons[key].decks[deck]) {
-          allLessons[key].decks[deck] = []
-        }
-
-        allLessons[key].decks[deck].push(...ids!)
-      })
-
-      await DbLessonModel.upsertAll(user._id, allLessons)
+      await this.upsertLessonAndDeck(...ids.map((_id) => ({ _id, ...set })))
     }
 
     if (Object.keys(card).length > 0) {
@@ -662,11 +548,14 @@ class Db {
         },
       ])
 
-      if (!r) {
+      if (!r || !r[0]) {
         return null
       }
 
-      return r[0] || null
+      r[0].deck = r[0].lesson.filter((ls: any) => ls.key === 'user').map((ls: any) => ls.deck)[0]
+      r[0].lesson = r[0].lesson.filter((ls: any) => ls.key !== 'user')
+
+      return r[0]
     }
   }
 
@@ -754,6 +643,74 @@ class Db {
     }
 
     return await DbLessonModel.find({ userId: this.user._id }).select({ key: 1, name: 1, description: 1 })
+  }
+
+  async upsertLessonAndDeck (...items: {
+    _id: any
+    lesson?: {
+      key: string
+      name?: string | null
+      description?: string | null
+      deck: string
+    }[] | null
+    deck?: string | null
+  }[]) {
+    const lsCreationMap = new Map<string, any>()
+
+    items.map(({ lesson }) => {
+      if (lesson) {
+        lesson.map(({ key, name, description }) => {
+          if (name && !lsCreationMap.has(key)) {
+            lsCreationMap.set(key, { name, description: description || undefined })
+          }
+        })
+      }
+    })
+
+    await mapAsync(Array.from(lsCreationMap), async ([key, { name, description }]) => {
+      await DbDeckModel.findByIdAndUpdate(key, {
+        $set: { name, description },
+        $setOnInsert: { _id: key, name, description },
+      }, { upsert: true })
+    })
+
+    const lsDeckMap = new Map<string, any[]>()
+
+    items.map(({ _id, lesson }) => {
+      if (lesson) {
+        lesson.map(({ key, deck, name, description }) => {
+          const h = JSON.stringify([key, deck, name || '', description || ''])
+          const cardIds = lsDeckMap.get(h) || []
+          cardIds.push(_id)
+          lsDeckMap.set(h, cardIds)
+        })
+      }
+    })
+
+    await mapAsync(Array.from(lsDeckMap), async ([h, cardIds]) => {
+      const [lessonId, deck] = JSON.parse(h)
+      await DbDeckModel.findOneAndUpdate({ deck, lessonId }, {
+        $addToSet: { cardIds: { $each: cardIds } },
+        $setOnInsert: { deck, lessonId, cardIds },
+      }, { upsert: true })
+    })
+
+    const deckMap = new Map<string, any[]>()
+
+    items.map(({ _id, deck }) => {
+      if (deck) {
+        const cardIds = deckMap.get(deck) || []
+        cardIds.push(_id)
+        deckMap.set(deck, cardIds)
+      }
+    })
+
+    await mapAsync(Array.from(deckMap), async ([name, cardIds]) => {
+      await DbDeckModel.findOneAndUpdate({ name }, {
+        $addToSet: { cardIds: { $each: cardIds } },
+        $setOnInsert: { name, cardIds },
+      }, { upsert: true })
+    })
   }
 }
 

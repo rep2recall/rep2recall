@@ -107,7 +107,7 @@ export default class Query extends Vue {
   tagList: string[] = []
   sort = {
     key: 'updatedAt',
-    type: 'desc'
+    type: 'desc',
   }
 
   isLoading = false
@@ -122,7 +122,7 @@ export default class Query extends Vue {
     { label: 'Data', field: 'data' },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
-    { label: 'Tag', field: 'tag', width: 200 }
+    { label: 'Tag', field: 'tag', width: 200 },
   ]
 
   perPage = 5
@@ -140,8 +140,8 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/browse',
       query: {
-        q: this.q
-      }
+        q: this.q,
+      },
     })
   }
 
@@ -149,7 +149,7 @@ export default class Query extends Vue {
     const makeHtml = new MakeHtml(item.key)
     return makeHtml.getHTML(hbs.compile(item.markdown || '')({
       [item.key]: item,
-      ...this.ctx
+      ...this.ctx,
     }))
   }
 
@@ -170,9 +170,9 @@ export default class Query extends Vue {
       limit: this.perPage,
       sort: {
         key: this.sort.key,
-        desc: this.sort.type === 'desc'
+        desc: this.sort.type === 'desc',
       },
-      count: true
+      count: true,
     })
 
     await Promise.all((r.data.data as any[])
@@ -194,8 +194,8 @@ export default class Query extends Vue {
     this.$router.push({
       query: {
         ...this.$route.query,
-        page: p.toString()
-      }
+        page: p.toString(),
+      },
     })
   }
 
@@ -216,12 +216,12 @@ export default class Query extends Vue {
         const api = await this.getApi()
         await api.delete('/api/edit/', {
           data: {
-            keys: this.checked.map((el) => el.key)
-          }
+            keys: this.checked.map((el) => el.key),
+          },
         })
 
         this.load()
-      }
+      },
     })
   }
 
@@ -240,8 +240,8 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/edit',
       query: {
-        key: it.key
-      }
+        key: it.key,
+      },
     })
   }
 
@@ -260,8 +260,8 @@ export default class Query extends Vue {
       await api.patch('/api/edit/', {
         keys: this.checked.map((el) => el.key),
         set: {
-          tag: this.tagList
-        }
+          tag: this.tagList,
+        },
       })
 
       this.isEditTagsDialog = false
@@ -276,8 +276,8 @@ export default class Query extends Vue {
       try {
         const r = await api.get('/api/edit/', {
           params: {
-            key
-          }
+            key,
+          },
         })
         this.ctx[key] = r.data
         this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content

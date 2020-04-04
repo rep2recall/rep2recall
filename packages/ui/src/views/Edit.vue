@@ -2,6 +2,7 @@
 section.editor
   .buttons.header-buttons
     div(style="flex-grow: 1;")
+    b-button.is-info(@click="loadCtx()") Reload
     b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
     b-button.is-success(:disabled="!isEdited" @click="save") Save
   .columns
@@ -31,11 +32,11 @@ section.editor
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
 import dayjs from 'dayjs'
-import Ajv from 'ajv'
 import CodeMirror from 'codemirror'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
 import hbs from 'handlebars'
+import * as t from 'runtypes'
 
 import 'firebase/storage'
 
@@ -53,12 +54,12 @@ import MakeHtml from '../make-html'
         confirmText: 'Leave',
         cancelText: 'Cancel',
         onConfirm: () => next(),
-        onCancel: () => next(false)
+        onCancel: () => next(false),
       })
     } else {
       next()
     }
-  }
+  },
 })
 export default class Edit extends Vue {
   hasPreview = false
@@ -110,7 +111,7 @@ export default class Edit extends Vue {
     this.codemirror.setSize('100%', '100%')
     this.codemirror.addKeyMap({
       'Cmd-S': () => { this.save() },
-      'Ctrl-S': () => { this.save() }
+      'Ctrl-S': () => { this.save() },
     })
 
     // @ts-ignore
@@ -175,77 +176,35 @@ export default class Edit extends Vue {
     }
   }
 
-  getAndValidateHeader (isFinal = true) {
-    const { header } = this.matter.parse(this.markdown)
+  getAndValidateHeader (isFinal?: boolean) {
+    try {
+      let { header: { key, ref, srsLevel, data, stat, deck, nextReview } } = this.matter.parse(this.markdown)
 
-    let valid = true
-
-    if (header.nextReview && isFinal) {
-      let d = dayjs(header.nextReview)
-      valid = d.isValid()
-      if (!valid) {
-        this.$buefy.snackbar.open(`Invalid Date: ${header.nextReview}`)
-        console.error(`Invalid Date: ${header.nextReview}`)
-        return
-      }
-
-      if (header.date instanceof Date) {
-        d = d.add(new Date().getTimezoneOffset(), 'minute')
-      }
-
-      header.nextReview = d.toISOString()
-    }
-
-    const ajv = new Ajv()
-    const getType = (t: string) => isFinal ? t : [t, 'null']
-    const validator = ajv.compile({
-      type: 'object',
-      properties: {
-        key: { type: getType('string') },
-        ref: { type: 'array', items: { type: getType('string') } },
-        data: { type: getType('object') },
-        nextReview: { type: getType('string') },
-        srsLevel: { type: getType('integer') },
-        stat: { type: getType('object') },
-        lesson: {
-          type: 'object',
-          items: {
-            type: 'object',
-            required: ['key', 'name', 'deck'],
-            properties: {
-              key: { type: 'string' },
-              name: { type: 'string' },
-              description: { type: 'string' },
-              deck: { type: 'string' }
-            }
-          }
+      if (nextReview) {
+        const d = dayjs(t.String.check(nextReview))
+        if (!d.isValid()) {
+          throw new Error(`Invalid Date: ${nextReview}`)
         }
+
+        nextReview = d.toISOString()
       }
-    })
-    valid = !!validator(header)
 
-    if (!valid) {
-      // for (const e of validator.errors || []) {
-      //   this.$buefy.snackbar.open(e.message || '')
-      //   console.error(e)
-      // }
-      return null
+      return {
+        key: t.String.check(key || '') || undefined,
+        ref: t.Dictionary(t.Unknown).Or(t.Array(t.String)).check(ref || {}),
+        srsLevel: t.Number.Or(t.Null).Or(t.Undefined).check(srsLevel),
+        data: t.Dictionary(t.Unknown).check(data || {}),
+        stat: t.Dictionary(t.Unknown).check(stat || {}),
+        deck: t.String.check(deck || '') || undefined,
+        nextReview: t.String.check(nextReview || '') || undefined,
+      }
+    } catch (e) {
+      if (isFinal) {
+        this.$buefy.snackbar.open(e.message)
+      }
     }
 
-    return header as {
-      key?: string
-      ref?: string[]
-      data?: Record<string, any>
-      nextReview?: string
-      srsLevel?: number
-      stat?: any
-      lesson?: {
-        key: string
-        name: string
-        deck: string
-        description?: string
-      }[]
-    }
+    return null
   }
 
   @Watch('$route.query.key')
@@ -259,26 +218,31 @@ export default class Edit extends Vue {
 
       const r = (await api.get('/api/edit/', {
         params: {
-          key: this.key
-        }
+          key: this.key,
+        },
       }))
 
       if (r.data) {
         const {
           tag,
-          key, ref, lesson, data,
+          key, ref, lesson, data, deck,
           nextReview, srsLevel, stat,
           markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
-        Object.assign(header, {
-          key, ref, lesson, data,
-          srsLevel, stat,
-          nextReview,
-        })
 
-        this.markdown = this.matter.stringify(content, nullifyObject(header))
+        this.markdown = this.matter.stringify(content, nullifyObject(Object.assign({
+          key,
+          ref,
+          deck,
+          lesson,
+          data,
+          srsLevel,
+          stat,
+          nextReview,
+        }, header)))
+
         this.$set(this, 'tag', tag)
         isSet = true
       }
@@ -297,6 +261,22 @@ export default class Edit extends Vue {
     }, 100)
   }
 
+  async loadCtx (ref?: any) {
+    if (ref === undefined) {
+      ref = this.matter.header.ref
+    }
+
+    if (ref) {
+      if (Array.isArray(ref)) {
+        await Promise.all(ref.map((r) => this.loadCtx(r || null)))
+      } else if (typeof ref === 'string') {
+        await this.onCtxChange(ref)
+      } else if (typeof ref === 'object') {
+
+      }
+    }
+  }
+
   async save () {
     if (!this.canSave) {
       return
@@ -308,7 +288,7 @@ export default class Edit extends Vue {
       return
     }
 
-    const { key, ref, data, srsLevel, stat, nextReview, lesson } = header
+    const { key, ref, data, srsLevel, stat, nextReview, deck } = header
 
     let { content: markdown } = this.matter.parse(this.markdown)
     markdown = this.matter.stringify(markdown, Object.entries(header)
@@ -316,7 +296,13 @@ export default class Edit extends Vue {
       .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any))
 
     const content = {
-      key, ref, data, srsLevel, stat, nextReview, lesson,
+      key,
+      ref,
+      data,
+      srsLevel,
+      stat,
+      nextReview,
+      deck,
       markdown,
       tag: this.tag,
     }
@@ -332,7 +318,7 @@ export default class Edit extends Vue {
     } else {
       await api.patch('/api/edit/', {
         keys: [this.key],
-        set: content
+        set: content,
       })
 
       this.key = header.key || this.key
@@ -343,8 +329,8 @@ export default class Edit extends Vue {
     if (this.$route.query.key !== this.key) {
       this.$router.push({
         query: {
-          key: this.key
-        }
+          key: this.key,
+        },
       })
     }
 
@@ -355,18 +341,16 @@ export default class Edit extends Vue {
     }, 100)
   }
 
-  async onCmCodeChange () {
+  onCmCodeChange () {
     this.isEdited = true
     const self = this.getAndValidateHeader(false)
     this.key = this.key || this.matter.header.key
-
-    await Promise.all((this.matter.header.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
       this.makeHtml.patch(document.body, hbs.compile(new Matter().parse(this.markdown).content)({
         [this.key]: self,
-        ...this.ctx
+        ...this.ctx,
       }))
       this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
         el.setAttribute('data-loaded', '1')
@@ -383,18 +367,24 @@ export default class Edit extends Vue {
     this.isEdited = true
   }
 
-  async onCtxChange (key: string) {
+  async onCtxChange (key: string, data?: any) {
     if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
+      if (!data) {
+        const api = await this.getApi(true)
         const r = await api.get('/api/edit/', {
           params: {
-            key
-          }
+            key,
+          },
         })
         this.ctx[key] = r.data
         this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
+      } else {
+        if (typeof data === 'string') {
+          this.ctx[key] = (await axios.get(data)).data
+        } else if (data.url) {
+          this.ctx[key] = (await axios(data)).data
+        }
+      }
     }
   }
 

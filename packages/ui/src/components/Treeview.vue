@@ -24,8 +24,8 @@ import DueScore from './DueScore.vue'
 @Component({
   name: 'Treeview',
   components: {
-    DueScore
-  }
+    DueScore,
+  },
 })
 export default class Treeview extends Vue {
   @Prop({ required: true }) data!: any[]
@@ -40,7 +40,7 @@ export default class Treeview extends Vue {
     this.data
       .map((d) => ({
         ...d,
-        ds: d.deck.split('/')
+        ds: d.deck.split('/'),
       }))
       .filter(({ ds }) => ds.length >= this.depth + 1)
       .map((it) => {
@@ -50,22 +50,22 @@ export default class Treeview extends Vue {
           subData[deck] = {
             ...it,
             hasReview: false,
-            deck
+            deck,
           }
         }
       })
-    
+
     return Object.entries(subData).sort(([a], [b]) => a.localeCompare(b)).map(([_, v]) => v)
   }
 
   mounted () {
-    this.open = new Set(this.data.map(it => it.deck).map(d => {
+    this.open = new Set(this.data.map((it) => it.deck).map((d) => {
       return d.split('/')[this.depth + 1]
     })).size < 8
   }
 
   subDecks (deck: string) {
-    return this.data.filter(it => it.deck.startsWith(`${deck}/`))
+    return this.data.filter((it) => it.deck.startsWith(`${deck}/`))
   }
 
   hasTreeview (deck: string) {

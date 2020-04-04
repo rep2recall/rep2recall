@@ -44,7 +44,7 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Watch } from "vue-property-decorator"
+import { Vue, Component, Watch } from 'vue-property-decorator'
 import firebase from 'firebase/app'
 import { auth as authUI } from 'firebaseui'
 import SparkMD5 from 'spark-md5'
@@ -93,7 +93,7 @@ export default class App extends Vue {
             // firebase.auth.TwitterAuthProvider.PROVIDER_ID,
             // firebase.auth.GithubAuthProvider.PROVIDER_ID,
           ],
-          signInFlow: 'popup'
+          signInFlow: 'popup',
         })
       }
     })
