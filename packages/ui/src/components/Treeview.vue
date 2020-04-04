@@ -59,7 +59,9 @@ export default class Treeview extends Vue {
   }
 
   mounted () {
-    this.$forceUpdate()
+    this.open = new Set(this.data.map(it => it.deck).map(d => {
+      return d.split('/')[this.depth + 1]
+    })).size < 8
   }
 
   subDecks (deck: string) {

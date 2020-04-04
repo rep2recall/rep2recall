@@ -51,9 +51,15 @@
         template(slot-scope="props")
           b-table-column(v-for="h in headers" :key="h.field" :field="h.field"
               :label="h.label" :width="h.width" :sortable="h.sortable")
-            span(v-if="h.field === 'tag'")
+            span(v-if="h.field === 'lesson'")
+              b-field(grouped group-multiline)
+                .control(v-for="t in props.row[h.field]" :key="t.key")
+                  b-taglist(attached)
+                    b-tag(type="is-dark") {{t.name}}
+                    b-tag {{t.deck}}
+            span(v-else-if="Array.isArray(props.row[h.field])")
               b-taglist
-                b-tag(v-for="t in props.row.tag" :key="t") {{t}}
+                b-tag(v-for="t in props.row[h.field]" :key="t") {{t}}
             div(v-else style="max-height: 200px; overflow: scroll;")
               span {{props.row[h.field] | format}}
         template(slot="detail" slot-scope="props")
@@ -112,7 +118,7 @@ export default class Query extends Vue {
 
   headers = [
     { label: 'Key', field: 'key', width: 150, sortable: true },
-    { label: 'Deck', field: 'deck', width: 200, sortable: true },
+    { label: 'Lesson', field: 'lesson', width: 200, sortable: true },
     { label: 'Data', field: 'data' },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
@@ -141,7 +147,7 @@ export default class Query extends Vue {
 
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
-    return makeHtml.getHTML(hbs.compile(item.markdown)({
+    return makeHtml.getHTML(hbs.compile(item.markdown || '')({
       [item.key]: item,
       ...this.ctx
     }))
@@ -179,7 +185,6 @@ export default class Query extends Vue {
     this.$set(this, 'items', r.data.data.map((el: any) => {
       return {
         ...el,
-        // markdown: (el.markdown || '').substr(0, 140),
         tag: stringSorter(el.tag || []),
       }
     }))

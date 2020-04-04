@@ -169,10 +169,8 @@ export default class Edit extends Vue {
   async getFilteredTags (text?: string) {
     if (this.allTags) {
       this.filteredTags = text ? this.allTags
-        .filter((t) => t)
-        .filter((t) => !this.tag.includes(t))
         .filter((t) => {
-          return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+          return t && !this.tag.includes(t) && t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
         }) : this.allTags
     }
   }
