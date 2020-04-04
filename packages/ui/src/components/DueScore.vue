@@ -20,7 +20,7 @@ export default class DueScore extends Vue {
 
   get decksOrSubDecks () {
     return this.data
-      .filter(it => (this.exact ? false : it.deck.startsWith(`${this.deck}/`)) || it.deck === this.deck)
+      .filter((it) => (this.exact ? false : it.deck.startsWith(`${this.deck}/`)) || it.deck === this.deck)
   }
 
   get totalCount () {
@@ -41,7 +41,7 @@ export default class DueScore extends Vue {
   }
 
   count (key: string) {
-    return this.decksOrSubDecks.map(it => it[key]).reduce((acc, c) => acc + c, 0) as number
+    return this.decksOrSubDecks.map((it) => it[key]).reduce((acc, c) => acc + c, 0) as number
   }
 }
 </script>
