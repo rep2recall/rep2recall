@@ -63,9 +63,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       ]
     }).reduce((a, b) => [...a, ...b])
 
-    const rs = await db.aggregateLesson([
-      { $match: { key: lesson } },
-    ], [
+    const rs = await db.aggregateLesson(lesson, [
       { $match: { $or } },
       {
         $project: {
@@ -96,9 +94,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const { q, lesson } = req.body
     const cond = typeof q === 'string' ? db.lessonSearch.parse(q).cond : q
 
-    const rs = await db.aggregateLesson([
-      { $match: { key: lesson } },
-    ], [
+    const rs = await db.aggregateLesson(lesson, [
       {
         $match: cond,
       },
