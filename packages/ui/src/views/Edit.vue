@@ -40,7 +40,7 @@ import * as t from 'runtypes'
 
 import 'firebase/storage'
 
-import { normalizeArray, nullifyObject, stringSorter } from '../utils'
+import { normalizeArray, nullifyObject, stringSorter, deepMerge } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -232,7 +232,7 @@ export default class Edit extends Vue {
 
         const { header, content } = this.matter.parse(markdown)
 
-        this.markdown = this.matter.stringify(content, nullifyObject(Object.assign({
+        this.markdown = this.matter.stringify(content, nullifyObject(deepMerge(header, {
           key,
           ref,
           deck,
@@ -241,7 +241,7 @@ export default class Edit extends Vue {
           srsLevel,
           stat,
           nextReview,
-        }, header)))
+        })))
 
         this.$set(this, 'tag', tag)
         isSet = true
@@ -297,7 +297,11 @@ export default class Edit extends Vue {
 
     const content = {
       key,
-      ref,
+      ref: typeof ref === 'object'
+        ? Array.isArray(ref)
+          ? ref
+          : Object.keys(ref).filter((k) => ref[k] === null)
+        : undefined,
       data,
       srsLevel,
       stat,

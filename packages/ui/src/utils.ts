@@ -38,3 +38,25 @@ export function stringSorter (arr: string[]) {
     return a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase())
   })
 }
+
+export function deepMerge (dst: any, src: any) {
+  if (isPlainObject(dst) && isPlainObject(src)) {
+    Object.entries(src).map(([k, v]) => {
+      dst[k] = deepMerge(dst[k], v)
+    })
+    return dst
+  } else if (Array.isArray(dst) && Array.isArray(src)) {
+    src.map((v, i) => {
+      dst[i] = deepMerge(dst[i], v)
+    })
+    return dst
+  } else if (dst !== undefined) {
+    return dst
+  }
+
+  return src
+}
+
+export function isPlainObject (a: any): boolean {
+  return !!a && typeof a === 'object' && a.constructor === Object
+}

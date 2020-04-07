@@ -187,7 +187,7 @@ class Db {
       throw new Error('Not logged in')
     }
 
-    return await DbCardModel.aggregate([
+    const r = await DbCardModel.aggregate([
       { $match: { userId: this.user._id } },
       ...preConds,
       {
@@ -212,74 +212,94 @@ class Db {
           from: 'deck',
           localField: '_id',
           foreignField: 'cardIds',
-          as: 'd',
+          as: 'deck',
         },
       },
-      { $unwind: { path: '$d', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'lesson',
-          let: { lessonId: '$d.lessonId', deck: '$d.name' },
-          pipeline: [
-            { $match: { $expr: { $eq: ['$_id', '$$lessonId'] } } },
-            {
-              $project: {
-                _id: 0,
-                key: 1,
-                name: 1,
-                description: 1,
-                deck: '$$deck',
-              },
-            },
-          ],
-          as: 'ls',
-        },
-      },
-      { $unwind: { path: '$ls', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: '$_id',
-          lesson: { $push: '$ls' },
-          root: {
-            $first: {
-              key: '$key',
-              data: '$data',
-              tag: '$t.name',
-              ref: '$ref',
-              markdown: '$markdown',
-              nextReview: '$q.nextReview',
-              srsLevel: '$q.srsLevel',
-              stat: '$q.stat',
-              createdAt: '$createdAt',
-              updatedAt: '$updatedAt',
-            },
-          },
+          localField: '_id',
+          foreignField: 'deck.lessonId',
+          as: 'lesson',
         },
       },
       {
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              {
-                lesson: '$lesson',
-              },
-              '$root',
-            ],
-          },
+        $project: {
+          key: 1,
+          deck: 1,
+          lesson: 1,
+          data: 1,
+          tag: '$t.name',
+          ref: 1,
+          markdown: 1,
+          nextReview: '$q.nextReview',
+          srsLevel: '$q.srsLevel',
+          stat: '$q.stat',
+          createdAt: 1,
+          updatedAt: 1,
         },
       },
       ...postConds,
     ])
+
+    return r
   }
 
-  async aggregateLesson (preConds: any[], postConds: any[]) {
+  async aggregateLesson (lesson: string, postConds: any[]) {
     if (!this.user) {
       throw new Error('Not logged in')
     }
 
+    if (lesson === '_') {
+      return await DbDeckModel.aggregate([
+        { $match: { lessonId: { $exists: false } } },
+        {
+          $lookup: {
+            from: 'card',
+            localField: 'cardIds',
+            foreignField: '_id',
+            as: 'c',
+          },
+        },
+        { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+        { $match: { 'c.userId': this.user._id } },
+        {
+          $lookup: {
+            from: 'quiz',
+            localField: 'c._id',
+            foreignField: 'cardId',
+            as: 'q',
+          },
+        },
+        { $unwind: { path: '$q', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'tag',
+            localField: 'c.tag',
+            foreignField: '_id',
+            as: 't',
+          },
+        },
+        {
+          $project: {
+            _id: '$c._id',
+            key: '$c.key',
+            data: '$c.data',
+            ref: '$c.ref',
+            markdown: '$c.markdown',
+            tag: '$t.name',
+            deck: '$name',
+            nextReview: '$q.nextReview',
+            srsLevel: '$q.srsLevel',
+            stat: '$q.stat',
+          },
+        },
+        ...postConds,
+      ])
+    }
+
     return await DbLessonModel.aggregate([
-      { $match: { userId: this.user._id } },
-      ...preConds,
+      { $match: { lesson } },
       {
         $lookup: {
           from: 'deck',
@@ -298,6 +318,7 @@ class Db {
         },
       },
       { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+      { $match: { 'c.userId': this.user._id } },
       {
         $lookup: {
           from: 'quiz',
@@ -371,7 +392,9 @@ class Db {
       }
     }))
 
-    const { upsertedIds } = await DbCardModel.bulkWrite(ops, { ordered: false })
+    const { upsertedIds } = ops.length > 0 ? await DbCardModel.bulkWrite(ops, { ordered: false }) : {
+      upsertedIds: {},
+    }
 
     const items = await DbCardModel.insertMany(entries.filter((el) => !(el.overwrite && el.key)).map((el) => {
       const key = el.key || shortid.generate()
@@ -691,7 +714,7 @@ class Db {
       const [lessonId, deck] = JSON.parse(h)
       await DbDeckModel.findOneAndUpdate({ deck, lessonId }, {
         $addToSet: { cardIds: { $each: cardIds } },
-        $setOnInsert: { deck, lessonId, cardIds },
+        $setOnInsert: { deck, lessonId },
       }, { upsert: true })
     })
 
@@ -708,7 +731,7 @@ class Db {
     await mapAsync(Array.from(deckMap), async ([name, cardIds]) => {
       await DbDeckModel.findOneAndUpdate({ name }, {
         $addToSet: { cardIds: { $each: cardIds } },
-        $setOnInsert: { name, cardIds },
+        $setOnInsert: { name },
       }, { upsert: true })
     })
   }

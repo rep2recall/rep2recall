@@ -37,6 +37,12 @@ export default class Lesson extends Vue {
   async load () {
     const api = await this.getApi()
     const { data } = await api.get('/api/quiz/lessons')
+    data.entries.push({
+      key: '_',
+      name: 'Default',
+      description: 'User created cards will by default be here.',
+    })
+
     this.$set(this, 'lessons', data.entries)
   }
 }
