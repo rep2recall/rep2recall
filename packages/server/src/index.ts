@@ -2,6 +2,7 @@ import path from 'path'
 
 import fastify from 'fastify'
 import fastifyStatic from 'fastify-static'
+import helmet from 'fastify-helmet'
 
 import { config } from './config'
 import router from './router'
@@ -20,17 +21,31 @@ try {
     } : true,
   })
 
+  const port = parseInt(process.env.PORT || (config.port || 24000).toString())
+
+  app.register(helmet)
+
   if (process.env.NODE_ENV === 'development') {
-    app.addHook('preHandler', function (req, reply, done) {
+    app.addHook('preHandler', async (req) => {
       if (req.body) {
         req.log.info({ body: req.body }, 'body')
       }
+    })
+  } else {
+    app.addHook('preHandler', async (req, reply) => {
+      const isHttps = ((req.headers['x-forwarded-proto'] || '').substring(0, 5) === 'https')
+      if (isHttps) {
+        return
+      }
 
-      done()
+      const { method, url } = req.req
+
+      if (method && ['GET', 'HEAD'].includes(method)) {
+        const host = req.headers.host || req.hostname
+        reply.redirect(301, `https://${host}${url}`)
+      }
     })
   }
-
-  const port = parseInt(process.env.PORT || (config.port || 24000).toString())
 
   app.register(router, { prefix: '/api' })
 

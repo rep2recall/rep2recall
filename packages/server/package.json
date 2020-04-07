@@ -24,6 +24,7 @@
     "escape-string-regexp": "^2.0.0",
     "fastify": "^2.12.1",
     "fastify-cookie": "^3.6.0",
+    "fastify-helmet": "^3.0.2",
     "fastify-oas": "^2.5.2",
     "fastify-session": "^3.3.0",
     "fastify-static": "^2.6.0",
