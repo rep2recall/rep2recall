@@ -1,38 +1,25 @@
 <template lang="pug">
 ul.menu-list
-  li(v-for="it in decksAtThisLevel" :key="it.deck")
-    a
-      .caret(@click="open[it.deck] = !open[it.deck]")
-        span(v-if="subDecks(it.deck).length > 0")
-          fontawesome(v-if="open[it.deck]" icon="caret-down")
-          fontawesome(v-else icon="caret-right")
-      b-tooltip(:label="it.hasReview ? 'Review pending' : ''")
-        span(role="button" @click="handler.quiz(it.deck)") {{it.ds[depth]}}
-      div(style="flex-grow: 1;")
-      DueScore(
-        :is-tip="!hasTreeview(it.deck)"
-        :data="data" :deck="it.deck" :exact="open[it.deck]" @has-review="it.hasReview = $event"
-      )
-    Treeview(v-if="open[it.deck] && hasTreeview(it.deck)" :data="subDecks(it.deck)" :depth="depth + 1" :handler="handler")
+  TreeItem(
+    v-for="it in decksAtThisLevel" :key="it.deck"
+    :deck="it.deck" :data="data" :handler="handler" :depth="depth"
+  )
 </template>
 
 <script lang="ts">
 import { Vue, Component, Prop } from 'vue-property-decorator'
 
-import DueScore from './DueScore.vue'
+import TreeItem from './TreeItem.vue'
 
 @Component({
-  name: 'Treeview',
   components: {
-    DueScore
+    TreeItem
   }
 })
 export default class Treeview extends Vue {
   @Prop({ required: true }) data!: any[]
   @Prop({ required: true }) handler!: any
   @Prop({ default: 0 }) depth!: number
-
-  open = this.decksAtThisLevel.reduce((prev, { deck }) => ({ ...prev, [deck]: this.depth < 3 }), {})
 
   get decksAtThisLevel () {
     const subData = {} as any
@@ -56,18 +43,6 @@ export default class Treeview extends Vue {
       })
     
     return Object.entries(subData).sort(([a], [b]) => a.localeCompare(b)).map(([_, v]) => v) as any[]
-  }
-
-  mounted () {
-    this.$forceUpdate()
-  }
-
-  subDecks (deck: string) {
-    return this.data.filter(it => it.deck.startsWith(`${deck}/`))
-  }
-
-  hasTreeview (deck: string) {
-    return this.subDecks(deck).length > 0
   }
 }
 </script>
