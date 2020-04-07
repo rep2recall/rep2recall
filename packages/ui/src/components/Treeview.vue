@@ -11,7 +11,7 @@ ul.menu-list
       div(style="flex-grow: 1;")
       DueScore(
         :is-tip="!hasTreeview(it.deck)"
-        :data="data" :deck="it.deck" :exact="it.open" @has-review="it.hasReview = $event"
+        :data="data" :deck="it.deck" :exact="open[it.deck]" @has-review="it.hasReview = $event"
       )
     Treeview(v-if="open[it.deck] && hasTreeview(it.deck)" :data="subDecks(it.deck)" :depth="depth + 1" :handler="handler")
 </template>
@@ -50,8 +50,7 @@ export default class Treeview extends Vue {
           subData[deck] = {
             ...it,
             hasReview: false,
-            deck,
-            open: this.depth < 3
+            deck
           }
         }
       })
