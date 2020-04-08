@@ -2,7 +2,7 @@
 section.editor
   .buttons.header-buttons
     div(style="flex-grow: 1;")
-    b-button.is-info(@click="loadCtx()") Reload
+    b-button.is-info(@click="ctxReload()") Reload
     b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
     b-button.is-success(:disabled="!isEdited" @click="save") Save
   .columns
@@ -225,12 +225,16 @@ export default class Edit extends Vue {
       if (r.data) {
         const {
           tag,
-          key, ref, lesson, data, deck,
+          key, lesson, data, deck,
           nextReview, srsLevel, stat,
           markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
+        this.ctx[this.key] = r.data
+
+        const { ref } = deepMerge(header.ref || {}, r.data.ref)
+        await this.onCtxChange(ref)
 
         this.markdown = this.matter.stringify(content, nullifyObject(deepMerge(header, {
           key,
@@ -259,22 +263,6 @@ export default class Edit extends Vue {
     setTimeout(() => {
       this.isEdited = false
     }, 100)
-  }
-
-  async loadCtx (ref?: any) {
-    if (ref === undefined) {
-      ref = this.matter.header.ref
-    }
-
-    if (ref) {
-      if (Array.isArray(ref)) {
-        await Promise.all(ref.map((r) => this.loadCtx(r || null)))
-      } else if (typeof ref === 'string') {
-        await this.onCtxChange(ref)
-      } else if (typeof ref === 'object') {
-
-      }
-    }
   }
 
   async save () {
@@ -371,25 +359,35 @@ export default class Edit extends Vue {
     this.isEdited = true
   }
 
-  async onCtxChange (key: string, data?: any) {
-    if (!this.ctx[key]) {
-      if (!data) {
-        const api = await this.getApi(true)
-        const r = await api.get('/api/edit/', {
-          params: {
-            key,
-          },
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } else {
-        if (typeof data === 'string') {
-          this.ctx[key] = (await axios.get(data)).data
-        } else if (data.url) {
-          this.ctx[key] = (await axios(data)).data
+  async ctxReload () {
+    const { header, content } = new Matter().parse(this.markdown)
+    this.ctx[this.key] = content
+
+    const { ref } = deepMerge(header.ref)
+    await this.onCtxChange(ref)
+  }
+
+  async onCtxChange (ctx: Record<string, any>) {
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key,
+            },
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
         }
       }
-    }
+    }))
   }
 
   onScroll (evt: any) {

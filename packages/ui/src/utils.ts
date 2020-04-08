@@ -39,24 +39,34 @@ export function stringSorter (arr: string[]) {
   })
 }
 
-export function deepMerge (dst: any, src: any) {
-  if (isPlainObject(dst) && isPlainObject(src)) {
-    Object.entries(src).map(([k, v]) => {
-      dst[k] = deepMerge(dst[k], v)
+export function deepMerge (dst: any, src: any = {}) {
+  if (dst && src && typeof dst === 'object' && typeof src === 'object') {
+    const objIfy = (el: any) => {
+      const repl = {} as any
+
+      if (Array.isArray(el)) {
+        el.map((k) => { repl[k] = null })
+      } else {
+        Object.entries(el).map(([k, v]) => { repl[k] = v })
+      }
+
+      return repl
+    }
+
+    const repl = objIfy(dst)
+
+    Object.entries(objIfy(src)).map(([k, v]) => {
+      repl[k] = deepMerge(repl[k], v)
     })
-    return dst
-  } else if (Array.isArray(dst) && Array.isArray(src)) {
-    src.map((v, i) => {
-      dst[i] = deepMerge(dst[i], v)
-    })
+
+    if (Object.values(dst).every((v) => v === null)) {
+      dst = Object.keys(dst).sort()
+    }
+
     return dst
   } else if (dst !== undefined) {
     return dst
   }
 
   return src
-}
-
-export function isPlainObject (a: any): boolean {
-  return !!a && typeof a === 'object' && a.constructor === Object
 }
