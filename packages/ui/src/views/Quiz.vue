@@ -44,12 +44,13 @@
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
 import Treeview from '@/components/Treeview.vue'
 
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
+import { deepMerge } from '../utils'
 
 @Component<Quiz>({
   components: {
@@ -199,9 +200,11 @@ export default class Quiz extends Vue {
         })
 
         const matter = new Matter()
-        const { content } = matter.parse(r.data.markdown || '')
+        const { header, content } = matter.parse(r.data.markdown || '')
         this.ctx[this.key] = r.data
-        await Promise.all((r.data.ref || []).map((r0: string) => this.onCtxChange(r0)))
+
+        const { ref } = deepMerge(header.ref || {}, r.data.ref)
+        await this.onCtxChange(ref)
 
         this.currentQuizMarkdown = content
       }
@@ -286,19 +289,27 @@ export default class Quiz extends Vue {
     this.load()
   }
 
-  async onCtxChange (key: string) {
-    if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
-        const r = await api.get('/api/edit/', {
-          params: {
-            key,
-          },
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
-    }
+  async onCtxChange (ctx: Record<string, any>) {
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key,
+            },
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
+        }
+      }
+    }))
   }
 }
 </script>
