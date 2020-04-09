@@ -203,7 +203,7 @@ export default class Quiz extends Vue {
         const { header, content } = matter.parse(r.data.markdown || '')
         this.ctx[this.key] = r.data
 
-        const { ref } = deepMerge(header.ref || {}, r.data.ref)
+        const ref = deepMerge({}, deepMerge(header.ref || {}, r.data.ref))
         await this.onCtxChange(ref)
 
         this.currentQuizMarkdown = content
