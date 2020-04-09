@@ -224,6 +224,9 @@ class Db {
         },
       },
       {
+        $unset: ['deck.cardIds'],
+      },
+      {
         $project: {
           key: 1,
           deck: 1,
