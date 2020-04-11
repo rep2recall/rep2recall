@@ -32,28 +32,26 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     const { q, deck, lesson } = req.body
-    let cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
+    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    if (!cond.deck) {
-      cond = {
-        $or: [
-          cond,
-          { deck },
-          { deck: new RegExp(`^${escapeRegExp(deck)}/`) }
-        ]
-      }
-    }
+    const $and = [
+      cond
+    ]
 
-    if (!cond.nextReview) {
-      cond = {
-        $or: [
-          cond,
-          { nextReview: { $exists: false } },
-          { nextReview: null },
-          { nextReview: { $lte: new Date() } }
-        ]
-      }
-    }
+    $and.push({
+      $or: [
+        { deck },
+        { deck: new RegExp(`^${escapeRegExp(deck)}/`) }
+      ]
+    })
+
+    $and.push({
+      $or: [
+        { nextReview: { $exists: false } },
+        { nextReview: null },
+        { nextReview: { $lte: new Date() } }
+      ]
+    })
 
     const searchView = await db.getSearchView()
     const rs = await searchView.aggregate([
@@ -65,9 +63,9 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       {
         $match: {
           $and: [
-            cond,
+            ...$and,
             {
-              'lesson.name': (lesson && lesson !== '_') ? lesson : {
+              'lesson.key': (lesson && lesson !== '_') ? lesson : {
                 $exists: false
               }
             }
@@ -75,7 +73,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         }
       },
       {
-        $project: { key: 1, _id: 0 }
+        $project: { key: 1, _id: 0, deck: 1 }
       }
     ]).toArray()
 
@@ -106,7 +104,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       $and: [
         cond,
         {
-          'lesson.name': (lesson && lesson !== '_') ? lesson : {
+          'lesson.key': (lesson && lesson !== '_') ? lesson : {
             $exists: false
           }
         }

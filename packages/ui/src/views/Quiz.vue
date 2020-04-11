@@ -50,7 +50,7 @@ import Treeview from '@/components/Treeview.vue'
 
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
-import { deepMerge } from '../utils'
+import { deepMerge, normalizeArray } from '../utils'
 
 @Component<Quiz>({
   components: {
@@ -88,6 +88,7 @@ export default class Quiz extends Vue {
   }
 
   mounted () {
+    this.q = normalizeArray(this.$route.query.q) || ''
     this.load()
   }
 
@@ -112,6 +113,7 @@ export default class Quiz extends Vue {
 
   @Watch('$route.query.q')
   async loadSpinning () {
+    this.q = normalizeArray(this.$route.query.q) || ''
     return this.load()
   }
 
@@ -203,7 +205,7 @@ export default class Quiz extends Vue {
         const { header, content } = matter.parse(r.data.markdown || '')
         this.ctx[this.key] = r.data
 
-        const ref = deepMerge({}, deepMerge(header.ref || {}, r.data.ref))
+        const ref = deepMerge(r.data.ref, header.ref)
         await this.onCtxChange(ref)
 
         this.currentQuizMarkdown = content
@@ -290,6 +292,10 @@ export default class Quiz extends Vue {
   }
 
   async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, c) => ({ ...prev, [c]: null }), {})
+    }
+
     await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {

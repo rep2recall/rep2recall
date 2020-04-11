@@ -61,7 +61,7 @@
               b-taglist
                 b-tag(v-for="t in props.row[h.field]" :key="t") {{t}}
             div(v-else style="max-height: 200px; overflow: scroll;")
-              span {{props.row[h.field] | format}}
+              span.wrap {{props.row[h.field] | format}}
         template(slot="detail" slot-scope="props")
           .container(style="max-width: 800px; max-height: 300px; overflow: scroll;")
             .content(
@@ -119,7 +119,7 @@ export default class Query extends Vue {
   headers = [
     { label: 'Key', field: 'key', width: 150, sortable: true },
     { label: 'Deck', field: 'lesson', width: 200, sortable: true },
-    { label: 'Data', field: 'data' },
+    { label: 'Data', field: 'data', width: 300 },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
     { label: 'Tag', field: 'tag', width: 200 }
@@ -319,5 +319,9 @@ export default class Query extends Vue {
       background-color: lightblue;
     }
   }
+}
+
+.wrap {
+  word-break: break-all;
 }
 </style>
