@@ -14,7 +14,7 @@ export default class MakeHtml {
     backslashEscapesHTMLTags: true,
     emoji: true,
     literalMidWordUnderscores: true,
-    smoothLivePreview: true,
+    smoothLivePreview: true
   })
 
   hp: HyperPug
@@ -23,7 +23,7 @@ export default class MakeHtml {
   private el: HTMLDivElement | null = null
 
   constructor (
-    public id = Math.random().toString(36).substr(2),
+    public id = Math.random().toString(36).substr(2)
   ) {
     this.id = 'el-' + id
 
@@ -32,7 +32,7 @@ export default class MakeHtml {
       regex: /\n```pug parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
         return this.pugConvert(p1)
-      },
+      }
     }, 'pug')
 
     this.md.addExtension({
@@ -40,7 +40,7 @@ export default class MakeHtml {
       regex: /\n```css parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
         return this.makeCss(p1)
-      },
+      }
     }, 'css')
 
     this.md.addExtension({
@@ -48,18 +48,18 @@ export default class MakeHtml {
       regex: /\n```js parsed\n(.+)\n```\n/gs,
       replace: (_: string, p1: string) => {
         return `<script type="module">${p1}</script>`
-      },
+      }
     }, 'js')
 
     this.md.addExtension({
       type: 'lang',
       regex: /\n===\n/gs,
-      replace: '<hr/>',
+      replace: '<hr/>'
     }, 'hr')
 
     this.hp = new HyperPug({
       markdown: (s) => this.mdConvert(s),
-      css: (s) => this.mdConvert(s),
+      css: (s) => this.mdConvert(s)
     })
   }
 

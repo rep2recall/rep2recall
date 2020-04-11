@@ -4,7 +4,6 @@ import fastify from 'fastify'
 import fastifyStatic from 'fastify-static'
 import helmet from 'fastify-helmet'
 
-import { config } from './config'
 import router from './router'
 import { initDatabase } from './db/schema'
 
@@ -17,11 +16,11 @@ try {
 
   const app = fastify({
     logger: process.env.NODE_ENV === 'development' ? {
-      prettyPrint: true,
-    } : true,
+      prettyPrint: true
+    } : true
   })
 
-  const port = parseInt(process.env.PORT || (config.port || 24000).toString())
+  const port = parseInt(process.env.PORT || '24000')
 
   app.register(helmet)
 
@@ -50,7 +49,7 @@ try {
   app.register(router, { prefix: '/api' })
 
   app.register(fastifyStatic, {
-    root: path.resolve('public'),
+    root: path.resolve('public')
   })
 
   app.get('*', (req, reply) => {

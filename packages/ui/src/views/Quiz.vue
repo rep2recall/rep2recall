@@ -54,17 +54,17 @@ import { deepMerge } from '../utils'
 
 @Component<Quiz>({
   components: {
-    Treeview,
+    Treeview
   },
   data () {
     return {
       handler: {
         quiz: (deck: string) => {
           this.activeDeck = deck
-        },
-      },
+        }
+      }
     }
-  },
+  }
 })
 export default class Quiz extends Vue {
   data = []
@@ -119,8 +119,8 @@ export default class Quiz extends Vue {
     this.$router.push({
       path: `/quiz/${this.lessonName}`,
       query: {
-        q: this.q,
-      },
+        q: this.q
+      }
     })
   }
 
@@ -131,11 +131,11 @@ export default class Quiz extends Vue {
       const keys: string[] = (await api.post('/api/quiz/', {
         q: this.q,
         lesson: this.lessonName,
-        deck: this.activeDeck,
+        deck: this.activeDeck
       })).data.keys
       let next = {
         hour: 0,
-        day: 0,
+        day: 0
       }
 
       this.$set(this, 'quizKeys', keys)
@@ -145,17 +145,17 @@ export default class Quiz extends Vue {
           api.post('/api/quiz/', {
             q: `${this.q} nextReview<+1h`,
             lesson: this.lessonName,
-            deck: this.activeDeck,
+            deck: this.activeDeck
           }),
           api.post('/api/quiz/', {
             q: `${this.q} nextReview<+1d`,
             lesson: this.lessonName,
-            deck: this.activeDeck,
-          }),
+            deck: this.activeDeck
+          })
         ])
         next = {
           hour: hour.data.keys.length,
-          day: day.data.keys.length,
+          day: day.data.keys.length
         }
       }
 
@@ -173,7 +173,7 @@ export default class Quiz extends Vue {
             makeHtml.render(
               d.body,
               `Pending next hour: ${next.hour.toLocaleString()}. :clock1:\n\n` +
-              `Pending next day: ${next.day.toLocaleString()}. ${next.day ? ':sweat_smile:' : ''}`,
+              `Pending next day: ${next.day.toLocaleString()}. ${next.day ? ':sweat_smile:' : ''}`
             )
           }
         }
@@ -195,8 +195,8 @@ export default class Quiz extends Vue {
         const api = await this.getApi()
         const r = await api.get('/api/edit/', {
           params: {
-            key: this.key,
-          },
+            key: this.key
+          }
         })
 
         const matter = new Matter()
@@ -245,8 +245,8 @@ export default class Quiz extends Vue {
     const api = await this.getApi()
     await api.patch('/api/quiz/right', {}, {
       params: {
-        key: this.key,
-      },
+        key: this.key
+      }
     })
 
     this.nextQuizItem()
@@ -256,8 +256,8 @@ export default class Quiz extends Vue {
     const api = await this.getApi()
     await api.patch('/api/quiz/wrong', {}, {
       params: {
-        key: this.key,
-      },
+        key: this.key
+      }
     })
 
     this.nextQuizItem()
@@ -267,8 +267,8 @@ export default class Quiz extends Vue {
     const api = await this.getApi()
     await api.patch('/api/quiz/repeat', {}, {
       params: {
-        key: this.key,
-      },
+        key: this.key
+      }
     })
 
     this.nextQuizItem()
@@ -278,8 +278,8 @@ export default class Quiz extends Vue {
     return this.$router.resolve({
       path: '/edit',
       query: {
-        key,
-      },
+        key
+      }
     }).href
   }
 
@@ -296,8 +296,8 @@ export default class Quiz extends Vue {
           const api = await this.getApi(true)
           const r = await api.get('/api/edit/', {
             params: {
-              key,
-            },
+              key
+            }
           })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content

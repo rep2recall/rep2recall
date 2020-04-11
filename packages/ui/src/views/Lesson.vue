@@ -40,7 +40,7 @@ export default class Lesson extends Vue {
     data.entries.push({
       key: '_',
       name: 'Default',
-      description: 'User created cards will by default be here.',
+      description: 'User created cards will by default be here.'
     })
 
     this.$set(this, 'lessons', data.entries)

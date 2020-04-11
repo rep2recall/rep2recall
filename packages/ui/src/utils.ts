@@ -29,7 +29,7 @@ export function nullifyObject (a: Record<string, any>) {
   return ser.clone(Object.entries(a)
     .map(([k, v]) => [k, nullify(v)])
     .filter(([_, v]) => typeof v !== 'undefined')
-    .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any),
+    .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any)
   )
 }
 

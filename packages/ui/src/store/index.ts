@@ -15,7 +15,7 @@ let requestTimeout: NodeJS.Timeout | null = null
 const store = new Vuex.Store({
   state: {
     user: null as User | null,
-    lastStatus: 200,
+    lastStatus: 200
   },
   mutations: {
     setUser (state, user) {
@@ -26,7 +26,7 @@ const store = new Vuex.Store({
     },
     setLastStatus (state, status) {
       state.lastStatus = status
-    },
+    }
   },
   actions: {
     async getApi ({ state, commit }, silent = false) {
@@ -39,7 +39,7 @@ const store = new Vuex.Store({
           }
 
           return status >= 200 && status < 300 // default
-        },
+        }
       })
 
       if (state.user) {
@@ -63,7 +63,7 @@ const store = new Vuex.Store({
                     if (loading && !loading.requestEnded) {
                       Snackbar.open('API request is loading in background.')
                     }
-                  },
+                  }
                 })
               }
             }, 1000)
@@ -104,8 +104,8 @@ const store = new Vuex.Store({
       }
 
       return api
-    },
-  },
+    }
+  }
 })
 
 export default store

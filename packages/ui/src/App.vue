@@ -88,12 +88,12 @@ export default class App extends Vue {
             process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://rep2recall.herokuapp.com'
           ),
           signInOptions: [
-            firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+            firebase.auth.GoogleAuthProvider.PROVIDER_ID
             // firebase.auth.FacebookAuthProvider.PROVIDER_ID,
             // firebase.auth.TwitterAuthProvider.PROVIDER_ID,
             // firebase.auth.GithubAuthProvider.PROVIDER_ID,
           ],
-          signInFlow: 'popup',
+          signInFlow: 'popup'
         })
       }
     })

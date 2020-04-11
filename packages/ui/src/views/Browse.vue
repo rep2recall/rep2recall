@@ -89,10 +89,10 @@
 <script lang="ts">
 import { Component, Vue, Watch, Prop } from 'vue-property-decorator'
 import dayjs from 'dayjs'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
 
-import { normalizeArray, stringSorter } from '../utils'
+import { normalizeArray, stringSorter, deepMerge } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -107,7 +107,7 @@ export default class Query extends Vue {
   tagList: string[] = []
   sort = {
     key: 'updatedAt',
-    type: 'desc',
+    type: 'desc'
   }
 
   isLoading = false
@@ -122,7 +122,7 @@ export default class Query extends Vue {
     { label: 'Data', field: 'data' },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
-    { label: 'Tag', field: 'tag', width: 200 },
+    { label: 'Tag', field: 'tag', width: 200 }
   ]
 
   perPage = 5
@@ -140,16 +140,16 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/browse',
       query: {
-        q: this.q,
-      },
+        q: this.q
+      }
     })
   }
 
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
-    return makeHtml.getHTML(hbs.compile(item.markdown || '')({
+    return makeHtml.getHTML(hbs.compile(this.ctx[item.key].markdown || '')({
       [item.key]: item,
-      ...this.ctx,
+      ...this.ctx
     }))
   }
 
@@ -170,15 +170,15 @@ export default class Query extends Vue {
       limit: this.perPage,
       sort: {
         key: this.sort.key,
-        desc: this.sort.type === 'desc',
+        desc: this.sort.type === 'desc'
       },
-      count: true,
+      count: true
     })
 
+    console.log(r.data)
+
     await Promise.all((r.data.data as any[])
-      .map((el) => el.ref || [])
-      .reduce((prev, c) => [...prev, ...c], [])
-      .map((r0: string) => this.onCtxChange(r0)))
+      .map((el) => this.onCtxChange(deepMerge([el.key], el.ref))))
 
     this.count = r.data.count
 
@@ -186,13 +186,13 @@ export default class Query extends Vue {
       const lesson = el.lesson || [];
       (el.deck || []).map((d: any) => {
         lesson.push({
-          deck: d.name,
+          deck: d.name
         })
       })
 
       return {
         ...el,
-        tag: stringSorter(el.tag || []),
+        tag: stringSorter(el.tag || [])
       }
     }))
   }
@@ -201,8 +201,8 @@ export default class Query extends Vue {
     this.$router.push({
       query: {
         ...this.$route.query,
-        page: p.toString(),
-      },
+        page: p.toString()
+      }
     })
   }
 
@@ -223,12 +223,14 @@ export default class Query extends Vue {
         const api = await this.getApi()
         await api.delete('/api/edit/', {
           data: {
-            keys: this.checked.map((el) => el.key),
-          },
+            keys: this.checked.map((el) => el.key)
+          }
         })
 
-        this.load()
-      },
+        setTimeout(() => {
+          this.load()
+        }, 100)
+      }
     })
   }
 
@@ -247,8 +249,8 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/edit',
       query: {
-        key: it.key,
-      },
+        key: it.key
+      }
     })
   }
 
@@ -267,8 +269,8 @@ export default class Query extends Vue {
       await api.patch('/api/edit/', {
         keys: this.checked.map((el) => el.key),
         set: {
-          tag: this.tagList,
-        },
+          tag: this.tagList
+        }
       })
 
       this.isEditTagsDialog = false
@@ -277,19 +279,31 @@ export default class Query extends Vue {
     })
   }
 
-  async onCtxChange (key: string) {
-    if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
-        const r = await api.get('/api/edit/', {
-          params: {
-            key,
-          },
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
+  async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, k) => ({ ...prev, [k]: null }), {})
     }
+
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
+        }
+      }
+    }))
   }
 }
 </script>
