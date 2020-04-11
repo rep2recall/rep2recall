@@ -128,6 +128,7 @@ body,
   width: 100vw;
   height: 100vh;
   display: flex;
+  overflow-x: clip;
 }
 
 #main-nav {
@@ -178,6 +179,7 @@ body,
 @media screen and (max-width: 800px) {
   #main {
     flex-direction: column;
+    min-width: 100vw;
   }
 }
 

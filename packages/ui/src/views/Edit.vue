@@ -233,7 +233,7 @@ export default class Edit extends Vue {
         const { header, content } = this.matter.parse(markdown)
         this.ctx[this.key] = r.data
 
-        const ref = deepMerge(header.ref || {}, r.data.ref)
+        const ref = deepMerge(r.data.ref, header.ref)
         await this.onCtxChange(ref)
 
         this.markdown = this.matter.stringify(content, nullifyObject(deepMerge(header, {
@@ -368,6 +368,10 @@ export default class Edit extends Vue {
   }
 
   async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, c) => ({ ...prev, [c]: null }), {})
+    }
+
     await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
