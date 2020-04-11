@@ -13,8 +13,8 @@ import TreeItem from './TreeItem.vue'
 
 @Component({
   components: {
-    TreeItem,
-  },
+    TreeItem
+  }
 })
 export default class Treeview extends Vue {
   @Prop({ required: true }) data!: any[]
@@ -27,7 +27,7 @@ export default class Treeview extends Vue {
     this.data
       .map((d) => ({
         ...d,
-        ds: d.deck.split('/'),
+        ds: d.deck.split('/')
       }))
       .filter(({ ds }) => ds.length >= this.depth + 1)
       .map((it) => {
@@ -37,7 +37,7 @@ export default class Treeview extends Vue {
           subData[deck] = {
             ...it,
             hasReview: false,
-            deck,
+            deck
           }
         }
       })

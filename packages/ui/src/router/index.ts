@@ -8,25 +8,25 @@ const router = new VueRouter({
     {
       path: '/lesson',
       alias: '/',
-      component: () => import('@/views/Lesson.vue'),
+      component: () => import('@/views/Lesson.vue')
     },
     {
       path: '/quiz/:name',
-      component: () => import('@/views/Quiz.vue'),
+      component: () => import('@/views/Quiz.vue')
     },
     {
       path: '/edit',
-      component: () => import('@/views/Edit.vue'),
+      component: () => import('@/views/Edit.vue')
     },
     {
       path: '/browse',
-      component: () => import('@/views/Browse.vue'),
+      component: () => import('@/views/Browse.vue')
     },
     {
       path: '/community',
-      component: () => import('@/views/Community.vue'),
-    },
-  ],
+      component: () => import('@/views/Community.vue')
+    }
+  ]
 })
 
 export default router

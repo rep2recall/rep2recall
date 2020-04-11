@@ -54,12 +54,12 @@ import MakeHtml from '../make-html'
         confirmText: 'Leave',
         cancelText: 'Cancel',
         onConfirm: () => next(),
-        onCancel: () => next(false),
+        onCancel: () => next(false)
       })
     } else {
       next()
     }
-  },
+  }
 })
 export default class Edit extends Vue {
   hasPreview = false
@@ -111,7 +111,7 @@ export default class Edit extends Vue {
     this.codemirror.setSize('100%', '100%')
     this.codemirror.addKeyMap({
       'Cmd-S': () => { this.save() },
-      'Ctrl-S': () => { this.save() },
+      'Ctrl-S': () => { this.save() }
     })
 
     // @ts-ignore
@@ -196,7 +196,7 @@ export default class Edit extends Vue {
         data: t.Dictionary(t.Unknown).check(data || {}),
         stat: t.Dictionary(t.Unknown).check(stat || {}),
         deck: t.String.check(deck || '') || undefined,
-        nextReview: t.String.check(nextReview || '') || undefined,
+        nextReview: t.String.check(nextReview || '') || undefined
       }
     } catch (e) {
       if (isFinal) {
@@ -218,8 +218,8 @@ export default class Edit extends Vue {
 
       const r = (await api.get('/api/edit/', {
         params: {
-          key: this.key,
-        },
+          key: this.key
+        }
       }))
 
       if (r.data) {
@@ -227,13 +227,13 @@ export default class Edit extends Vue {
           tag,
           key, lesson, data, deck,
           nextReview, srsLevel, stat,
-          markdown,
+          markdown
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
         this.ctx[this.key] = r.data
 
-        const { ref } = deepMerge(header.ref || {}, r.data.ref)
+        const ref = deepMerge(header.ref || {}, r.data.ref)
         await this.onCtxChange(ref)
 
         this.markdown = this.matter.stringify(content, nullifyObject(deepMerge(header, {
@@ -244,7 +244,7 @@ export default class Edit extends Vue {
           data,
           srsLevel,
           stat,
-          nextReview,
+          nextReview
         })))
 
         this.$set(this, 'tag', tag)
@@ -296,7 +296,7 @@ export default class Edit extends Vue {
       nextReview,
       deck,
       markdown,
-      tag: this.tag,
+      tag: this.tag
     }
 
     const api = await this.getApi()
@@ -310,7 +310,7 @@ export default class Edit extends Vue {
     } else {
       await api.patch('/api/edit/', {
         keys: [this.key],
-        set: content,
+        set: content
       })
 
       this.key = header.key || this.key
@@ -321,8 +321,8 @@ export default class Edit extends Vue {
     if (this.$route.query.key !== this.key) {
       this.$router.push({
         query: {
-          key: this.key,
-        },
+          key: this.key
+        }
       })
     }
 
@@ -342,7 +342,7 @@ export default class Edit extends Vue {
       const document = this.outputWindow.document
       this.makeHtml.patch(document.body, hbs.compile(new Matter().parse(this.markdown).content)({
         [this.key]: self,
-        ...this.ctx,
+        ...this.ctx
       }))
       this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
         el.setAttribute('data-loaded', '1')
@@ -374,8 +374,8 @@ export default class Edit extends Vue {
           const api = await this.getApi(true)
           const r = await api.get('/api/edit/', {
             params: {
-              key,
-            },
+              key
+            }
           })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
