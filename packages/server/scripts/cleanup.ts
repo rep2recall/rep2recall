@@ -1,4 +1,3 @@
-import { MongoClient } from 'mongodb'
 import dotenv from 'dotenv'
 import { mongoose } from '@typegoose/typegoose'
 

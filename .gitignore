@@ -2,3 +2,4 @@ node_modules
 /user
 .git.bfg*
 /heroku/
+.env
