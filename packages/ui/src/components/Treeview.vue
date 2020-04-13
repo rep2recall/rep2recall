@@ -41,7 +41,7 @@ export default class Treeview extends Vue {
           }
         }
       })
-    
+
     return Object.entries(subData).sort(([a], [b]) => a.localeCompare(b)).map(([_, v]) => v) as any[]
   }
 }

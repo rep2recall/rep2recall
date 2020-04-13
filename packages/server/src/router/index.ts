@@ -10,7 +10,7 @@ import { db } from '../db/schema'
 
 admin.initializeApp({
   credential: admin.credential.cert(require('../../firebase-key.json')),
-  databaseURL: 'https://rep2recall.firebaseio.com',
+  databaseURL: 'https://rep2recall.firebaseio.com'
 })
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
@@ -20,24 +20,24 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       info: {
         title: 'Rep2Recall API',
         description: 'Rep2Recall Swagger API',
-        version: '0.1.0',
+        version: '0.1.0'
       },
       consumes: ['application/json'],
       produces: ['application/json'],
       tags: [
         { name: 'edit', description: 'Editing related endpoints' },
-        { name: 'quiz', description: 'Quizzing related endpoints' },
+        { name: 'quiz', description: 'Quizzing related endpoints' }
       ],
       components: {
         securitySchemes: {
           BasicAuth: {
             type: 'http',
-            scheme: 'basic',
-          },
-        },
-      },
+            scheme: 'basic'
+          }
+        }
+      }
     },
-    exposeRoute: true,
+    exposeRoute: true
   })
 
   f.register(fCoookie)

@@ -2,6 +2,7 @@
 section.editor
   .buttons.header-buttons
     div(style="flex-grow: 1;")
+    b-button.is-info(@click="ctxReload()") Reload
     b-button.is-warning(@click="hasPreview = !hasPreview") {{hasPreview ? 'Hide' : 'Show'}} Preview
     b-button.is-success(:disabled="!isEdited" @click="save") Save
   .columns
@@ -18,11 +19,6 @@ section.editor
           a.card-header-icon
             b-icon(:icon="props.open ? 'caret-up' : 'caret-down'")
         .card-content
-          b-field(label="Deck" label-position="on-border")
-            b-autocomplete(
-              v-model="deck"
-              open-on-focus :data="filteredDecks" @focus="initFilteredDecks" @typing="getFilteredDecks"
-            )
           b-field(label="Tag" label-position="on-border")
             b-taginput(
               v-model="tag" ellipsis icon="tag" placeholder="Add a tag"
@@ -36,15 +32,15 @@ section.editor
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
 import dayjs from 'dayjs'
-import Ajv from 'ajv'
 import CodeMirror from 'codemirror'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
 import hbs from 'handlebars'
+import * as t from 'runtypes'
 
 import 'firebase/storage'
 
-import { normalizeArray, nullifyObject, stringSorter } from '../utils'
+import { normalizeArray, nullifyObject, stringSorter, deepMerge } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -71,10 +67,6 @@ export default class Edit extends Vue {
   markdown = ''
   scrollSize = 0
   key = Math.random().toString(36).substr(2)
-
-  deck = ''
-  filteredDecks: string[] = []
-  allDecks: string[] | null = null
 
   tag: string[] = []
   filteredTags: string[] = []
@@ -167,22 +159,6 @@ export default class Edit extends Vue {
     return dayjs(d).format('YYYY-MM-DD HH:mm Z')
   }
 
-  async initFilteredDecks () {
-    if (!this.allDecks) {
-      const api = await this.getApi(true)
-      this.allDecks = (await api.get('/api/edit/deck')).data.decks
-    }
-    this.allDecks = stringSorter(Array.from(new Set([...this.allDecks!, this.deck])))
-  }
-
-  async getFilteredDecks (text?: string) {
-    if (this.allDecks) {
-      this.filteredDecks = text ? this.allDecks.filter((t) => t).filter((t) => {
-        return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-      }) : this.allDecks
-    }
-  }
-
   async initFilteredTags () {
     if (!this.allTags) {
       const api = await this.getApi(true)
@@ -194,66 +170,41 @@ export default class Edit extends Vue {
   async getFilteredTags (text?: string) {
     if (this.allTags) {
       this.filteredTags = text ? this.allTags
-        .filter((t) => t)
-        .filter((t) => !this.tag.includes(t))
         .filter((t) => {
-          return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+          return t && !this.tag.includes(t) && t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
         }) : this.allTags
     }
   }
 
-  getAndValidateHeader (isFinal = true) {
-    const { header } = this.matter.parse(this.markdown)
+  getAndValidateHeader (isFinal?: boolean) {
+    try {
+      let { header: { key, ref, srsLevel, data, stat, deck, nextReview } } = this.matter.parse(this.markdown)
 
-    let valid = true
+      if (nextReview) {
+        const d = dayjs(t.String.check(nextReview))
+        if (!d.isValid()) {
+          throw new Error(`Invalid Date: ${nextReview}`)
+        }
 
-    if (header.nextReview && isFinal) {
-      let d = dayjs(header.nextReview)
-      valid = d.isValid()
-      if (!valid) {
-        this.$buefy.snackbar.open(`Invalid Date: ${header.nextReview}`)
-        console.error(`Invalid Date: ${header.nextReview}`)
-        return
+        nextReview = d.toISOString()
       }
 
-      if (header.date instanceof Date) {
-        d = d.add(new Date().getTimezoneOffset(), 'minute')
+      return {
+        key: t.String.check(key || '') || undefined,
+        ref: t.Dictionary(t.Unknown).Or(t.Array(t.String)).check(ref || {}),
+        srsLevel: t.Number.Or(t.Null).Or(t.Undefined).check(srsLevel),
+        data: t.Dictionary(t.Unknown).check(data || {}),
+        stat: t.Dictionary(t.Unknown).check(stat || {}),
+        deck: t.String.check(deck || '') || undefined,
+        nextReview: t.String.check(nextReview || '') || undefined
       }
-
-      header.nextReview = d.toISOString()
-    }
-
-    const ajv = new Ajv()
-    const getType = (t: string) => isFinal ? t : [t, 'null']
-    const validator = ajv.compile({
-      type: 'object',
-      properties: {
-        key: { type: getType('string') },
-        ref: { type: 'array', items: { type: getType('string') } },
-        data: { type: getType('object') },
-        nextReview: { type: getType('string') },
-        srsLevel: { type: getType('integer') },
-        stat: { type: getType('object') }
+    } catch (e) {
+      if (isFinal) {
+        this.$buefy.snackbar.open(e.message)
       }
-    })
-    valid = !!validator(header)
-
-    if (!valid) {
-      // for (const e of validator.errors || []) {
-      //   this.$buefy.snackbar.open(e.message || '')
-      //   console.error(e)
-      // }
-      return null
     }
 
-    return header as {
-      key?: string
-      ref?: string[]
-      data?: Record<string, any>
-      nextReview?: string
-      srsLevel?: number
-      stat?: any
-    }
+    return null
   }
 
   @Watch('$route.query.key')
@@ -273,21 +224,29 @@ export default class Edit extends Vue {
 
       if (r.data) {
         const {
-          deck, tag,
-          key, ref, data,
+          tag,
+          key, lesson, data, deck,
           nextReview, srsLevel, stat,
-          markdown,
+          markdown
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
-        Object.assign(header, {
-          key, ref, data,
-          srsLevel, stat,
-          nextReview,
-        })
+        this.ctx[this.key] = r.data
 
-        this.markdown = this.matter.stringify(content, nullifyObject(header))
-        this.deck = deck
+        const ref = deepMerge(r.data.ref, header.ref)
+        await this.onCtxChange(ref)
+
+        this.markdown = this.matter.stringify(content, nullifyObject(deepMerge({
+          key,
+          ref,
+          deck,
+          lesson,
+          data,
+          srsLevel,
+          stat,
+          nextReview
+        }, header)))
+
         this.$set(this, 'tag', tag)
         isSet = true
       }
@@ -298,7 +257,6 @@ export default class Edit extends Vue {
 
     if (!isSet) {
       this.markdown = ''
-      this.deck = ''
       this.$set(this, 'tag', [])
     }
 
@@ -318,18 +276,27 @@ export default class Edit extends Vue {
       return
     }
 
-    const { key, ref, data, srsLevel, stat, nextReview } = header
+    const { key, ref, data, srsLevel, stat, nextReview, deck } = header
 
     let { content: markdown } = this.matter.parse(this.markdown)
     markdown = this.matter.stringify(markdown, Object.entries(header)
-      .filter(([k]) => !['key', 'ref', 'data', 'srsLevel', 'stat', 'nextReview'].includes(k))
+      .filter(([k]) => !['key', 'ref', 'data', 'srsLevel', 'stat', 'nextReview', 'lesson'].includes(k))
       .reduce((prev, [k, v]) => ({ ...prev, [k]: v }), {} as any))
 
     const content = {
-      key, ref, data, srsLevel, stat, nextReview,
+      key,
+      ref: typeof ref === 'object'
+        ? Array.isArray(ref)
+          ? ref
+          : Object.keys(ref).filter((k) => ref[k] === null)
+        : undefined,
+      data,
+      srsLevel,
+      stat,
+      nextReview,
+      deck,
       markdown,
-      deck: this.deck,
-      tag: this.tag,
+      tag: this.tag
     }
 
     const api = await this.getApi()
@@ -349,7 +316,6 @@ export default class Edit extends Vue {
       this.key = header.key || this.key
     }
 
-    this.initFilteredDecks()
     this.initFilteredTags()
 
     if (this.$route.query.key !== this.key) {
@@ -367,12 +333,10 @@ export default class Edit extends Vue {
     }, 100)
   }
 
-  async onCmCodeChange () {
+  onCmCodeChange () {
     this.isEdited = true
     const self = this.getAndValidateHeader(false)
     this.key = this.key || this.matter.header.key
-
-    await Promise.all((this.matter.header.ref || []).map((r0: string) => this.onCtxChange(r0)))
 
     if (this.outputWindow) {
       const document = this.outputWindow.document
@@ -395,19 +359,39 @@ export default class Edit extends Vue {
     this.isEdited = true
   }
 
-  async onCtxChange (key: string) {
-    if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
-        const r = await api.get('/api/edit/', {
-          params: {
-            key
-          }
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
+  async ctxReload () {
+    const { header, content } = new Matter().parse(this.markdown)
+    this.ctx[this.key] = content
+
+    const { ref } = deepMerge(header.ref)
+    await this.onCtxChange(ref)
+  }
+
+  async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, c) => ({ ...prev, [c]: null }), {})
     }
+
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
+        }
+      }
+    }))
   }
 
   onScroll (evt: any) {

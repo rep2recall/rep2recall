@@ -1,90 +1,81 @@
 import { FastifyInstance } from 'fastify'
 import escapeRegExp from 'escape-string-regexp'
 
-import { db } from '../db/schema'
+import { db, DbCardModel } from '../db/schema'
 import { shuffle } from '../utils'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
+  f.get('/lessons', {
+    schema: {
+      summary: 'List all lessons',
+      tags: ['quiz']
+    }
+  }, async () => {
+    return {
+      entries: await db.listLessons()
+    }
+  })
+
   f.post('/', {
     schema: {
       summary: 'Query for card ids, for use in quiz',
       tags: ['quiz'],
       body: {
         type: 'object',
-        required: ['q', 'deck'],
+        required: ['q', 'deck', 'lesson'],
         properties: {
           q: { type: ['string', 'object'] },
           deck: { type: 'string' },
-          type: { type: 'string', enum: ['all', 'due', 'leech', 'new'] },
-        },
-      },
-    },
-  }, async (req) => {
-    const { q, deck, type } = req.body
-
-    let $or = [
-      typeof q === 'string' ? db.qSearch.parse(q).cond : q,
-    ]
-
-    $or = $or.map((cond) => {
-      return [
-        {
-          ...cond,
-          deck,
-        },
-        {
-          ...cond,
-          deck: new RegExp(`^${escapeRegExp(deck)}/`),
-        },
-      ]
-    }).reduce((a, b) => [...a, ...b])
-
-    let dueOrNew = false
-
-    if (type !== 'all') {
-      if (type === 'due') {
-        $or.map((cond) => {
-          cond.nextReview = { $lte: new Date() }
-        })
-      } else if (type === 'leech') {
-        $or.map((cond) => {
-          cond.srsLevel = 0
-        })
-      } else if (type === 'new') {
-        $or.map((cond) => {
-          cond.nextReview = { $exists: false }
-        })
-      } else {
-        dueOrNew = true
+          lesson: { type: 'string' }
+        }
       }
     }
+  }, async (req) => {
+    const { q, deck, lesson } = req.body
+    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    if (dueOrNew) {
-      $or = $or.map((cond) => {
-        return [
-          {
-            nextReview: { $exists: false },
-            ...cond,
-          },
-          {
-            nextReview: { $lte: new Date() },
-            ...cond,
-          },
-        ]
-      }).reduce((a, b) => [...a, ...b])
-    }
+    const $and = [
+      cond
+    ]
 
-    const rs = await db.aggregate([], [
-      { $match: { $or } },
-      {
-        $project: {
-          key: 1,
+    $and.push({
+      $or: [
+        { deck },
+        { deck: new RegExp(`^${escapeRegExp(deck)}/`) }
+      ]
+    })
+
+    $and.push({
+      $or: [
+        { nextReview: { $exists: false } },
+        { nextReview: null },
+        { nextReview: { $lte: new Date() } }
+      ]
+    })
+
+    $and.push({
+      'lesson.key': lesson
+    })
+
+    const rs = await DbCardModel.stdLookup({
+      postConds: [
+        {
+          $addFields: {
+            deck: '$lesson.deck'
+          }
         },
-      },
-    ])
+        { $match: { $and } },
+        {
+          $project: {
+            key: 1,
+            _id: 0
+          }
+        }
+      ]
+    })
 
     return {
-      keys: shuffle(rs.map((c) => c.key)),
+      keys: shuffle(rs.map((c) => c.key))
     }
   })
 
@@ -94,26 +85,39 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       tags: ['quiz'],
       body: {
         type: 'object',
-        required: ['q'],
+        required: ['q', 'lesson'],
         properties: {
           q: { type: ['string', 'object'] },
-        },
-      },
-    },
+          lesson: { type: 'string' }
+        }
+      }
+    }
   }, async (req) => {
-    const { q } = req.body
+    const { q, lesson } = req.body
     const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    const rs = await db.aggregate([], [
-      { $match: cond },
-      {
-        $project: {
-          deck: 1,
-          nextReview: 1,
-          srsLevel: 1,
+    const rs = await DbCardModel.stdLookup({
+      postConds: [
+        {
+          $match: {
+            $and: [
+              cond,
+              {
+                'lesson.key': lesson
+              }
+            ]
+          }
         },
-      },
-    ])
+        {
+          $project: {
+            deck: '$lesson.deck',
+            nextReview: 1,
+            srsLevel: 1,
+            _id: 0
+          }
+        }
+      ]
+    })
 
     const deckStat: Record<string, {
       due: number
@@ -125,10 +129,12 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
     rs.map((c) => {
       if (c.deck) {
+        c.deck = c.deck[0]
+
         deckStat[c.deck] = deckStat[c.deck] || {
           due: 0,
           leech: 0,
-          new: 0,
+          new: 0
         }
 
         if (!c.nextReview) {
@@ -145,7 +151,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
     return Object.entries(deckStat).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => ({
       ...v,
-      deck: k,
+      deck: k
     }))
   })
 
@@ -154,11 +160,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Render a quiz item',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' },
-      },
-    },
+        key: { type: 'string' }
+      }
+    }
   }, async (req) => {
-    return await db.render(req.query.key, true)
+    return await db.render(req.query.key, {
+      min: true
+    })
   })
 
   f.patch('/right', {
@@ -166,13 +174,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark as right',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' },
-      },
-    },
+        key: { type: 'string' }
+      }
+    }
   }, async (req) => {
     await db.markRight(req.query.key)
     return {
-      error: null,
+      error: null
     }
   })
 
@@ -181,13 +189,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark as wrong',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' },
-      },
-    },
+        key: { type: 'string' }
+      }
+    }
   }, async (req) => {
     await db.markWrong(req.query.key)
     return {
-      error: null,
+      error: null
     }
   })
 
@@ -196,13 +204,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       summary: 'Mark for repetition',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' },
-      },
-    },
+        key: { type: 'string' }
+      }
+    }
   }, async (req) => {
     await db.markRepeat(req.query.key)
     return {
-      error: null,
+      error: null
     }
   })
 

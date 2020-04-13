@@ -2,31 +2,31 @@ module.exports = {
   env: {
     browser: true,
     es6: true,
-    node: true,
+    node: true
   },
   extends: [
     'plugin:vue/essential',
     'standard',
     'plugin:import/errors',
     'plugin:import/warnings',
-    'plugin:import/typescript',
+    'plugin:import/typescript'
   ],
   globals: {
     Atomics: 'readonly',
     SharedArrayBuffer: 'readonly',
-    Neutralino: 'writable',
+    Neutralino: 'writable'
   },
   parserOptions: {
     ecmaFeatures: {
-      jsx: true,
+      jsx: true
     },
     ecmaVersion: 2018,
     parser: '@typescript-eslint/parser',
-    sourceType: 'module',
+    sourceType: 'module'
   },
   plugins: [
     'vue',
-    '@typescript-eslint',
+    '@typescript-eslint'
   ],
   rules: {
     'no-unused-vars': 0,
@@ -38,13 +38,12 @@ module.exports = {
     'no-return-await': 0,
     'arrow-parens': ['error', 'always'],
     'quote-props': ['error', 'as-needed'],
-    'comma-dangle': ['error', 'always-multiline'],
     semi: 'off',
     '@typescript-eslint/semi': ['error', 'never'],
     '@typescript-eslint/member-delimiter-style': ['error', {
       multiline: {
-        delimiter: 'none',
-      },
+        delimiter: 'none'
+      }
     }],
     'import/order': [
       2,
@@ -53,10 +52,10 @@ module.exports = {
           'builtin',
           'external',
           'internal',
-          ['parent', 'sibling', 'index'],
+          ['parent', 'sibling', 'index']
         ],
-        'newlines-between': 'always',
-      },
-    ],
-  },
+        'newlines-between': 'always'
+      }
+    ]
+  }
 }

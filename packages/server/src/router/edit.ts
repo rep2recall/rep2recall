@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-import { db, DbTagModel, DbDeckModel } from '../db/schema'
+import { db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.get('/', {
@@ -11,14 +11,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         type: 'object',
         required: ['key'],
         properties: {
-          key: { type: 'string' },
-        },
-      },
-    },
+          key: { type: 'string' }
+        }
+      }
+    }
   }, async (req) => {
     const { key } = req.query
 
-    return await db.render(key)
+    return await db.render(key, {
+      min: false
+    })
   })
 
   f.post('/', {
@@ -38,13 +40,13 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
             required: ['key'],
             properties: {
               key: { type: 'string' },
-              desc: { type: 'boolean' },
-            },
+              desc: { type: 'boolean' }
+            }
           },
-          count: { type: 'boolean' },
-        },
-      },
-    },
+          count: { type: 'boolean' }
+        }
+      }
+    }
   }, async (req) => {
     let { q, cond, offset = 0, limit, sort, count } = req.body
 
@@ -57,23 +59,27 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
 
     const [rData, rCount] = await Promise.all([
-      db.aggregate([], [
-        { $match: q },
-        { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
-        { $skip: offset },
-        ...(limit ? [
-          { $limit: limit },
-        ] : []),
-      ]),
-      count ? db.aggregate([], [
-        { $match: q },
-        { $count: 'count' },
-      ]) : null,
+      DbCardModel.stdLookup({
+        postConds: [
+          { $match: q },
+          { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
+          { $skip: offset },
+          ...(limit ? [
+            { $limit: limit }
+          ] : [])
+        ]
+      }),
+      count ? DbCardModel.stdLookup({
+        postConds: [
+          { $match: q },
+          { $count: 'count' }
+        ]
+      }) : null
     ])
 
     return {
       data: rData,
-      count: rCount ? ((rCount[0] || {}).count || 0) : undefined,
+      count: rCount ? rCount[0].count : null
     }
   })
 
@@ -85,16 +91,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         200: {
           type: 'object',
           properties: {
-            key: { type: 'string' },
-          },
-        },
-      },
-    },
+            key: { type: 'string' }
+          }
+        }
+      }
+    }
   }, async (req) => {
     const keys = await db.create(req.body)
 
     return {
-      key: keys[0],
+      key: keys[0]
     }
   })
 
@@ -106,23 +112,23 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         type: 'object',
         required: ['entries'],
         properties: {
-          entries: { type: 'array', items: { type: 'object' } },
-        },
+          entries: { type: 'array', items: { type: 'object' } }
+        }
       },
       response: {
         200: {
           type: 'object',
           properties: {
-            keys: { type: 'array', items: { type: 'string' } },
-          },
-        },
-      },
-    },
+            keys: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      }
+    }
   }, async (req) => {
     const keys = await db.create(...req.body.entries)
 
     return {
-      keys,
+      keys
     }
   })
 
@@ -135,16 +141,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         required: ['keys', 'set'],
         properties: {
           keys: { type: 'array', items: { type: 'string' } },
-          set: { type: 'object' },
-        },
-      },
-    },
+          set: { type: 'object' }
+        }
+      }
+    }
   }, async (req) => {
     const { keys, set } = req.body
     await db.update(keys, set)
 
     return {
-      error: null,
+      error: null
     }
   })
 
@@ -156,38 +162,38 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         type: 'object',
         required: ['keys'],
         properties: {
-          keys: { type: 'array', items: { type: 'string' } },
-        },
-      },
-    },
+          keys: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
   }, async (req) => {
     const { keys } = req.body
     await db.delete(...keys)
 
     return {
-      error: null,
+      error: null
     }
   })
 
   f.get('/deck', {
     schema: {
       summary: 'Get decks',
-      tags: ['edit'],
-    },
+      tags: ['edit']
+    }
   }, async () => {
     return {
-      decks: (await DbDeckModel.find().select({ name: 1 })).map((t) => t.name),
+      decks: (await DbDeckModel.find().select({ name: 1 })).map((t) => t.name)
     }
   })
 
   f.get('/tag', {
     schema: {
       summary: 'Get tags',
-      tags: ['edit'],
-    },
+      tags: ['edit']
+    }
   }, async () => {
     return {
-      tags: (await DbTagModel.find().select({ name: 1 })).map((t) => t.name),
+      tags: (await DbTagModel.find().select({ name: 1 })).map((t) => t.name)
     }
   })
 
@@ -200,16 +206,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         required: ['keys', 'tags'],
         properties: {
           keys: { type: 'array', items: { type: 'string' } },
-          tags: { type: 'array', items: { type: 'string' } },
-        },
-      },
-    },
+          tags: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
   }, async (req) => {
     const { keys, tags } = req.body
     await db.addTags(keys, tags)
 
     return {
-      error: null,
+      error: null
     }
   })
 
@@ -222,16 +228,16 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
         required: ['keys', 'tags'],
         properties: {
           keys: { type: 'array', items: { type: 'string' } },
-          tags: { type: 'array', items: { type: 'string' } },
-        },
-      },
-    },
+          tags: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
   }, async (req) => {
     const { keys, tags } = req.body
     await db.removeTags(keys, tags)
 
     return {
-      error: null,
+      error: null
     }
   })
 
