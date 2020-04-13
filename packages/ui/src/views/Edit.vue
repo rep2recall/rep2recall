@@ -236,7 +236,7 @@ export default class Edit extends Vue {
         const ref = deepMerge(r.data.ref, header.ref)
         await this.onCtxChange(ref)
 
-        this.markdown = this.matter.stringify(content, nullifyObject(deepMerge(header, {
+        this.markdown = this.matter.stringify(content, nullifyObject(deepMerge({
           key,
           ref,
           deck,
@@ -245,7 +245,7 @@ export default class Edit extends Vue {
           srsLevel,
           stat,
           nextReview
-        })))
+        }, header)))
 
         this.$set(this, 'tag', tag)
         isSet = true
