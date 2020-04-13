@@ -16,7 +16,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@patarapolw/qsearch": "^1.2.1",
     "@typegoose/typegoose": "^6.4.0",
     "any-serialize": "^1.4.12",
     "dayjs": "^1.8.22",
