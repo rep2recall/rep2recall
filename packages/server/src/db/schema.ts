@@ -2,11 +2,11 @@ import * as t from 'runtypes'
 import mongoose from 'mongoose'
 import { prop, getModelForClass, index, DocumentType, Ref, post, pre } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
-import QSearch from '@patarapolw/qsearch'
 import shortid from 'shortid'
 import dotProp from 'dot-prop'
 import { nanoid } from 'nanoid'
 
+import QSearch from '../qsearch'
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
 
@@ -295,7 +295,13 @@ class Db {
       tag: {},
       nextReview: { type: 'date' },
       srsLevel: { type: 'number' },
-      data: { isAny: false }
+      data: { isAny: false },
+      'stat.streak.right': { type: 'number' },
+      'stat.streak.wrong': { type: 'number' },
+      'stat.streak.maxRight': { type: 'number' },
+      'stat.streak.maxWrong': { type: 'number' },
+      'stat.lastRight': { type: 'date' },
+      'stat.lastWrong': { type: 'date' }
     }
   })
 
