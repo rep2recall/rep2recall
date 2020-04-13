@@ -1,7 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-import { db, DbTagModel, DbDeckModel } from '../db/schema'
-import { mapAsync } from '../utils'
+import { db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.get('/', {
@@ -59,26 +58,28 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       q = { $and: [q, cond] }
     }
 
-    const searchView = await db.getSearchView()
     const [rData, rCount] = await Promise.all([
-      searchView.aggregate([
-        { $match: q },
-        { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
-        { $skip: offset },
-        ...(limit ? [
-          { $limit: limit }
-        ] : [])
-      ]).toArray(),
-      count ? new Promise<number>((resolve, reject) => {
-        searchView.countDocuments(q, (err, r) => {
-          err ? reject(err) : resolve(r)
-        })
+      DbCardModel.stdLookup({
+        postConds: [
+          { $match: q },
+          { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
+          { $skip: offset },
+          ...(limit ? [
+            { $limit: limit }
+          ] : [])
+        ]
+      }),
+      count ? DbCardModel.stdLookup({
+        postConds: [
+          { $match: q },
+          { $count: 'count' }
+        ]
       }) : null
     ])
 
     return {
       data: rData,
-      count: rCount
+      count: rCount ? rCount[0].count : null
     }
   })
 

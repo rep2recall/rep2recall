@@ -1,6 +1,6 @@
 import * as t from 'runtypes'
 import mongoose from 'mongoose'
-import { prop, getModelForClass, index, DocumentType, Ref, post, pre } from '@typegoose/typegoose'
+import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
 import shortid from 'shortid'
 import dotProp from 'dot-prop'
@@ -46,22 +46,6 @@ class DbLesson {
 
 export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { collection: 'lesson', timestamps: true } })
 
-@post(/(insert|update|delete|save)/, async function () {
-  // @ts-ignore
-  const q = (this && this.getQuery) ? this.getQuery() : null
-
-  if (q) {
-    await DbCardModel.updateSearch({
-      _id: {
-        $in: (await DbDeckModel.find(q)
-          .select({ cardIds: 1, _id: 0 })).map((el) => el.cardIds || []).reduce((prev, c) => [...prev, ...c], [])
-      }
-    })
-  } else {
-    // @ts-ignore
-    console.error(this)
-  }
-})
 class DbDeck {
   @prop({ required: true }) name!: string
   @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: Ref<DbCard>[]
@@ -88,38 +72,6 @@ class DbDeck {
 export const DbDeckModel = getModelForClass(DbDeck, { schemaOptions: { collection: 'deck', timestamps: true } })
 
 @index({ userId: 1, key: 1 }, { unique: true })
-@pre(/delete/, async function () {
-  // @ts-ignore
-  const q = (this && this.getQuery) ? this.getQuery() : null
-
-  if (q) {
-    await mongoose.connection.db.collection('search').deleteMany({
-      key: { $in: (await DbCardModel.find(q).select({ key: 1, _id: 0 })).map((el) => el.key) }
-    })
-  } else {
-    console.error(this)
-  }
-})
-@post(/(update|insert|save)/, async function () {
-  // @ts-ignore
-  const q = (this && this.getQuery) ? this.getQuery() : null
-
-  if (q) {
-    await DbCardModel.updateSearch(q)
-  } else {
-    // @ts-ignore
-    const cardId = (this && this._id) ? this._id : null
-
-    if (cardId) {
-      await DbCardModel.updateSearch({
-        _id: cardId
-      })
-    } else {
-    // @ts-ignore
-      console.error(this)
-    }
-  }
-})
 class DbCard {
   @prop({ required: true, index: true, ref: 'DbUser' }) userId!: Ref<DbUser>
 
@@ -140,107 +92,103 @@ class DbCard {
    */
   @prop() markdown?: string
 
-  static async updateSearch (cond: any) {
-    await DbCardModel.aggregate([
-      { $match: cond },
-      {
-        $lookup: {
-          from: 'quiz',
-          localField: '_id',
-          foreignField: 'cardId',
-          as: 'q'
-        }
-      },
-      { $unwind: { path: '$q', preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: 'tag',
-          localField: 'tag',
-          foreignField: '_id',
-          as: 't'
-        }
-      },
-      { $addFields: { tag: '$t.name' } },
-      {
-        $lookup: {
-          from: 'deck',
-          localField: '_id',
-          foreignField: 'cardIds',
-          as: 'd'
-        }
-      },
-      { $unwind: { path: '$d', preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: 'lesson',
-          localField: 'd.lessonId',
-          foreignField: '_id',
-          as: 'ls'
-        }
-      },
-      { $unwind: { path: '$ls', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: '$_id',
-          userId: { $first: '$userId' },
-          key: { $first: '$key' },
-          data: { $first: '$data' },
-          tag: { $first: '$tag' },
-          nextReview: { $first: '$q.nextReview' },
-          srsLevel: { $first: '$q.srsLevel' },
-          stat: { $first: '$q.stat' },
-          lesson: {
-            $push: {
-              $cond: [
-                { $gt: ['$ls._id', null] },
-                {
-                  key: '$ls._id',
-                  name: '$ls.name',
-                  deck: '$d.name'
-                },
-                '$$REMOVE'
-              ]
+  static async stdLookup (opts: {
+    preConds?: any[]
+    postConds?: any[]
+    project?: {
+      quiz?: boolean
+      tag?: boolean
+      deck?: boolean
+      lesson?: boolean
+    }
+  }) {
+    if (!db) {
+      throw new Error('Database is not initialized')
+    }
+
+    if (!db.user) {
+      throw new Error('Not logged in')
+    }
+
+    if (opts.project && opts.project.lesson !== false) {
+      opts.project.deck = true
+    }
+
+    return await DbCardModel.aggregate([
+      { $match: { userId: db.user._id } },
+      ...(opts.preConds || []),
+      ...(!(opts.project && opts.project.quiz === false) ? [
+        {
+          $lookup: {
+            from: 'quiz',
+            localField: '_id',
+            foreignField: 'cardId',
+            as: 'q'
+          }
+        },
+        { $unwind: { path: '$q', preserveNullAndEmptyArrays: true } }
+      ] : []),
+      ...(!(opts.project && opts.project.tag === false) ? [
+        {
+          $lookup: {
+            from: 'tag',
+            localField: 'tag',
+            foreignField: '_id',
+            as: 't'
+          }
+        },
+        { $addFields: { tag: '$t.name' } }
+      ] : []),
+      ...(!(opts.project && opts.project.deck === false) ? [
+        {
+          $lookup: {
+            from: 'deck',
+            localField: '_id',
+            foreignField: 'cardIds',
+            as: 'd'
+          }
+        },
+        { $unwind: { path: '$d', preserveNullAndEmptyArrays: true } }
+      ] : []),
+      ...(!(opts.project && opts.project.lesson === false) ? [
+        {
+          $lookup: {
+            from: 'lesson',
+            localField: 'd.lessonId',
+            foreignField: '_id',
+            as: 'ls'
+          }
+        },
+        { $unwind: { path: '$ls', preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: '$_id',
+            userId: { $first: '$userId' },
+            key: { $first: '$key' },
+            data: { $first: '$data' },
+            ref: { $first: '$ref' },
+            markdown: { $first: '$markdown' },
+            tag: { $first: '$tag' },
+            nextReview: { $first: '$q.nextReview' },
+            srsLevel: { $first: '$q.srsLevel' },
+            stat: { $first: '$q.stat' },
+            lesson: {
+              $push: {
+                key: { $ifNull: ['$ls._id', '_'] },
+                name: { $ifNull: ['$ls.name', 'User'] },
+                deck: '$d.name'
+              }
             }
           }
         }
-      },
-      {
-        $merge: {
-          into: 'search',
-          whenMatched: 'replace'
-        }
-      }
+      ] : []),
+      ...(opts.postConds || [])
     ])
   }
 }
 
 export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
 
-@post(/(update|delete|save|insert)/, async function () {
-  // @ts-ignore
-  const q = (this && this.getQuery) ? this.getQuery() : null
-
-  if (q) {
-    await DbCardModel.updateSearch({
-      _id: {
-        $in: (await DbQuizModel.find(q)
-          .select({ cardId: 1, _id: 0 })).map((el) => el.cardId)
-      }
-    })
-  } else {
-    // @ts-ignore
-    const cardId = (this && this.cardId) ? this.cardId : null
-
-    if (cardId) {
-      await DbCardModel.updateSearch({
-        _id: cardId
-      })
-    } else {
-    // @ts-ignore
-      console.error(this)
-    }
-  }
-})
 class DbQuiz {
   @prop({ required: true }) nextReview!: Date
   @prop({ required: true }) srsLevel!: number
@@ -304,19 +252,6 @@ class Db {
       'stat.lastWrong': { type: 'date' }
     }
   })
-
-  async getSearchView () {
-    const col = mongoose.connection.db.collection('search')
-    await Promise.all([
-      col.createIndex({ userId: 1 }),
-      col.createIndex({ key: 1 }),
-      col.createIndex({ tag: 1 }),
-      col.createIndex({ nextReview: 1 }),
-      col.createIndex({ srsLevel: 1 })
-    ])
-
-    return col
-  }
 
   async signIn (email: string) {
     this.user = await DbUserModel.findOne({ email })
@@ -419,12 +354,6 @@ class Db {
         return { nextReview: dayjs(nextReview).toDate(), srsLevel, stat, cardId: _id }
       })
       .filter((el) => el), { ordered: false })
-
-    await DbCardModel.updateSearch({
-      _id: {
-        $in: entries_.map((c) => c._id)
-      }
-    })
 
     return entries.map((el) => el.key)
   }
@@ -541,21 +470,18 @@ class Db {
 
       return r[0] || null
     } else {
-      const searchView = await this.getSearchView()
-      const r = await searchView.findOne({ key })
+      const r = (await DbCardModel.stdLookup({
+        preConds: [
+          { $match: { key } }
+        ]
+      }))[0]
+
       if (!r) {
         return null
       }
 
-      const card = await DbCardModel.findById(r._id)
-      if (card) {
-        // Object.assign(r, card.toObject())
-        r.markdown = card.markdown
-        r.ref = card.ref
-      }
-
-      r.deck = r.lesson.filter((ls: any) => !ls.name).map((ls: any) => ls.deck)[0]
-      r.lesson = r.lesson.filter((ls: any) => ls.name)
+      r.deck = r.lesson.filter((ls: any) => !ls.key).map((ls: any) => ls.deck)[0]
+      r.lesson = r.lesson.filter((ls: any) => ls.key)
 
       return r
     }
@@ -644,8 +570,20 @@ class Db {
       throw new Error('Not logged in')
     }
 
-    const vSearch = await this.getSearchView()
-    const r = await vSearch.find({ userId: this.user._id }).project({ 'lesson.key': 1, _id: 0 }).toArray()
+    const r = await DbCardModel.stdLookup({
+      project: {
+        quiz: false,
+        tag: false
+      },
+      postConds: [
+        {
+          $project: {
+            'lesson.key': 1,
+            _id: 0
+          }
+        }
+      ]
+    })
 
     return await DbLessonModel.aggregate([
       {

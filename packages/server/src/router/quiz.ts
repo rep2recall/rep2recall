@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import escapeRegExp from 'escape-string-regexp'
 
-import { db } from '../db/schema'
+import { db, DbCardModel } from '../db/schema'
 import { shuffle } from '../utils'
 
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
@@ -53,29 +53,26 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       ]
     })
 
-    const searchView = await db.getSearchView()
-    const rs = await searchView.aggregate([
-      {
-        $addFields: {
-          deck: '$lesson.deck'
+    $and.push({
+      'lesson.key': lesson
+    })
+
+    const rs = await DbCardModel.stdLookup({
+      postConds: [
+        {
+          $addFields: {
+            deck: '$lesson.deck'
+          }
+        },
+        { $match: { $and } },
+        {
+          $project: {
+            key: 1,
+            _id: 0
+          }
         }
-      },
-      {
-        $match: {
-          $and: [
-            ...$and,
-            {
-              'lesson.key': (lesson && lesson !== '_') ? lesson : {
-                $exists: false
-              }
-            }
-          ]
-        }
-      },
-      {
-        $project: { key: 1, _id: 0, deck: 1 }
-      }
-    ]).toArray()
+      ]
+    })
 
     return {
       keys: shuffle(rs.map((c) => c.key))
@@ -99,22 +96,28 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const { q, lesson } = req.body
     const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    const searchView = await db.getSearchView()
-    const rs = await searchView.find({
-      $and: [
-        cond,
+    const rs = await DbCardModel.stdLookup({
+      postConds: [
         {
-          'lesson.key': (lesson && lesson !== '_') ? lesson : {
-            $exists: false
+          $match: {
+            $and: [
+              cond,
+              {
+                'lesson.key': lesson
+              }
+            ]
+          }
+        },
+        {
+          $project: {
+            deck: '$lesson.deck',
+            nextReview: 1,
+            srsLevel: 1,
+            _id: 0
           }
         }
       ]
-    }).project({
-      'lesson.deck': 1,
-      nextReview: 1,
-      srsLevel: 1,
-      _id: 0
-    }).toArray()
+    })
 
     const deckStat: Record<string, {
       due: number
@@ -125,8 +128,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const now = new Date()
 
     rs.map((c) => {
-      if (c.lesson && c.lesson[0] && c.lesson[0].deck) {
-        c.deck = c.lesson[0].deck
+      if (c.deck) {
+        c.deck = c.deck[0]
 
         deckStat[c.deck] = deckStat[c.deck] || {
           due: 0,
