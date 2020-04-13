@@ -44,12 +44,13 @@
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
-
 import Treeview from '@/components/Treeview.vue'
+
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
+import { deepMerge, normalizeArray } from '../utils'
 
 @Component<Quiz>({
   components: {
@@ -82,7 +83,12 @@ export default class Quiz extends Vue {
     return this.quizKeys[this.currentQuizIndex]
   }
 
+  get lessonName () {
+    return this.$route.params.name
+  }
+
   mounted () {
+    this.q = normalizeArray(this.$route.query.q) || ''
     this.load()
   }
 
@@ -101,18 +107,19 @@ export default class Quiz extends Vue {
 
   async load (silent?: boolean) {
     const api = await this.getApi(silent)
-    const data = (await api.post('/api/quiz/stat', { q: this.q })).data
+    const data = (await api.post('/api/quiz/stat', { q: this.q, lesson: this.lessonName })).data
     this.$set(this, 'data', data)
   }
 
   @Watch('$route.query.q')
   async loadSpinning () {
+    this.q = normalizeArray(this.$route.query.q) || ''
     return this.load()
   }
 
   onSearch () {
     this.$router.push({
-      path: '/quiz',
+      path: `/quiz/${this.lessonName}`,
       query: {
         q: this.q
       }
@@ -123,7 +130,11 @@ export default class Quiz extends Vue {
   async onActiveDeckChange () {
     if (this.activeDeck) {
       const api = await this.getApi()
-      const keys: string[] = (await api.post('/api/quiz/', { q: this.q, deck: this.activeDeck })).data.keys
+      const keys: string[] = (await api.post('/api/quiz/', {
+        q: this.q,
+        lesson: this.lessonName,
+        deck: this.activeDeck
+      })).data.keys
       let next = {
         hour: 0,
         day: 0
@@ -133,8 +144,16 @@ export default class Quiz extends Vue {
 
       if (!(keys.length > 0)) {
         const [hour, day] = await Promise.all([
-          api.post('/api/quiz/', { q: `${this.q} nextReview<+1h`, deck: this.activeDeck }),
-          api.post('/api/quiz/', { q: `${this.q} nextReview<+1d`, deck: this.activeDeck })
+          api.post('/api/quiz/', {
+            q: `${this.q} nextReview<+1h`,
+            lesson: this.lessonName,
+            deck: this.activeDeck
+          }),
+          api.post('/api/quiz/', {
+            q: `${this.q} nextReview<+1d`,
+            lesson: this.lessonName,
+            deck: this.activeDeck
+          })
         ])
         next = {
           hour: hour.data.keys.length,
@@ -156,7 +175,7 @@ export default class Quiz extends Vue {
             makeHtml.render(
               d.body,
               `Pending next hour: ${next.hour.toLocaleString()}. :clock1:\n\n` +
-              `Pending next day: ${next.day.toLocaleString()}. ${next.day ? ':sweat_smile:': ''}`
+              `Pending next day: ${next.day.toLocaleString()}. ${next.day ? ':sweat_smile:' : ''}`
             )
           }
         }
@@ -183,9 +202,11 @@ export default class Quiz extends Vue {
         })
 
         const matter = new Matter()
-        const { content } = matter.parse(r.data.markdown || '')
+        const { header, content } = matter.parse(r.data.markdown || '')
         this.ctx[this.key] = r.data
-        await Promise.all((r.data.ref || []).map((r0: string) => this.onCtxChange(r0)))
+
+        const ref = deepMerge(r.data.ref, header.ref)
+        await this.onCtxChange(ref)
 
         this.currentQuizMarkdown = content
       }
@@ -270,19 +291,31 @@ export default class Quiz extends Vue {
     this.load()
   }
 
-  async onCtxChange (key: string) {
-    if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
-        const r = await api.get('/api/edit/', {
-          params: {
-            key
-          }
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
+  async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, c) => ({ ...prev, [c]: null }), {})
     }
+
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
+        }
+      }
+    }))
   }
 }
 </script>

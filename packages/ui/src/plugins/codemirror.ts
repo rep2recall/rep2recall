@@ -38,12 +38,12 @@ Vue.use(VueCodemirror, {
       Tab: (cm: CodeMirror.Editor) => {
         const spaces = Array(cm.getOption('indentUnit')! + 1).join(' ')
         cm.getDoc().replaceSelection(spaces)
-      },
+      }
     },
     foldGutter: true,
     mode: {
       name: 'yaml-frontmatter',
-      base: 'markdown',
-    },
-  },
+      base: 'markdown'
+    }
+  }
 })

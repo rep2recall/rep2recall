@@ -1,4 +1,3 @@
-import { MongoClient } from 'mongodb'
 import dotenv from 'dotenv'
 import { mongoose } from '@typegoose/typegoose'
 
@@ -15,7 +14,7 @@ async function main () {
 
   await Promise.all([
     DbCardModel.deleteMany({ _id: { $in: ids } }),
-    DbQuizModel.deleteMany({ cardId: { $in: ids } }),
+    DbQuizModel.deleteMany({ cardId: { $in: ids } })
   ])
 
   await mongoose.connection.close()

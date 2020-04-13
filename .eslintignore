@@ -3,6 +3,7 @@
 !*.jsx
 !*.ts
 !*.tsx
+!*.vue
 tmp
 dist
 node_modules*

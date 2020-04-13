@@ -51,11 +51,17 @@
         template(slot-scope="props")
           b-table-column(v-for="h in headers" :key="h.field" :field="h.field"
               :label="h.label" :width="h.width" :sortable="h.sortable")
-            span(v-if="h.field === 'tag'")
+            span(v-if="h.field === 'lesson'")
+              b-field(grouped group-multiline)
+                .control(v-for="t in props.row[h.field]" :key="t.key")
+                  b-taglist(attached)
+                    b-tag(type="is-dark" v-if="t.name") {{t.name}}
+                    b-tag {{t.deck}}
+            span(v-else-if="Array.isArray(props.row[h.field])")
               b-taglist
-                b-tag(v-for="t in props.row.tag" :key="t") {{t}}
+                b-tag(v-for="t in props.row[h.field]" :key="t") {{t}}
             div(v-else style="max-height: 200px; overflow: scroll;")
-              span {{props.row[h.field] | format}}
+              span.wrap {{props.row[h.field] | format}}
         template(slot="detail" slot-scope="props")
           .container(style="max-width: 800px; max-height: 300px; overflow: scroll;")
             .content(
@@ -83,10 +89,10 @@
 <script lang="ts">
 import { Component, Vue, Watch, Prop } from 'vue-property-decorator'
 import dayjs from 'dayjs'
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
 
-import { normalizeArray, stringSorter } from '../utils'
+import { normalizeArray, stringSorter, deepMerge } from '../utils'
 import { Matter } from '../make-html/matter'
 import MakeHtml from '../make-html'
 
@@ -112,8 +118,8 @@ export default class Query extends Vue {
 
   headers = [
     { label: 'Key', field: 'key', width: 150, sortable: true },
-    { label: 'Deck', field: 'deck', width: 200, sortable: true },
-    { label: 'Data', field: 'data' },
+    { label: 'Deck', field: 'lesson', width: 200, sortable: true },
+    { label: 'Data', field: 'data', width: 300 },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
     { label: 'Tag', field: 'tag', width: 200 }
@@ -141,7 +147,7 @@ export default class Query extends Vue {
 
   toHTML (item: any) {
     const makeHtml = new MakeHtml(item.key)
-    return makeHtml.getHTML(hbs.compile(item.markdown)({
+    return makeHtml.getHTML(hbs.compile(this.ctx[item.key].markdown || '')({
       [item.key]: item,
       ...this.ctx
     }))
@@ -169,18 +175,24 @@ export default class Query extends Vue {
       count: true
     })
 
+    console.log(r.data)
+
     await Promise.all((r.data.data as any[])
-      .map((el) => el.ref || [])
-      .reduce((prev, c) => [...prev, ...c], [])
-      .map((r0: string) => this.onCtxChange(r0)))
+      .map((el) => this.onCtxChange(deepMerge([el.key], el.ref))))
 
     this.count = r.data.count
 
     this.$set(this, 'items', r.data.data.map((el: any) => {
+      const lesson = el.lesson || [];
+      (el.deck || []).map((d: any) => {
+        lesson.push({
+          deck: d.name
+        })
+      })
+
       return {
         ...el,
-        // markdown: (el.markdown || '').substr(0, 140),
-        tag: stringSorter(el.tag || []),
+        tag: stringSorter(el.tag || [])
       }
     }))
   }
@@ -215,7 +227,9 @@ export default class Query extends Vue {
           }
         })
 
-        this.load()
+        setTimeout(() => {
+          this.load()
+        }, 100)
       }
     })
   }
@@ -265,19 +279,31 @@ export default class Query extends Vue {
     })
   }
 
-  async onCtxChange (key: string) {
-    if (!this.ctx[key]) {
-      const api = await this.getApi(true)
-      try {
-        const r = await api.get('/api/edit/', {
-          params: {
-            key
-          }
-        })
-        this.ctx[key] = r.data
-        this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
-      } catch (_) {}
+  async onCtxChange (ctx: Record<string, any>) {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, k) => ({ ...prev, [k]: null }), {})
     }
+
+    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+      if (typeof data !== 'undefined' && !this.ctx[key]) {
+        if (!data) {
+          const api = await this.getApi(true)
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
+          this.ctx[key] = r.data
+          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+        } else {
+          if (typeof data === 'string') {
+            this.ctx[key] = (await axios.get(data)).data
+          } else if (data.url) {
+            this.ctx[key] = (await axios(data)).data
+          }
+        }
+      }
+    }))
   }
 }
 </script>
@@ -293,5 +319,9 @@ export default class Query extends Vue {
       background-color: lightblue;
     }
   }
+}
+
+.wrap {
+  word-break: break-all;
 }
 </style>

@@ -10,26 +10,26 @@ module.exports = {
   mode: 'production',
   devtool: false,
   optimization: {
-    minimize: false,
+    minimize: false
   },
   entry: './src/index.ts',
   output: {
     filename: 'server.js',
-    path: path.resolve('../../heroku'),
+    path: path.resolve('../../heroku')
   },
   module: {
     rules: [
       {
         test: /\.tsx?$/,
-        loader: 'ts-loader',
-      },
-    ],
+        loader: 'ts-loader'
+      }
+    ]
   },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js'],
+    extensions: ['.ts', '.tsx', '.js']
   },
   target: 'node',
   externals: [
-    nodeExternals(),
-  ],
+    nodeExternals()
+  ]
 }

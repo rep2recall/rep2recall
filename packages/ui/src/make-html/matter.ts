@@ -9,7 +9,7 @@ export class Matter {
     if (m) {
       try {
         this.header = yaml.safeLoad(m[1] || '', {
-          schema: yaml.JSON_SCHEMA,
+          schema: yaml.JSON_SCHEMA
         }) || {}
 
         if (typeof this.header !== 'object') {
@@ -19,13 +19,13 @@ export class Matter {
 
       return {
         header: this.header,
-        content: m[2],
+        content: m[2]
       }
     }
 
     return {
       header: {},
-      content: s,
+      content: s
     }
   }
 
@@ -57,7 +57,7 @@ export class Matter {
       try {
         return `---\n${yaml.safeDump(doReplace(header), {
           schema: yaml.JSON_SCHEMA,
-          skipInvalid: true,
+          skipInvalid: true
         })}---\n${content}`
       } catch (e) {
         console.error(e)
