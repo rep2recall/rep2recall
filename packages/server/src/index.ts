@@ -12,6 +12,8 @@ try {
 } catch (_) {}
 
 (async () => {
+  const isLocal = process.env.NODE_ENV === 'development' || !!process.env.IS_LOCAL
+
   await initDatabase(process.env.MONGO_URI!)
 
   const app = fastify({
@@ -20,11 +22,11 @@ try {
     } : true
   })
 
-  const port = parseInt(process.env.PORT || '24000')
+  const port = parseInt(process.env.PORT || '8080')
 
   app.register(helmet)
 
-  if (process.env.NODE_ENV === 'development') {
+  if (isLocal) {
     app.addHook('preHandler', async (req) => {
       if (req.body) {
         req.log.info({ body: req.body }, 'body')
@@ -56,7 +58,7 @@ try {
     reply.sendFile('index.html')
   })
 
-  app.listen(port, process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0', (err) => {
+  app.listen(port, isLocal ? 'localhost' : '0.0.0.0', (err) => {
     if (err) {
       throw err
     }

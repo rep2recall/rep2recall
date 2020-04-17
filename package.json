@@ -2,7 +2,10 @@
   "name": "rep2recall",
   "private": true,
   "scripts": {
-    "preinstall": "is-npm"
+    "preinstall": "npx check-npm-yarn",
+    "build": "docker build -t rep2recall .",
+    "dev": "concurrently 'cd packages/server && npm run dev' 'cd packages/ui && npm run serve'",
+    "start": "docker run -p 8080:8080 rep2recall"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.17.0",
@@ -14,6 +17,6 @@
     "eslint-plugin-promise": ">=4.2.1",
     "eslint-plugin-standard": ">=4.0.0",
     "eslint-plugin-vue": "^6.1.2",
-    "typescript": "^3.7.5"
+    "typescript": "^3.8.3"
   }
 }

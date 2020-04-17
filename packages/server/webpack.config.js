@@ -1,10 +1,6 @@
-const fs = require('fs')
 const path = require('path')
 
 const nodeExternals = require('webpack-node-externals')
-
-const { scripts, devDependencies, ...pkg } = require('./package.json')
-fs.writeFileSync('../../heroku/package.json', JSON.stringify(pkg))
 
 module.exports = {
   mode: 'production',
@@ -14,8 +10,8 @@ module.exports = {
   },
   entry: './src/index.ts',
   output: {
-    filename: 'server.js',
-    path: path.resolve('../../heroku')
+    filename: 'index.js',
+    path: path.resolve('dist')
   },
   module: {
     rules: [

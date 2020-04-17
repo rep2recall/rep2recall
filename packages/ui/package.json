@@ -5,8 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "preinstall": "if !(test -x is-npm); then is-npm; fi",
-    "watch": "vue-cli-service build --mode=develeopment --watch"
+    "preinstall": "npx check-npm-yarn",
+    "watch": "vue-cli-service build --watch"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^1.2.27",
