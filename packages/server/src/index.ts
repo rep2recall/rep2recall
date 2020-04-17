@@ -58,9 +58,11 @@ try {
     reply.sendFile('index.html')
   })
 
-  app.listen(port, isLocal ? 'localhost' : '0.0.0.0', (err) => {
+  app.listen(port, process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0', (err) => {
     if (err) {
       throw err
     }
+
+    console.log(`Go to http://localhost:${port}`)
   })
 })().catch(console.error)
