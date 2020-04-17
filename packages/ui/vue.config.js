@@ -1,6 +1,6 @@
 module.exports = {
   devServer: {
-    proxy: 'http://localhost:24000'
+    proxy: 'http://localhost:8080'
   },
-  outputDir: '../../heroku/public'
+  outputDir: process.env.OUT_DIR || 'dist'
 }
