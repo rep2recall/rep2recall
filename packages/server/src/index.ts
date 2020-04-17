@@ -12,8 +12,6 @@ try {
 } catch (_) {}
 
 (async () => {
-  const isLocal = process.env.NODE_ENV === 'development' || !!process.env.IS_LOCAL
-
   await initDatabase(process.env.MONGO_URI!)
 
   const app = fastify({
@@ -26,7 +24,7 @@ try {
 
   app.register(helmet)
 
-  if (isLocal) {
+  if (process.env.NODE_ENV === 'development') {
     app.addHook('preHandler', async (req) => {
       if (req.body) {
         req.log.info({ body: req.body }, 'body')
@@ -39,10 +37,15 @@ try {
         return
       }
 
+      const host = req.headers.host || req.hostname
+
+      if (['localhost', '127.0.0.1'].includes(host.split(':')[0])) {
+        return
+      }
+
       const { method, url } = req.req
 
       if (method && ['GET', 'HEAD'].includes(method)) {
-        const host = req.headers.host || req.hostname
         reply.redirect(301, `https://${host}${url}`)
       }
     })
