@@ -8,14 +8,13 @@ import 'firebase/auth'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-import firebaseConfig from '../firebase.config.js'
 
 import './plugins/buefy'
 import './plugins/fontawesome'
 import './plugins/mq'
 import './plugins/codemirror'
 
-firebase.initializeApp(firebaseConfig)
+firebase.initializeApp(JSON.parse(process.env.VUE_APP_FIREBASE_CONFIG!))
 
 Vue.config.productionTip = false
 
