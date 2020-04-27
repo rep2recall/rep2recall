@@ -44,8 +44,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
   f.register(fSession, { secret: process.env.SECRET! })
 
   f.addHook('preHandler', async (req, reply) => {
-    if (process.env.NODE_ENV === 'development') {
-      await db.signIn('patarapolw@gmail.com')
+    if (process.env.NODE_ENV === 'development' && process.env.DEFAULT_USER) {
+      await db.signIn(process.env.DEFAULT_USER)
       return
     }
 
