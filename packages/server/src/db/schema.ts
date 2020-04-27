@@ -1,6 +1,6 @@
 import * as t from 'runtypes'
 import mongoose from 'mongoose'
-import { prop, getModelForClass, index, DocumentType, Ref } from '@typegoose/typegoose'
+import { prop, getModelForClass, index, DocumentType, Ref, setGlobalOptions, Severity } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
 import shortid from 'shortid'
 import dotProp from 'dot-prop'
@@ -9,6 +9,8 @@ import { nanoid } from 'nanoid'
 import QSearch from '../qsearch'
 import { srsMap, getNextReview, repeatReview } from './quiz'
 import { mapAsync, ser } from '../utils'
+
+setGlobalOptions({ options: { allowMixed: Severity.ALLOW } })
 
 class DbUser {
   @prop({ required: true, unique: true }) email!: string
@@ -19,7 +21,7 @@ export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collectio
 class DbTag {
   @prop({ required: true, unique: true }) name!: string
 
-  static async upsert (entry: {
+  static async upsert(entry: {
     name: string
   }) {
     let item: DocumentType<DbTag> | null = null
@@ -51,7 +53,7 @@ class DbDeck {
   @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: string[]
   @prop({ ref: 'DbLesson' }) lessonId?: string
 
-  static async upsert (entry: {
+  static async upsert(entry: {
     name: string
     lessonId: string
   }) {
@@ -92,7 +94,7 @@ class DbCard {
    */
   @prop() markdown?: string
 
-  static async stdLookup (opts: {
+  static async stdLookup(opts: {
     preConds?: any[]
     postConds?: any[]
     project?: {
@@ -253,7 +255,7 @@ class Db {
     }
   })
 
-  async signIn (email: string) {
+  async signIn(email: string) {
     this.user = await DbUserModel.findOne({ email })
     if (!this.user) {
       this.user = await DbUserModel.create({ email })
@@ -262,15 +264,15 @@ class Db {
     return this.user
   }
 
-  async signOut () {
+  async signOut() {
     this.user = null
   }
 
-  async close () {
+  async close() {
     await mongoose.disconnect()
   }
 
-  async create (...entries: IDbSchema[]) {
+  async create(...entries: IDbSchema[]) {
     const user = this.user
 
     if (!user) {
@@ -358,7 +360,7 @@ class Db {
     return entries.map((el) => el.key)
   }
 
-  async delete (...keys: string[]) {
+  async delete(...keys: string[]) {
     const user = this.user
 
     if (!user) {
@@ -376,7 +378,7 @@ class Db {
     ])
   }
 
-  async update (keys: string[], set: IDbSchema) {
+  async update(keys: string[], set: IDbSchema) {
     const user = this.user
 
     if (!user) {
@@ -429,29 +431,29 @@ class Db {
     }
   }
 
-  async addTags (keys: string[], tags: string[]) {
+  async addTags(keys: string[], tags: string[]) {
     if (!this.user) {
       throw new Error('Not logged in')
     }
 
-    const tids = await DbTagModel.find({ name: { $in: tags }}).select({ _id: 1 })
+    const tids = await DbTagModel.find({ name: { $in: tags } }).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
       $addToSet: { tag: { $each: tids.map(t => t._id) } }
     })
   }
 
-  async removeTags (keys: string[], tags: string[]) {
+  async removeTags(keys: string[], tags: string[]) {
     if (!this.user) {
       throw new Error('Not logged in')
     }
 
-    const tids = await DbTagModel.find({ name: { $in: tags }}).select({ _id: 1 })
+    const tids = await DbTagModel.find({ name: { $in: tags } }).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
       $pull: { tag: { $in: tids.map(t => t._id) } }
     })
   }
 
-  async render (key: string, opts: {
+  async render(key: string, opts: {
     min: boolean
   }): Promise<any> {
     if (!this.user) {
@@ -493,7 +495,7 @@ class Db {
   markWrong = this._updateSrsLevel(-1)
   markRepeat = this._updateSrsLevel(0)
 
-  private _updateSrsLevel (dSrsLevel: number) {
+  private _updateSrsLevel(dSrsLevel: number) {
     return async (key: string) => {
       if (!this.user) {
         throw new Error('Not logged in')
@@ -567,7 +569,7 @@ class Db {
     }
   }
 
-  async listLessons () {
+  async listLessons() {
     if (!this.user) {
       throw new Error('Not logged in')
     }
@@ -608,7 +610,7 @@ class Db {
     ])
   }
 
-  async upsertLessonAndDeck (...items: {
+  async upsertLessonAndDeck(...items: {
     _id: any
     lesson?: {
       key: string
@@ -679,7 +681,7 @@ class Db {
 
 export let db: Db
 
-export async function initDatabase (mongoUri: string) {
+export async function initDatabase(mongoUri: string) {
   await mongoose.connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
