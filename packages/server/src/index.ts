@@ -7,10 +7,6 @@ import helmet from 'fastify-helmet'
 import router from './router'
 import { initDatabase } from './db/schema'
 
-try {
-  require('dotenv').config()
-} catch (_) {}
-
 (async () => {
   await initDatabase(process.env.MONGO_URI!)
 
@@ -20,7 +16,7 @@ try {
     } : true
   })
 
-  const port = parseInt(process.env.PORT || '24000')
+  const port = parseInt(process.env.PORT || '8080')
 
   app.register(helmet)
 
@@ -37,10 +33,15 @@ try {
         return
       }
 
+      const host = req.headers.host || req.hostname
+
+      if (['localhost', '127.0.0.1'].includes(host.split(':')[0])) {
+        return
+      }
+
       const { method, url } = req.req
 
       if (method && ['GET', 'HEAD'].includes(method)) {
-        const host = req.headers.host || req.hostname
         reply.redirect(301, `https://${host}${url}`)
       }
     })
@@ -60,5 +61,7 @@ try {
     if (err) {
       throw err
     }
+
+    console.log(`Go to http://localhost:${port}`)
   })
 })().catch(console.error)

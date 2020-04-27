@@ -48,7 +48,7 @@ export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { colle
 
 class DbDeck {
   @prop({ required: true }) name!: string
-  @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: Ref<DbCard>[]
+  @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: string[]
   @prop({ ref: 'DbLesson' }) lessonId?: string
 
   static async upsert (entry: {
