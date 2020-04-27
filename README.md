@@ -44,6 +44,19 @@ Requirements are
 - MongoDB
 - Firebase (both on UI-side and server-side)
 
+### Required environmental variables
+
+```sh
+MONGO_URI=       # Get this from MongoDB Atlas
+SECRET=          # Generate this yourself
+FIREBASE_SDK=    # Get this from Firebase Admin SDK, and JSONify it
+VUE_APP_FIREBASE_CONFIG=   # Get this from Firebase Client, and JSONify it
+```
+
+However, in production, only the first three are required.
+
+For the development machine, you can create `.env` first, then `source .`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
+
 ## Plans
 
 - Expose the API, probably via OAuth2 or API keys, so that entries can programmatically generated.

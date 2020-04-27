@@ -3,9 +3,9 @@
   "private": true,
   "scripts": {
     "preinstall": "npx check-npm-yarn",
-    "build": "docker build -t rep2recall .",
+    "build": "docker build -t rep2recall --build-arg VUE_APP_FIREBASE_CONFIG .",
     "dev": "concurrently 'cd packages/server && npm run dev' 'cd packages/ui && npm run serve'",
-    "start": "docker run -p 8080:8080 rep2recall",
+    "start": "docker run -p 8080:8080 -e MONGO_URI -e SECRET -e FIREBASE_SDK rep2recall",
     "deploy": "heroku container:push web"
   },
   "devDependencies": {
