@@ -1,7 +1,7 @@
 FROM node:10-alpine AS ui
 RUN mkdir -p /ui
 WORKDIR /ui
-COPY packages/ui/package.json /ui
+COPY packages/ui/package.json packages/ui/package-lock.json /ui/
 RUN npm i
 COPY packages/ui /ui
 ARG VUE_APP_FIREBASE_CONFIG
@@ -10,7 +10,7 @@ RUN npm run build
 FROM node:10-alpine
 RUN mkdir -p /server
 WORKDIR /server
-COPY packages/server/package.json /server
+COPY packages/server/package.json packages/server/package-lock.json /server/
 RUN npm i
 COPY packages/server /server
 RUN npm run build

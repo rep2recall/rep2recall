@@ -51,6 +51,9 @@ MONGO_URI=       # Get this from MongoDB Atlas
 SECRET=          # Generate this yourself
 FIREBASE_SDK=    # Get this from Firebase Admin SDK, and JSONify it
 VUE_APP_FIREBASE_CONFIG=   # Get this from Firebase Client, and JSONify it
+
+# Optional
+DEFAULT_USER=  # The email address that you want to use the API (See the API at http://localhost:8080/api/doc)
 ```
 
 However, in production, only the first three are required.
