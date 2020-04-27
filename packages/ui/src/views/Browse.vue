@@ -55,7 +55,7 @@
               b-field(grouped group-multiline)
                 .control(v-for="t in props.row[h.field]" :key="t.key")
                   b-taglist(attached)
-                    b-tag(type="is-dark" v-if="t.name") {{t.name}}
+                    b-tag(type="is-dark") {{t.name}}
                     b-tag {{t.deck}}
             span(v-else-if="Array.isArray(props.row[h.field])")
               b-taglist
@@ -183,15 +183,9 @@ export default class Query extends Vue {
     this.count = r.data.count
 
     this.$set(this, 'items', r.data.data.map((el: any) => {
-      const lesson = el.lesson || [];
-      (el.deck || []).map((d: any) => {
-        lesson.push({
-          deck: d.name
-        })
-      })
-
       return {
         ...el,
+        lesson: (el.lesson || []).filter((ls: any) => ls.deck),
         tag: stringSorter(el.tag || [])
       }
     }))

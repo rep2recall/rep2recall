@@ -84,9 +84,7 @@ export default class App extends Vue {
         }
 
         firebaseUI.start(this.$refs.auth as HTMLDivElement, {
-          signInSuccessUrl: (
-            process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://rep2recall.herokuapp.com'
-          ),
+          signInSuccessUrl: location.origin,
           signInOptions: [
             firebase.auth.GoogleAuthProvider.PROVIDER_ID
             // firebase.auth.FacebookAuthProvider.PROVIDER_ID,

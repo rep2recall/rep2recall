@@ -54,7 +54,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     })
 
     $and.push({
-      'lesson.key': lesson
+      'lesson.key': lesson,
+      'lesson.deck': { $exists: true }
     })
 
     const rs = await DbCardModel.stdLookup({
@@ -103,7 +104,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
             $and: [
               cond,
               {
-                'lesson.key': lesson
+                'lesson.key': lesson,
+                'lesson.deck': { $exists: true }
               }
             ]
           }
