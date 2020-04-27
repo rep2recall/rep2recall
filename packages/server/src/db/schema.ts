@@ -400,7 +400,7 @@ class Db {
           srsLevel,
           stat,
           nextReview: nextReview ? dayjs(nextReview).toDate() : undefined
-        })
+        }) as any
       })
     }
 
@@ -424,7 +424,7 @@ class Db {
 
     if (Object.keys(card).length > 0) {
       await DbCardModel.updateMany({ key: { $in: keys } }, {
-        $set: card
+        $set: card as any
       })
     }
   }
@@ -434,8 +434,9 @@ class Db {
       throw new Error('Not logged in')
     }
 
+    const tids = await DbTagModel.find({ name: { $in: tags }}).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
-      $addToSet: { tag: { $each: tags } }
+      $addToSet: { tag: { $each: tids.map(t => t._id) } }
     })
   }
 
@@ -444,8 +445,9 @@ class Db {
       throw new Error('Not logged in')
     }
 
+    const tids = await DbTagModel.find({ name: { $in: tags }}).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
-      $pull: { tag: { $in: tags } }
+      $pull: { tag: { $in: tids.map(t => t._id) } }
     })
   }
 

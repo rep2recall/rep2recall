@@ -63,7 +63,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     const ticket = await admin.auth().verifyIdToken(m[1], true)
 
     req.session.user = ticket
-    if (!db.user) {
+    if (!db.user && ticket.email) {
       await db.signIn(ticket.email)
     }
   })
