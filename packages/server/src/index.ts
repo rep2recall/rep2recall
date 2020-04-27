@@ -7,10 +7,6 @@ import helmet from 'fastify-helmet'
 import router from './router'
 import { initDatabase } from './db/schema'
 
-try {
-  require('dotenv').config()
-} catch (_) {}
-
 (async () => {
   await initDatabase(process.env.MONGO_URI!)
 

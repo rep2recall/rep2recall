@@ -8,12 +8,12 @@ import editRouter from './edit'
 import quizRouter from './quiz'
 import { db } from '../db/schema'
 
-admin.initializeApp({
-  credential: admin.credential.cert(require('../../firebase-key.json')),
-  databaseURL: 'https://rep2recall.firebaseio.com'
-})
-
 const router = (f: FastifyInstance, opts: any, next: () => void) => {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SDK!)),
+    databaseURL: 'https://rep2recall.firebaseio.com'
+  })
+
   f.register(swagger, {
     routePrefix: '/doc',
     swagger: {
