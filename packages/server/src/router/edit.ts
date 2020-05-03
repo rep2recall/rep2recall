@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify'
 
-import { db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
+import { Db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
 
-const router = (f: FastifyInstance, opts: any, next: () => void) => {
+const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/', {
     schema: {
       tags: ['edit'],
@@ -18,7 +18,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
   }, async (req) => {
     const { key } = req.query
 
-    return await db.render(key, {
+    return await new Db(req.session.user).render(key, {
       min: false
     })
   })
@@ -49,6 +49,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     let { q, cond, offset = 0, limit, sort, count } = req.body
+    const db = new Db(req.session.user)
 
     if (typeof q === 'string') {
       q = db.qSearch.parse(q).cond
@@ -59,7 +60,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
 
     const [rData, rCount] = await Promise.all([
-      DbCardModel.stdLookup({
+      DbCardModel.stdLookup(db, {
         postConds: [
           { $match: q },
           { $sort: { [sort.key]: sort.desc ? -1 : 1 } },
@@ -69,7 +70,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
           ] : [])
         ]
       }),
-      count ? DbCardModel.stdLookup({
+      count ? DbCardModel.stdLookup(db, {
         postConds: [
           { $match: q },
           { $count: 'count' }
@@ -97,7 +98,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    const keys = await db.create(req.body)
+    const keys = await new Db(req.session.user).create(req.body)
 
     return {
       key: keys[0]
@@ -125,7 +126,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    const keys = await db.create(...req.body.entries)
+    const keys = await new Db(req.session.user).create(...req.body.entries)
 
     return {
       keys
@@ -147,7 +148,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     const { keys, set } = req.body
-    await db.update(keys, set)
+    await new Db(req.session.user).update(keys, set)
 
     return {
       error: null
@@ -168,7 +169,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     const { keys } = req.body
-    await db.delete(...keys)
+    await new Db(req.session.user).delete(...keys)
 
     return {
       error: null
@@ -212,7 +213,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     const { keys, tags } = req.body
-    await db.addTags(keys, tags)
+    await new Db(req.session.user).addTags(keys, tags)
 
     return {
       error: null
@@ -234,7 +235,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
     }
   }, async (req) => {
     const { keys, tags } = req.body
-    await db.removeTags(keys, tags)
+    await new Db(req.session.user).removeTags(keys, tags)
 
     return {
       error: null

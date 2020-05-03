@@ -7,11 +7,16 @@ section
       .columns(style="flex-flow: wrap;")
         .column.is-6(v-for="ls in lessons" :key="ls.key")
           .card
-            .card-header
-              h2.card-header-title {{ls.name}}
+            .card-header.u-cursor-pointer(
+              @contextmenu.prevent="(evt) => { selectedLesson = ls.key; $refs.contextmenu.open(evt) }"
+            )
+              h2.card-header-title.u-hover-blue {{ls.name}}
               router-link.button.is-success(:to="'/quiz/' + ls.key") Start
             .card-content
               .content(v-html="ls.description")
+  vue-context(ref="contextmenu")
+    li
+      a(@click="exportLesson") Export lesson
 </template>
 
 <script lang="ts">
@@ -25,6 +30,8 @@ export default class Lesson extends Vue {
     name: string
     description?: string
   }[] = []
+
+  selectedLesson = ''
 
   created () {
     this.load()
@@ -45,6 +52,8 @@ export default class Lesson extends Vue {
 
     this.$set(this, 'lessons', data.entries)
   }
+
+  exportLesson () {}
 }
 </script>
 

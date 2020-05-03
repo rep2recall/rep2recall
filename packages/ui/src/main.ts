@@ -13,6 +13,9 @@ import './plugins/buefy'
 import './plugins/fontawesome'
 import './plugins/mq'
 import './plugins/codemirror'
+import './plugins/context'
+
+import './assets/util.scss'
 
 firebase.initializeApp(JSON.parse(process.env.VUE_APP_FIREBASE_CONFIG!))
 
