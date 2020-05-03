@@ -53,7 +53,7 @@ import { initDatabase } from './db/schema'
     root: path.resolve('public')
   })
 
-  app.get('*', (req, reply) => {
+  app.get('*', (_, reply) => {
     reply.sendFile('index.html')
   })
 

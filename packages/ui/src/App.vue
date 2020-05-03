@@ -11,7 +11,7 @@
       router-link.nav-link(to="/browse" :class="{ active: $route.path === '/browse' }")
         fontawesome(icon="list")
         span Browse
-      span.nav-link(style="color: gray; cursor: not-allowed;")
+      router-link.nav-link(to="/settings" :class="{ active: $route.path === '/settings' }")
         fontawesome(icon="cog")
         span Settings
       router-link.nav-link(to="/community" :class="{ active: $route.path === '/community' }")
@@ -60,6 +60,8 @@ export default class App extends Vue {
   isDrawer = false
   isLoginModal = false
 
+  mq = matchMedia('(max-width: 800px)')
+
   get user () {
     return this.$store.state.user
   }
@@ -68,11 +70,21 @@ export default class App extends Vue {
     return this.$store.state.lastStatus !== 401
   }
 
-  mounted () {
-    this.isDrawer = this.$mq === 'lg'
+  created () {
+    this.mq.addListener(this.onResize)
+    this.isDrawer = !this.mq.matches
+
     if (!this.user) {
       this.isLoginModal = true
     }
+  }
+
+  beforeDestroy () {
+    this.mq.removeListener(this.onResize)
+  }
+
+  onResize (evt: MediaQueryListEvent) {
+    this.isDrawer = !evt.matches
   }
 
   @Watch('isLoginModal')

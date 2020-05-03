@@ -37,6 +37,7 @@
     "vue-class-component": "^7.2.2",
     "vue-cli-plugin-pug": "^1.0.7",
     "vue-codemirror": "^4.0.6",
+    "vue-context": "^5.1.0",
     "vue-mq": "^1.0.1",
     "vue-property-decorator": "^8.3.0",
     "vue-router": "^3.1.5",

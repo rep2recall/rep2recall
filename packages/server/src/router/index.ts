@@ -6,9 +6,10 @@ import admin from 'firebase-admin'
 
 import editRouter from './edit'
 import quizRouter from './quiz'
-import { db } from '../db/schema'
+import userRouter from './user'
+import { Db } from '../db/schema'
 
-const router = (f: FastifyInstance, opts: any, next: () => void) => {
+const router = (f: FastifyInstance, _: any, next: () => void) => {
   admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SDK!)),
     databaseURL: 'https://rep2recall.firebaseio.com'
@@ -24,15 +25,15 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       },
       consumes: ['application/json'],
       produces: ['application/json'],
-      tags: [
-        { name: 'edit', description: 'Editing related endpoints' },
-        { name: 'quiz', description: 'Quizzing related endpoints' }
-      ],
       components: {
         securitySchemes: {
           BasicAuth: {
             type: 'http',
             scheme: 'basic'
+          },
+          BearerAuth: {
+            type: 'http',
+            scheme: 'bearer'
           }
         }
       }
@@ -45,7 +46,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
 
   f.addHook('preHandler', async (req, reply) => {
     if (process.env.NODE_ENV === 'development' && process.env.DEFAULT_USER) {
-      await db.signIn(process.env.DEFAULT_USER)
+      req.session.user = await Db.signInOrCreate(process.env.DEFAULT_USER)
       return
     }
 
@@ -53,23 +54,50 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       return
     }
 
-    const m = /^Bearer (.+)$/.exec(req.headers.authorization || '')
+    const bearerAuth = async (auth: string) => {
+      const m = /^Bearer (.+)$/.exec(auth)
 
-    if (!m) {
-      reply.status(401).send()
+      if (!m) {
+        return false
+      }
+
+      const ticket = await admin.auth().verifyIdToken(m[1], true)
+
+      if (!req.session.user && ticket.email) {
+        req.session.user = await Db.signInOrCreate(ticket.email)
+      }
+
+      return !!req.session.user
+    }
+
+    const basicAuth = async (auth: string) => {
+      const m = /^Basic (.+)$/.exec(auth)
+
+      if (!m) {
+        return false
+      }
+
+      const credentials = Buffer.from(m[1], 'base64').toString()
+      const [email, secret] = credentials.split(':')
+      if (!secret) {
+        return false
+      }
+
+      req.session.user = await Db.signInWithSecret(email, secret)
+
+      return !!req.session.user
+    }
+
+    if (bearerAuth(req.headers.authorization) || basicAuth(req.headers.authorization)) {
       return
     }
 
-    const ticket = await admin.auth().verifyIdToken(m[1], true)
-
-    req.session.user = ticket
-    if (!db.user && ticket.email) {
-      await db.signIn(ticket.email)
-    }
+    reply.status(401).send()
   })
 
   f.register(editRouter, { prefix: '/edit' })
   f.register(quizRouter, { prefix: '/quiz' })
+  f.register(userRouter, { prefix: '/user' })
   next()
 }
 

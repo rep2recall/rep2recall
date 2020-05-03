@@ -23,6 +23,10 @@ const router = new VueRouter({
       component: () => import('@/views/Browse.vue')
     },
     {
+      path: '/settings',
+      component: () => import('@/views/Settings.vue')
+    },
+    {
       path: '/community',
       component: () => import('@/views/Community.vue')
     }

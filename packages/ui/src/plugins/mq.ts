@@ -6,6 +6,6 @@ Vue.use(VueMq, {
   breakpoints: {
     sm: 500,
     md: 800,
-    lg: Infinity,
-  },
+    lg: Infinity
+  }
 })

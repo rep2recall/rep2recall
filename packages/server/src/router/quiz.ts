@@ -1,18 +1,18 @@
 import { FastifyInstance } from 'fastify'
 import escapeRegExp from 'escape-string-regexp'
 
-import { db, DbCardModel } from '../db/schema'
+import { Db, DbCardModel } from '../db/schema'
 import { shuffle } from '../utils'
 
-const router = (f: FastifyInstance, opts: any, next: () => void) => {
+const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/lessons', {
     schema: {
       summary: 'List all lessons',
       tags: ['quiz']
     }
-  }, async () => {
+  }, async (req) => {
     return {
-      entries: await db.listLessons()
+      entries: await new Db(req.session.user).listLessons()
     }
   })
 
@@ -31,6 +31,8 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
+    const db = new Db(req.session.user)
+
     const { q, deck, lesson } = req.body
     const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
@@ -58,7 +60,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       'lesson.deck': { $exists: true }
     })
 
-    const rs = await DbCardModel.stdLookup({
+    const rs = await DbCardModel.stdLookup(db, {
       postConds: [
         {
           $addFields: {
@@ -94,10 +96,12 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
+    const db = new Db(req.session.user)
+
     const { q, lesson } = req.body
     const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    const rs = await DbCardModel.stdLookup({
+    const rs = await DbCardModel.stdLookup(db, {
       postConds: [
         {
           $match: {
@@ -166,7 +170,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    return await db.render(req.query.key, {
+    return await new Db(req.session.user).render(req.query.key, {
       min: true
     })
   })
@@ -180,7 +184,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    await db.markRight(req.query.key)
+    await new Db(req.session.user).markRight(req.query.key)
     return {
       error: null
     }
@@ -195,7 +199,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    await db.markWrong(req.query.key)
+    await new Db(req.session.user).markWrong(req.query.key)
     return {
       error: null
     }
@@ -210,7 +214,7 @@ const router = (f: FastifyInstance, opts: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    await db.markRepeat(req.query.key)
+    await new Db(req.session.user).markRepeat(req.query.key)
     return {
       error: null
     }

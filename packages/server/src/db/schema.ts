@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 import * as t from 'runtypes'
 import mongoose from 'mongoose'
 import { prop, getModelForClass, index, DocumentType, Ref, setGlobalOptions, Severity } from '@typegoose/typegoose'
@@ -14,6 +16,11 @@ setGlobalOptions({ options: { allowMixed: Severity.ALLOW } })
 
 class DbUser {
   @prop({ required: true, unique: true }) email!: string
+  @prop({ default: () => crypto.randomBytes(64).toString('base64') }) secret!: string
+
+  newSecret () {
+    this.secret = crypto.randomBytes(64).toString('base64')
+  }
 }
 
 export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
@@ -21,7 +28,7 @@ export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collectio
 class DbTag {
   @prop({ required: true, unique: true }) name!: string
 
-  static async upsert(entry: {
+  static async upsert (entry: {
     name: string
   }) {
     let item: DocumentType<DbTag> | null = null
@@ -53,7 +60,7 @@ class DbDeck {
   @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: string[]
   @prop({ ref: 'DbLesson' }) lessonId?: string
 
-  static async upsert(entry: {
+  static async upsert (entry: {
     name: string
     lessonId: string
   }) {
@@ -94,7 +101,7 @@ class DbCard {
    */
   @prop() markdown?: string
 
-  static async stdLookup(opts: {
+  static async stdLookup (db: Db, opts: {
     preConds?: any[]
     postConds?: any[]
     project?: {
@@ -104,14 +111,6 @@ class DbCard {
       lesson?: boolean
     }
   }) {
-    if (!db) {
-      throw new Error('Database is not initialized')
-    }
-
-    if (!db.user) {
-      throw new Error('Not logged in')
-    }
-
     if (opts.project && opts.project.lesson !== false) {
       opts.project.deck = true
     }
@@ -233,9 +232,7 @@ export const DbSchema = t.Record({
 
 export type IDbSchema = t.Static<typeof DbSchema>
 
-class Db {
-  user: DocumentType<DbUser> | null = null
-
+export class Db {
   qSearch = new QSearch({
     dialect: 'mongodb',
     schema: {
@@ -255,30 +252,30 @@ class Db {
     }
   })
 
-  async signIn(email: string) {
-    this.user = await DbUserModel.findOne({ email })
-    if (!this.user) {
-      this.user = await DbUserModel.create({ email })
+  static async signInOrCreate (email: string) {
+    let user = await DbUserModel.findOne({ email })
+    if (!user) {
+      user = await DbUserModel.create({ email })
     }
 
-    return this.user
+    return user
   }
 
-  async signOut() {
-    this.user = null
+  static async signInWithSecret (email: string, secret: string) {
+    return await DbUserModel.findOne({ email, secret })
   }
 
-  async close() {
-    await mongoose.disconnect()
-  }
-
-  async create(...entries: IDbSchema[]) {
-    const user = this.user
-
+  constructor (public user: DocumentType<DbUser>) {
     if (!user) {
       throw new Error('Not logged in')
     }
+  }
 
+  async close () {
+    await mongoose.disconnect()
+  }
+
+  async create (...entries: IDbSchema[]) {
     entries.map((el) => {
       DbSchema.check(el)
     })
@@ -296,9 +293,9 @@ class Db {
     const ops = ser.clone(entries.filter((el) => el.overwrite && el.key).map((el) => {
       return {
         replaceOne: {
-          filter: { userId: user._id, key: el.key! },
+          filter: { userId: this.user._id, key: el.key! },
           replacement: {
-            userId: user._id,
+            userId: this.user._id,
             key: el.key,
             data: el.data || undefined,
             tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
@@ -319,7 +316,7 @@ class Db {
       el.key = key
 
       return {
-        userId: user._id,
+        userId: this.user._id,
         key,
         data: el.data || undefined,
         tag: el.tag ? el.tag.map((t) => allTags[t]) : undefined,
@@ -360,13 +357,7 @@ class Db {
     return entries.map((el) => el.key)
   }
 
-  async delete(...keys: string[]) {
-    const user = this.user
-
-    if (!user) {
-      throw new Error('Not logged in')
-    }
-
+  async delete (...keys: string[]) {
     const ids = (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
 
     await Promise.all([
@@ -378,13 +369,7 @@ class Db {
     ])
   }
 
-  async update(keys: string[], set: IDbSchema) {
-    const user = this.user
-
-    if (!user) {
-      throw new Error('Not logged in')
-    }
-
+  async update (keys: string[], set: IDbSchema) {
     const {
       tag,
       srsLevel, nextReview, stat,
@@ -431,35 +416,23 @@ class Db {
     }
   }
 
-  async addTags(keys: string[], tags: string[]) {
-    if (!this.user) {
-      throw new Error('Not logged in')
-    }
-
+  async addTags (keys: string[], tags: string[]) {
     const tids = await DbTagModel.find({ name: { $in: tags } }).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
-      $addToSet: { tag: { $each: tids.map(t => t._id) } }
+      $addToSet: { tag: { $each: tids.map((t) => t._id) } }
     })
   }
 
-  async removeTags(keys: string[], tags: string[]) {
-    if (!this.user) {
-      throw new Error('Not logged in')
-    }
-
+  async removeTags (keys: string[], tags: string[]) {
     const tids = await DbTagModel.find({ name: { $in: tags } }).select({ _id: 1 })
     await DbCardModel.updateMany({ key: { $in: keys } }, {
-      $pull: { tag: { $in: tids.map(t => t._id) } }
+      $pull: { tag: { $in: tids.map((t) => t._id) } }
     })
   }
 
-  async render(key: string, opts: {
+  async render (key: string, opts: {
     min: boolean
   }): Promise<any> {
-    if (!this.user) {
-      throw new Error('Not logged in')
-    }
-
     if (opts.min) {
       const r = await DbCardModel.aggregate([
         { $match: { userId: this.user._id, key } },
@@ -474,7 +447,7 @@ class Db {
 
       return r[0] || null
     } else {
-      const r = (await DbCardModel.stdLookup({
+      const r = (await DbCardModel.stdLookup(this, {
         preConds: [
           { $match: { key } }
         ]
@@ -495,12 +468,8 @@ class Db {
   markWrong = this._updateSrsLevel(-1)
   markRepeat = this._updateSrsLevel(0)
 
-  private _updateSrsLevel(dSrsLevel: number) {
+  private _updateSrsLevel (dSrsLevel: number) {
     return async (key: string) => {
-      if (!this.user) {
-        throw new Error('Not logged in')
-      }
-
       const card = await DbCardModel.findOne({ userId: this.user._id, key }).select({ _id: 1 })
 
       if (!card) {
@@ -569,12 +538,8 @@ class Db {
     }
   }
 
-  async listLessons() {
-    if (!this.user) {
-      throw new Error('Not logged in')
-    }
-
-    const r = await DbCardModel.stdLookup({
+  async listLessons () {
+    const r = await DbCardModel.stdLookup(this, {
       project: {
         quiz: false,
         tag: false
@@ -610,7 +575,7 @@ class Db {
     ])
   }
 
-  async upsertLessonAndDeck(...items: {
+  async upsertLessonAndDeck (...items: {
     _id: any
     lesson?: {
       key: string
@@ -679,15 +644,11 @@ class Db {
   }
 }
 
-export let db: Db
-
-export async function initDatabase(mongoUri: string) {
+export async function initDatabase (mongoUri: string) {
   await mongoose.connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
     useFindAndModify: false
   })
-
-  db = new Db()
 }

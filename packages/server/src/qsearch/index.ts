@@ -95,7 +95,7 @@ export default class QSearch {
               v = new Date()
             } else {
               const vMillisec = (() => {
-                const [_, p1, p2] = /^([+-]?\d+(?:\.\d+)?)([yMwdhm])$/i.exec(v) || []
+                const [, p1, p2] = /^([+-]?\d+(?:\.\d+)?)([yMwdhm])$/i.exec(v) || []
                 const v0 = +new Date()
                 if (p2 === 'y') {
                   return v0 + parseFloat(p1) * 365 * 24 * 60 * 60 * 1000 // 365d 24h 60m 60s 1000ms
