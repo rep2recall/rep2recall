@@ -6,7 +6,7 @@ import {
   faAngleDown, faAngleLeft, faAngleRight, faAngleUp, faArrowUp, faArrowDown, faExclamationCircle
 } from '@fortawesome/free-solid-svg-icons'
 import { faEdit } from '@fortawesome/free-regular-svg-icons'
-import { faGithub } from '@fortawesome/free-brands-svg-icons'
+import { faGithub, faGoogle } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 library.add(
@@ -14,7 +14,7 @@ library.add(
   faCaretRight, faCaretDown, faCaretUp, faList, faExclamationCircle,
   faAngleDown, faAngleLeft, faAngleRight, faAngleUp, faArrowUp, faArrowDown,
   faEdit,
-  faGithub
+  faGithub, faGoogle
 )
 
 Vue.component('fontawesome', FontAwesomeIcon)

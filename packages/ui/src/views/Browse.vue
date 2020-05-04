@@ -91,10 +91,9 @@ import { Component, Vue, Watch, Prop } from 'vue-property-decorator'
 import dayjs from 'dayjs'
 import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
-
-import { normalizeArray, stringSorter, deepMerge } from '../utils'
-import { Matter } from '../make-html/matter'
-import MakeHtml from '../make-html'
+import { normalizeArray, stringSorter, deepMerge } from '@/assets/util'
+import { Matter } from '@/assets/make-html/matter'
+import MakeHtml from '@/assets/make-html'
 
 @Component
 export default class Query extends Vue {

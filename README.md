@@ -47,20 +47,18 @@ Requirements are
 ### Required environmental variables
 
 ```sh
+# Run time variables
 MONGO_URI=       # Get this from MongoDB Atlas
 SECRET=          # Generate this yourself
 FIREBASE_SDK=    # Get this from Firebase Admin SDK, and JSONify it
+
+# Build time variables
 VUE_APP_FIREBASE_CONFIG=   # Get this from Firebase Client, and JSONify it
-
-# Optional
-DEFAULT_USER=  # The email address that you want to use the API (See the API at http://localhost:8080/api/doc)
+VUE_APP_BASE_URL=          # Where you want to deploy
 ```
-
-However, in production, only the first three are required.
 
 For the development machine, you can create `.env` first, then `source .`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
 
 ## Plans
 
-- Expose the API, probably via OAuth2 or API keys, so that entries can programmatically generated.
 - Offline support.

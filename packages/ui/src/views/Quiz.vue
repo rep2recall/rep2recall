@@ -47,10 +47,9 @@ import { Vue, Component, Watch } from 'vue-property-decorator'
 import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
 import Treeview from '@/components/Treeview.vue'
-
-import { Matter } from '../make-html/matter'
-import MakeHtml from '../make-html'
-import { deepMerge, normalizeArray } from '../utils'
+import { Matter } from '@/assets/make-html/matter'
+import MakeHtml from '@/assets/make-html'
+import { deepMerge, normalizeArray } from '@/assets/util'
 
 @Component<Quiz>({
   components: {

@@ -3,33 +3,62 @@ import VueRouter from 'vue-router'
 
 Vue.use(VueRouter)
 
+const registeredLayouts = [
+  'App'
+]
+
+registeredLayouts.map((layout) => {
+  Vue.component(`${layout}-layout`, () => import(/* webpackChunkName: "[request]-layout" */ `@/layouts/${layout}.vue`))
+})
+
 const router = new VueRouter({
   mode: 'history',
   routes: [
     {
+      path: '/',
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Home.vue')
+    },
+    {
       path: '/lesson',
-      alias: '/',
-      component: () => import('@/views/Lesson.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Lesson.vue'),
+      meta: {
+        layout: 'App'
+      }
     },
     {
       path: '/quiz/:name',
-      component: () => import('@/views/Quiz.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Quiz.vue'),
+      meta: {
+        layout: 'App'
+      }
     },
     {
       path: '/edit',
-      component: () => import('@/views/Edit.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Edit.vue'),
+      meta: {
+        layout: 'App'
+      }
     },
     {
       path: '/browse',
-      component: () => import('@/views/Browse.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Browse.vue'),
+      meta: {
+        layout: 'App'
+      }
     },
     {
       path: '/settings',
-      component: () => import('@/views/Settings.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Settings.vue'),
+      meta: {
+        layout: 'App'
+      }
     },
     {
       path: '/community',
-      component: () => import('@/views/Community.vue')
+      component: () => import(/* webpackChunkName: "[request]" */ '@/views/Community.vue'),
+      meta: {
+        layout: 'App'
+      }
     }
   ]
 })

@@ -40,17 +40,12 @@ Vue.filter('formatDate', (v: any) => {
   return dayjs(v).format('YYYY-MM-DD HH:mm')
 })
 
-let isAuthReady = false
-
 firebase.auth().onAuthStateChanged((user) => {
   store.commit('setUser', user)
-
-  if (!isAuthReady) {
-    isAuthReady = true
-    new Vue({
-      router,
-      store,
-      render: (h) => h(App)
-    }).$mount('#app')
-  }
 })
+
+new Vue({
+  router,
+  store,
+  render: (h) => h(App)
+}).$mount('#app')

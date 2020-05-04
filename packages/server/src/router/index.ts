@@ -27,7 +27,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       produces: ['application/json'],
       servers: [
         {
-          url: 'https://rep2recall.herokuapp.com',
+          url: process.env.VUE_APP_BASE_URL,
           description: 'Online server'
         },
         {

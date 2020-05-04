@@ -36,13 +36,12 @@ import CodeMirror from 'codemirror'
 import axios, { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
 import hbs from 'handlebars'
-import * as t from 'runtypes'
+import z from 'zod'
+import { normalizeArray, nullifyObject, stringSorter, deepMerge } from '@/assets/util'
+import { Matter } from '@/assets/make-html/matter'
+import MakeHtml from '@/assets/make-html'
 
 import 'firebase/storage'
-
-import { normalizeArray, nullifyObject, stringSorter, deepMerge } from '../utils'
-import { Matter } from '../make-html/matter'
-import MakeHtml from '../make-html'
 
 @Component<Edit>({
   beforeRouteLeave (to, from, next) {
@@ -181,7 +180,7 @@ export default class Edit extends Vue {
       let { header: { key, ref, srsLevel, data, stat, deck, nextReview } } = this.matter.parse(this.markdown)
 
       if (nextReview) {
-        const d = dayjs(t.String.check(nextReview))
+        const d = dayjs(z.string().parse(nextReview))
         if (!d.isValid()) {
           throw new Error(`Invalid Date: ${nextReview}`)
         }
@@ -190,13 +189,16 @@ export default class Edit extends Vue {
       }
 
       return {
-        key: t.String.check(key || '') || undefined,
-        ref: t.Dictionary(t.Unknown).Or(t.Array(t.String)).check(ref || {}),
-        srsLevel: t.Number.Or(t.Null).Or(t.Undefined).check(srsLevel),
-        data: t.Dictionary(t.Unknown).check(data || {}),
-        stat: t.Dictionary(t.Unknown).check(stat || {}),
-        deck: t.String.check(deck || '') || undefined,
-        nextReview: t.String.check(nextReview || '') || undefined
+        key: z.string().optional().parse(key),
+        ref: z.union([
+          z.record(z.any()),
+          z.array(z.string())
+        ]).parse(ref || {}),
+        srsLevel: z.number().nullable().optional().check(srsLevel),
+        data: z.record(z.any()).check(data || {}),
+        stat: z.record(z.any()).check(stat || {}),
+        deck: z.string().optional().check(deck),
+        nextReview: z.string().optional().check(nextReview)
       }
     } catch (e) {
       if (isFinal) {
