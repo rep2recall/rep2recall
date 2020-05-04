@@ -1,217 +1,52 @@
 <template lang="pug">
-#app
-  nav#main-nav(v-if="isDrawer")
-    nav#icon-nav(style="margin-top: 1em;")
-      router-link.nav-link(to="/lesson" :class="{ active: $route.path === '/lesson' }")
-        fontawesome(icon="chalkboard-teacher")
-        span Lesson
-      router-link.nav-link(to="/edit" :class="{ active: $route.path === '/edit' }")
-        fontawesome(:icon="['far', 'edit']")
-        span Edit
-      router-link.nav-link(to="/browse" :class="{ active: $route.path === '/browse' }")
-        fontawesome(icon="list")
-        span Browse
-      router-link.nav-link(to="/settings" :class="{ active: $route.path === '/settings' }")
-        fontawesome(icon="cog")
-        span Settings
-      router-link.nav-link(to="/community" :class="{ active: $route.path === '/community' }")
-        fontawesome(icon="users")
-        span Community
-      a.nav-link(href="https://github.com/patarapolw/rep2recall" target="_blank" rel="noopener")
-        fontawesome(:icon="['fab', 'github']")
-        span About
-    div(style="flex-grow: 1;")
-    nav#icon-nav(style="margin-bottom: 0.5em;")
-      a.nav-link(v-if="user" @click="doLogout")
-        figure.image.is-48x48(style="margin-left: 0.5em; margin-right: 1em;")
-          img.is-rounded(:src="getGravatarUrl(user.email)" :alt="user.email")
-        span {{user.email}}
-      a.nav-link(v-else role="button" @click="isLoginModal = true")
-        fontawesome(icon="user-slash")
-        span Not Logged In
-  main#main
-    #burger
-      a.navbar-burger(
-        :class="{ 'is-active': isDrawer }" @click="isDrawer = !isDrawer"
-      )
-        span
-        span
-        span
-    #main-view
-      router-view
-  b-modal(:active.sync="isLoginModal" :can-cancel="false")
-    div(ref="auth")
+#App
+  b-loading(active v-if="isLoading")
+  component(v-else-if="layout" :is="layout")
+    router-view
+  router-view(v-else)
 </template>
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
-import firebase from 'firebase/app'
-import { auth as authUI } from 'firebaseui'
-import SparkMD5 from 'spark-md5'
-import { AxiosInstance } from 'axios'
-
-import 'firebase/auth'
-import 'firebaseui/dist/firebaseui.css'
-
-let firebaseUI: authUI.AuthUI | null
-declare const process: any
 
 @Component
 export default class App extends Vue {
-  isDrawer = false
-  isLoginModal = false
-
-  mq = matchMedia('(max-width: 800px)')
+  isLoading = true
 
   get user () {
     return this.$store.state.user
   }
 
-  get isAuthenticated () {
-    return this.$store.state.lastStatus !== 401
+  get layout () {
+    const layout = this.$route.meta.layout
+    return layout ? `${layout}-layout` : null
   }
 
   created () {
-    this.mq.addListener(this.onResize)
-    this.isDrawer = !this.mq.matches
+    this.onUserChange()
+  }
 
+  @Watch('user')
+  onUserChange () {
     if (!this.user) {
-      this.isLoginModal = true
+      setTimeout(() => {
+        this.isLoading = false
+      }, 3000)
+    } else {
+      this.isLoading = false
     }
+    this.onLoadingChange()
   }
 
-  beforeDestroy () {
-    this.mq.removeListener(this.onResize)
-  }
-
-  onResize (evt: MediaQueryListEvent) {
-    this.isDrawer = !evt.matches
-  }
-
-  async getApi (silent?: boolean) {
-    return await this.$store.dispatch('getApi', silent) as AxiosInstance
-  }
-
-  @Watch('isLoginModal')
-  onLogin () {
-    this.$nextTick(() => {
-      if (this.$refs.auth) {
-        if (!firebaseUI) {
-          firebaseUI = new authUI.AuthUI(firebase.auth())
-        }
-
-        firebaseUI.start(this.$refs.auth as HTMLDivElement, {
-          signInSuccessUrl: location.origin,
-          signInOptions: [
-            firebase.auth.GoogleAuthProvider.PROVIDER_ID
-            // firebase.auth.FacebookAuthProvider.PROVIDER_ID,
-            // firebase.auth.TwitterAuthProvider.PROVIDER_ID,
-            // firebase.auth.GithubAuthProvider.PROVIDER_ID,
-          ],
-          signInFlow: 'popup'
-        })
+  @Watch('isLoading')
+  onLoadingChange () {
+    if (!this.isLoading) {
+      if (!this.user) {
+        this.$router.push('/')
+      } else if (this.$route.path === '/') {
+        this.$router.push('/lesson')
       }
-    })
-  }
-
-  @Watch('isAuthenticated')
-  onLogout () {
-    if (!this.isAuthenticated) {
-      this.isLoginModal = true
     }
-  }
-
-  async doLogout () {
-    firebase.auth().signOut()
-    const api = await this.getApi()
-    api.delete('/api/user/logout')
-  }
-
-  getGravatarUrl (email: string) {
-    return `https://www.gravatar.com/avatar/${SparkMD5.hash(email.trim().toLocaleLowerCase())}?d=mp`
   }
 }
 </script>
-
-<style lang="scss">
-html,
-body,
-#app {
-  box-sizing: border-box;
-  /* overscroll-behavior: none; */
-}
-
-#app {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  overflow-x: clip;
-}
-
-#main-nav {
-  border-right: 1px solid lightgray;
-  overflow: visible;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  width: 300px;
-
-  nav {
-    display: flex;
-    flex-direction: column;
-  }
-
-  #icon-nav {
-    background-color: rgba(255, 255, 255, 0.75);
-  }
-
-  .svg-inline--fa {
-    $size: 30px;
-
-    width: $size;
-    height: $size;
-    margin: 10px;
-    align-self: center;
-  }
-
-  .nav-link {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-
-    &.active {
-      background-color: #eee;
-    }
-  }
-}
-
-#main {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  height: 100vh;
-  overflow: scroll;
-}
-
-@media screen and (max-width: 800px) {
-  #main {
-    flex-direction: column;
-    min-width: 100vw;
-  }
-}
-
-#burger {
-  display: flex;
-
-  > .navbar-burger {
-    margin-left: unset;
-    display: block !important;
-  }
-}
-
-#main-view {
-  flex-grow: 1;
-  margin-left: 1em;
-  margin-right: 1em;
-}
-</style>
