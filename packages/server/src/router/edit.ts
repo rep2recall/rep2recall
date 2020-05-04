@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-import { Db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
+import { Db, DbTagModel, DbDeckModel, DbCardModel, dbSchema } from '../db/schema'
 import { removeNull } from '../utils'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
@@ -153,9 +153,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     schema: {
       summary: 'Create item',
       tags: ['edit'],
-      body: {
-        $ref: 'http://rep2recall/dbSchema.json#'
-      },
+      body: dbSchema,
       response: {
         200: {
           type: 'object',
@@ -181,7 +179,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         type: 'object',
         required: ['entries'],
         properties: {
-          entries: { type: 'array', items: { $ref: 'http://rep2recall/dbSchema.json#' } }
+          entries: { type: 'array', items: dbSchema }
         }
       },
       response: {
@@ -210,7 +208,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         required: ['keys', 'set'],
         properties: {
           keys: { type: 'array', items: { type: 'string' } },
-          set: { $ref: 'http://rep2recall/dbSchema.json#' }
+          set: dbSchema
         }
       }
     }

@@ -245,7 +245,7 @@ export const zDbSchema = z.object({
 export type IDbSchema = z.infer<typeof zDbSchema>
 
 export const dbSchema = {
-  $id: 'http://rep2recall/dbSchema.json',
+  $id: 'https://rep2recall.herkuapp.com/schema/dbSchema.json',
   type: 'object',
   properties: {
     overwrite: { type: 'boolean' },
