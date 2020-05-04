@@ -29,8 +29,8 @@
     "firebase-admin": "^8.10.0",
     "mongoose": "^5.9.6",
     "nanoid": "^3.0.2",
-    "runtypes": "^4.2.0",
-    "shortid": "^2.2.15"
+    "shortid": "^2.2.15",
+    "zod": "^1.5.0"
   },
   "devDependencies": {
     "@types/mongodb": "^3.5.3",

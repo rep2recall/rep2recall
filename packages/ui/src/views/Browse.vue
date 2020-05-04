@@ -175,8 +175,6 @@ export default class Query extends Vue {
       count: true
     })
 
-    console.log(r.data)
-
     await Promise.all((r.data.data as any[])
       .map((el) => this.onCtxChange(deepMerge([el.key], el.ref))))
 

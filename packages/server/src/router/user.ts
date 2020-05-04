@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
-export default (f: FastifyInstance, _: any, next: () => void) => {
+const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/', {
     schema: {
       tags: ['user'],
@@ -43,5 +43,18 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
     }
   })
 
+  f.delete('/logout', {
+    schema: {
+      tags: ['user'],
+      summary: 'Sign out and delete the session'
+    }
+  }, (req, reply) => {
+    req.destroySession((err) => {
+      err ? reply.status(400).send() : reply.status(201).send()
+    })
+  })
+
   next()
 }
+
+export default router

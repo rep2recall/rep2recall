@@ -1,16 +1,16 @@
 import crypto from 'crypto'
 
-import * as t from 'runtypes'
 import mongoose from 'mongoose'
 import { prop, getModelForClass, index, DocumentType, Ref, setGlobalOptions, Severity } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
 import shortid from 'shortid'
 import dotProp from 'dot-prop'
 import { nanoid } from 'nanoid'
+import * as z from 'zod'
 
 import QSearch from '../qsearch'
 import { srsMap, getNextReview, repeatReview } from './quiz'
-import { mapAsync, ser } from '../utils'
+import { mapAsync, ser, removeNull } from '../utils'
 
 setGlobalOptions({ options: { allowMixed: Severity.ALLOW } })
 
@@ -209,28 +209,70 @@ class DbQuiz {
 
 export const DbQuizModel = getModelForClass(DbQuiz, { schemaOptions: { collection: 'quiz', timestamps: true } })
 
-const tNullUndefined = t.Null.Or(t.Undefined)
+const zDateType = z.string().refine((d) => {
+  return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
+}, 'not a Date').nullable().optional()
+const zPosInt = z.number().refine((i) => Number.isInteger(i) && i > 0, 'not positive integer')
 
-export const DbSchema = t.Record({
-  overwrite: t.Boolean.Or(tNullUndefined),
-  deck: t.String.Or(tNullUndefined),
-  lesson: t.Array(t.Record({
-    key: t.String,
-    name: t.String.Or(tNullUndefined),
-    description: t.String.Or(tNullUndefined),
-    deck: t.String
-  })).Or(tNullUndefined),
-  key: t.String.Or(tNullUndefined),
-  data: t.Unknown.Or(tNullUndefined),
-  tag: t.Array(t.String).Or(tNullUndefined),
-  ref: t.Array(t.String).Or(tNullUndefined),
-  markdown: t.String.Or(tNullUndefined),
-  nextReview: t.Unknown.withConstraint<Date>((d) => !d || d instanceof Date).Or(t.String).Or(tNullUndefined),
-  srsLevel: t.Number.Or(tNullUndefined),
-  stat: t.Unknown
+export const zDbSchema = z.object({
+  overwrite: z.boolean().optional(),
+  deck: z.string().optional(),
+  lesson: z.array(z.object({
+    key: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    deck: z.string()
+  })).optional(),
+  key: z.string().optional(),
+  data: z.record(z.any()).optional(),
+  tag: z.array(z.string()).optional(),
+  ref: z.array(z.string()).optional(),
+  markdown: z.string().optional(),
+  nextReview: zDateType.optional(),
+  srsLevel: zPosInt.nullable().optional(),
+  stat: z.object({
+    streak: z.object({
+      right: zPosInt.optional(),
+      wrong: zPosInt.optional(),
+      maxRight: zPosInt.optional(),
+      maxWrong: zPosInt.optional()
+    }),
+    lastRight: zDateType.optional(),
+    lastWrong: zDateType.optional()
+  }).optional()
 })
 
-export type IDbSchema = t.Static<typeof DbSchema>
+export type IDbSchema = z.infer<typeof zDbSchema>
+
+export const dbSchema = {
+  $id: 'http://rep2recall/dbSchema.json',
+  type: 'object',
+  properties: {
+    overwrite: { type: 'boolean' },
+    deck: { type: 'string' },
+    lesson: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          deck: { type: 'string' }
+        }
+      }
+    },
+    key: { type: 'string' },
+    data: { type: 'object' },
+    tag: { type: 'array', items: { type: 'string' } },
+    ref: { type: 'array', items: { type: 'string' } },
+    markdown: { type: 'string' },
+    nextReview: { type: 'string', format: 'date-time' },
+    srsLevel: { type: 'integer' },
+    stat: { type: 'object' }
+  }
+}
 
 export class Db {
   qSearch = new QSearch({
@@ -276,8 +318,8 @@ export class Db {
   }
 
   async create (...entries: IDbSchema[]) {
-    entries.map((el) => {
-      DbSchema.check(el)
+    entries = entries.map((el) => {
+      return zDbSchema.parse(removeNull(el))
     })
 
     const allTags = entries
@@ -375,7 +417,7 @@ export class Db {
       srsLevel, nextReview, stat,
       lesson, deck,
       ...card
-    } = set
+    } = zDbSchema.parse(set)
 
     let ids: any[] | null = null
 
@@ -406,7 +448,7 @@ export class Db {
 
     if (lesson || deck) {
       ids = ids || (await DbCardModel.find({ key: { $in: keys } })).map((c) => c._id)
-      await this.upsertLessonAndDeck(...ids.map((_id) => ({ _id, ...set })))
+      await this.upsertLessonAndDeck(...ids.map((_id) => ({ _id, lesson, deck })))
     }
 
     if (Object.keys(card).length > 0) {
@@ -445,7 +487,7 @@ export class Db {
         }
       ])
 
-      return r[0] || null
+      return r[0] || {}
     } else {
       const r = (await DbCardModel.stdLookup(this, {
         preConds: [
@@ -454,7 +496,7 @@ export class Db {
       }))[0]
 
       if (!r) {
-        return null
+        return {}
       }
 
       r.deck = r.lesson.filter((ls: any) => !ls.key).map((ls: any) => ls.deck)[0]

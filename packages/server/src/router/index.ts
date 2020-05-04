@@ -7,7 +7,7 @@ import admin from 'firebase-admin'
 import editRouter from './edit'
 import quizRouter from './quiz'
 import userRouter from './user'
-import { Db } from '../db/schema'
+import { Db, dbSchema } from '../db/schema'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   admin.initializeApp({
@@ -25,16 +25,26 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       },
       consumes: ['application/json'],
       produces: ['application/json'],
+      servers: [
+        {
+          url: 'https://rep2recall.herokuapp.com',
+          description: 'Online server'
+        },
+        {
+          url: 'http://localhost:8080',
+          description: 'Local server'
+        }
+      ],
       components: {
         securitySchemes: {
           BasicAuth: {
             type: 'http',
             scheme: 'basic'
-          },
-          BearerAuth: {
-            type: 'http',
-            scheme: 'bearer'
           }
+          // BearerAuth: {
+          //   type: 'http',
+          //   scheme: 'bearer'
+          // }
         }
       }
     },
@@ -45,10 +55,10 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.register(fSession, { secret: process.env.SECRET! })
 
   f.addHook('preHandler', async (req, reply) => {
-    if (process.env.NODE_ENV === 'development' && process.env.DEFAULT_USER) {
-      req.session.user = await Db.signInOrCreate(process.env.DEFAULT_USER)
-      return
-    }
+    // if (process.env.NODE_ENV === 'development' && process.env.DEFAULT_USER) {
+    //   req.session.user = await Db.signInOrCreate(process.env.DEFAULT_USER)
+    //   return
+    // }
 
     if (req.req.url && req.req.url.startsWith('/api/doc')) {
       return
@@ -88,12 +98,14 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       return !!req.session.user
     }
 
-    if (bearerAuth(req.headers.authorization) || basicAuth(req.headers.authorization)) {
+    if (await bearerAuth(req.headers.authorization) || await basicAuth(req.headers.authorization)) {
       return
     }
 
     reply.status(401).send()
   })
+
+  f.addSchema(dbSchema)
 
   f.register(editRouter, { prefix: '/edit' })
   f.register(quizRouter, { prefix: '/quiz' })
