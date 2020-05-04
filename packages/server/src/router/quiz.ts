@@ -8,11 +8,30 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/lessons', {
     schema: {
       summary: 'List all lessons',
-      tags: ['quiz']
+      tags: ['quiz'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            entries: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  key: { type: 'string' },
+                  name: { type: 'string' },
+                  description: { type: 'string' }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }, async (req) => {
+    const entries = await new Db(req.session.user).listLessons()
     return {
-      entries: await new Db(req.session.user).listLessons()
+      entries
     }
   })
 
@@ -27,6 +46,14 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
           q: { type: ['string', 'object'] },
           deck: { type: 'string' },
           lesson: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            keys: { type: 'array', items: { type: 'string' } }
+          }
         }
       }
     }
@@ -92,6 +119,20 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         properties: {
           q: { type: ['string', 'object'] },
           lesson: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              deck: { type: 'string' },
+              new: { type: 'integer' },
+              due: { type: 'integer' },
+              leech: { type: 'integer' }
+            }
+          }
         }
       }
     }
@@ -167,6 +208,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       tags: ['quiz'],
       querystring: {
         key: { type: 'string' }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {},
+            ref: { type: 'array', items: { type: 'string' } },
+            markdown: { type: 'string' }
+          }
+        }
       }
     }
   }, async (req) => {

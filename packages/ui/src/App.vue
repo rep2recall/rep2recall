@@ -26,7 +26,7 @@
         figure.image.is-48x48(style="margin-left: 0.5em; margin-right: 1em;")
           img.is-rounded(:src="getGravatarUrl(user.email)" :alt="user.email")
         span {{user.email}}
-      a.nav-link(v-else role="button")
+      a.nav-link(v-else role="button" @click="isLoginModal = true")
         fontawesome(icon="user-slash")
         span Not Logged In
   main#main
@@ -48,6 +48,7 @@ import { Vue, Component, Watch } from 'vue-property-decorator'
 import firebase from 'firebase/app'
 import { auth as authUI } from 'firebaseui'
 import SparkMD5 from 'spark-md5'
+import { AxiosInstance } from 'axios'
 
 import 'firebase/auth'
 import 'firebaseui/dist/firebaseui.css'
@@ -87,6 +88,10 @@ export default class App extends Vue {
     this.isDrawer = !evt.matches
   }
 
+  async getApi (silent?: boolean) {
+    return await this.$store.dispatch('getApi', silent) as AxiosInstance
+  }
+
   @Watch('isLoginModal')
   onLogin () {
     this.$nextTick(() => {
@@ -116,8 +121,10 @@ export default class App extends Vue {
     }
   }
 
-  doLogout () {
+  async doLogout () {
     firebase.auth().signOut()
+    const api = await this.getApi()
+    api.delete('/api/user/logout')
   }
 
   getGravatarUrl (email: string) {

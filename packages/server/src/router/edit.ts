@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 
 import { Db, DbTagModel, DbDeckModel, DbCardModel } from '../db/schema'
+import { removeNull } from '../utils'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/', {
@@ -13,14 +14,43 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         properties: {
           key: { type: 'string' }
         }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            key: { type: 'string' },
+            data: {},
+            ref: { type: 'array', items: { type: 'string' } },
+            markdown: { type: 'string' },
+            tag: { type: 'array', items: { type: 'string' } },
+            nextReview: { type: 'string', format: 'date-time' },
+            srsLevel: { type: 'integer' },
+            stat: {},
+            lesson: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  key: { type: 'string' },
+                  name: { type: 'string' },
+                  deck: { type: 'string' }
+                }
+              }
+            },
+            deck: { type: 'string' }
+          }
+        }
       }
     }
   }, async (req) => {
     const { key } = req.query
 
-    return await new Db(req.session.user).render(key, {
+    const r = await new Db(req.session.user).render(key, {
       min: false
     })
+
+    return removeNull(r)
   })
 
   f.post('/', {
@@ -44,6 +74,41 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
             }
           },
           count: { type: 'boolean' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  key: { type: 'string' },
+                  data: {},
+                  ref: { type: 'array', items: { type: 'string' } },
+                  markdown: { type: 'string' },
+                  tag: { type: 'array', items: { type: 'string' } },
+                  nextReview: { type: 'string', format: 'date-time' },
+                  srsLevel: { type: 'integer' },
+                  stat: {},
+                  lesson: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        key: { type: 'string' },
+                        name: { type: 'string' },
+                        deck: { type: 'string' }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            count: { type: ['integer', 'null'] }
+          }
         }
       }
     }
@@ -79,7 +144,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     ])
 
     return {
-      data: rData,
+      data: removeNull(rData),
       count: rCount ? rCount[0].count : null
     }
   })
@@ -88,6 +153,9 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     schema: {
       summary: 'Create item',
       tags: ['edit'],
+      body: {
+        $ref: 'http://rep2recall/dbSchema.json#'
+      },
       response: {
         200: {
           type: 'object',
@@ -113,7 +181,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         type: 'object',
         required: ['entries'],
         properties: {
-          entries: { type: 'array', items: { type: 'object' } }
+          entries: { type: 'array', items: { $ref: 'http://rep2recall/dbSchema.json#' } }
         }
       },
       response: {
@@ -142,7 +210,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         required: ['keys', 'set'],
         properties: {
           keys: { type: 'array', items: { type: 'string' } },
-          set: { type: 'object' }
+          set: { $ref: 'http://rep2recall/dbSchema.json#' }
         }
       }
     }
@@ -179,7 +247,15 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/deck', {
     schema: {
       summary: 'Get decks',
-      tags: ['edit']
+      tags: ['edit'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            decks: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      }
     }
   }, async () => {
     return {
@@ -190,7 +266,15 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/tag', {
     schema: {
       summary: 'Get tags',
-      tags: ['edit']
+      tags: ['edit'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            tags: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      }
     }
   }, async () => {
     return {

@@ -54,3 +54,12 @@ export function shuffle<T> (a: T[]): T[] {
   }
   return a
 }
+
+export function removeNull (a: any) {
+  return JSON.parse(JSON.stringify(a, function (_, v) {
+    if (!v && typeof v === 'object') {
+      return undefined
+    }
+    return v
+  }))
+}

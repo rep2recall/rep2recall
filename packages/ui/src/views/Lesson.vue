@@ -47,7 +47,7 @@ export default class Lesson extends Vue {
     data.entries.push({
       key: '_',
       name: 'Default',
-      description: 'User created entries will be here.'
+      description: 'Entries outside lessons will be here. Usually, user-created entries.'
     })
 
     this.$set(this, 'lessons', data.entries)

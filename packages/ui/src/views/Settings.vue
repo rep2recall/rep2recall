@@ -36,7 +36,6 @@ export default class Settings extends Vue {
   }
 
   async created () {
-    console.log(process.env)
     const api = await this.getApi()
     this.apiKey = (await api.get('/api/user/')).data.secret
   }
