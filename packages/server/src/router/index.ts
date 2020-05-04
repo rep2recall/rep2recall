@@ -7,7 +7,7 @@ import admin from 'firebase-admin'
 import editRouter from './edit'
 import quizRouter from './quiz'
 import userRouter from './user'
-import { Db, dbSchema } from '../db/schema'
+import { Db } from '../db/schema'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   admin.initializeApp({
@@ -104,8 +104,6 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
 
     reply.status(401).send()
   })
-
-  f.addSchema(dbSchema)
 
   f.register(editRouter, { prefix: '/edit' })
   f.register(quizRouter, { prefix: '/quiz' })
