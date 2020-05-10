@@ -27,3 +27,24 @@ export async function mapAsync<T, R = T> (
     return await cb(el, i, a0)
   }))
 }
+
+export function * chunks<T> (arr: T[], n: number) {
+  for (let i = 0; i < arr.length; i += n) {
+    yield arr.slice(i, i + n)
+  }
+}
+
+export function deepMerge (dst: any, src: any) {
+  if (dst && typeof dst === 'object') {
+    if (src && typeof src === 'object') {
+      const out: any = {}
+      Array.from(new Set([...Object.keys(dst), ...Object.keys(src)])).map((k) => {
+        out[k] = deepMerge(dst[k], src[k])
+      })
+
+      return out
+    }
+  }
+
+  return typeof dst === 'undefined' ? src : dst
+}
