@@ -4,8 +4,10 @@ import sqlite3 from 'better-sqlite3'
 import * as z from 'zod'
 import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
+import dotProp from 'dot-prop'
 
 import { removeNull, chunks, deepMerge } from './util'
+import { repeatReview, srsMap, getNextReview } from './quiz'
 
 const zDateType = z.string().refine((d) => {
   return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
@@ -57,9 +59,10 @@ export class Db {
     CREATE TABLE IF NOT EXISTS [card] (
       id            INTEGER PRIMARY KEY,
       [user_id]     INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-      [key]         TEXT NOT NULL UNIQUE,
+      [key]         TEXT NOT NULL,
       [data]        TEXT DEFAULT '{}', -- json
-      markdown      TEXT
+      markdown      TEXT,
+      UNIQUE ([user_id], [key])
       -- relation m2m tag
       -- relation m2m ref
       -- relation m2m lesson
@@ -120,7 +123,7 @@ export class Db {
     if (email) {
       u = this.db.prepare(/*sql*/`
       SELECT id FROM user WHERE email = ?
-      `).get(email)
+      `).get([email])
     } else {
       u = this.db.prepare(/*sql*/`
       SELECT id FROM user WHERE email IS NULL
@@ -134,7 +137,7 @@ export class Db {
     const r = this.db.prepare(/*sql*/`
     INSERT INTO user (email, [secret])
     VALUES (?, ?)
-    `).run(email, this.generateSecret())
+    `).run([email, this.generateSecret()])
 
     return r.lastInsertRowid.valueOf() as number
   }
@@ -144,21 +147,21 @@ export class Db {
     if (email) {
       u = this.db.prepare(/*sql*/`
       SELECT id FROM user WHERE email = ? AND [secret] = ?
-      `).get(email, secret)
+      `).get([email, secret])
     } else {
       u = this.db.prepare(/*sql*/`
       SELECT id FROM user WHERE email IS NULL AND [secret] = ?
-      `).get(secret)
+      `).get([secret])
     }
 
-    return u ? u.id : null
+    return (u ? u.id : null) || null
   }
 
   close () {
     return this.db.close()
   }
 
-  find (userId: number, q: string | Record<string, any>, cb?: (r: IDbSchema) => void) {
+  find (userId: number, q: string | Record<string, any>, where?: string) {
     const qSearch = new QSearch({
       dialect: 'native',
       schema: {
@@ -175,7 +178,8 @@ export class Db {
         'stat.streak.maxWrong': { type: 'number' },
         'stat.lastRight': { type: 'date' },
         'stat.lastWrong': { type: 'date' }
-      }
+      },
+      normalizeDates: (d) => d ? dayjs(d).toDate() : null
     })
 
     if (typeof q === 'string') {
@@ -213,27 +217,23 @@ export class Db {
 
     for (const r of this.db.prepare(/*sql*/`
     SELECT id, [key], [data], markdown FROM [card]
-    WHERE [user_id] = ?
+    WHERE [user_id] = ? ${where ? `AND (${where})` : ''}
     `).iterate(userId)) {
-      r.lesson = stmt.getLesson.all(r.id)
+      r.lesson = stmt.getLesson.all([r.id])
 
       r.deck = r.lesson.filter((ls: any) => !ls.name).map((ls: any) => ls.deck)[0]
       r.lesson = r.lesson.filter((ls: any) => ls.name)
 
-      r.tag = stmt.getTag.all(r.id).map((t) => t.name)
-      r.ref = stmt.getRef.all(r.id).map((cr) => cr.child_id)
+      r.tag = stmt.getTag.all([r.id]).map((t) => t.name)
+      r.ref = stmt.getRef.all([r.id]).map((cr) => cr.child_id)
 
-      Object.assign(r, stmt.getQuiz.all(r.id))
+      Object.assign(r, stmt.getQuiz.all([r.id]))
 
       r.stat = JSON.parse(r.stat)
       r.data = JSON.parse(r.data)
 
       if (!filterFunction(r)) {
         return
-      }
-
-      if (cb) {
-        cb(r)
       }
 
       result.push(r)
@@ -263,7 +263,7 @@ export class Db {
         .filter((ts) => ts)
         .reduce((prev, c) => [...prev!, ...c!], [])!
         .filter((c, i, arr) => arr.indexOf(c) === i)) {
-        insertTag.run(t)
+        insertTag.run([t])
       }
 
       const insertDeck = this.db.prepare(/*sql*/`
@@ -275,7 +275,7 @@ export class Db {
         .map((el) => el.deck)
         .filter((d) => d)
         .filter((c, i, arr) => arr.indexOf(c) === i)) {
-        insertDeck.run(d)
+        insertDeck.run([d])
       }
 
       const insertLesson = this.db.prepare(/*sql*/`
@@ -294,17 +294,17 @@ export class Db {
         .filter((ls) => ls)
         .reduce((prev, c) => [...prev!, ...c!], [])!
         .filter((c, i, arr) => arr.map((ls) => ls.name).indexOf(c.name) === i)) {
-        insertLesson.run(ls.name, ls.description)
-        insertLessonDeck.run(ls.deck, ls.name)
+        insertLesson.run([ls.name, ls.description])
+        insertLessonDeck.run([ls.deck, ls.name])
       }
 
       const insertCardOverwrite = this.db.prepare(/*sql*/`
       INSERT OR REPLACE INTO [card] ([user_id], [key], [data], markdown)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?)
       `)
       const insertCardIgnore = this.db.prepare(/*sql*/`
       INSERT INTO [card] ([user_id], [key], [data], markdown)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?)
       ON CONFLICT DO NOTHING
       `)
       const getCardId = this.db.prepare(/*sql*/`
@@ -351,12 +351,12 @@ export class Db {
         let cardId: any = null
 
         if (el.overwrite && el.key) {
-          cardId = insertCardOverwrite.run(userId, el.key, JSON.stringify(el.data || {}), el.markdown || null)
+          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null])
         } else {
-          cardId = insertCardIgnore.run(userId, el.key, JSON.stringify(el.data || {}), el.markdown || null)
+          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null])
 
           if (!cardId) {
-            cardId = (getCardId.get(userId, el.key) || {}).id
+            cardId = (getCardId.get([userId, el.key]) || {}).id
           }
         }
 
@@ -364,28 +364,28 @@ export class Db {
 
         if (el.tag) {
           el.tag.map((t) => {
-            insertCardTag.run(cardId, t)
+            insertCardTag.run([cardId, t])
           })
         }
 
         if (el.ref) {
           el.ref.map((ref) => {
-            insertCardRef.run(cardId, ref)
+            insertCardRef.run([cardId, ref])
           })
         }
 
         if (el.deck) {
-          insertCardDeck.run(cardId, el.deck)
+          insertCardDeck.run([cardId, el.deck])
         }
 
         if (el.lesson) {
           el.lesson.map((ls) => {
-            insertCardLesson.run(cardId, el.deck, ls.name)
+            insertCardLesson.run([cardId, el.deck, ls.name])
           })
         }
 
         if (el.nextReview && el.srsLevel) {
-          insertQuiz.run(cardId, JSON.stringify(el.stat || {}), el.srsLevel, el.nextReview)
+          insertQuiz.run([cardId, JSON.stringify(el.stat || {}), el.srsLevel, el.nextReview])
         }
       }
 
@@ -396,7 +396,6 @@ export class Db {
     return cardIds
   }
 
-  // @ts-ignore
   update (userId: number, keys: string[], set: IDbSchema) {
     const {
       tag,
@@ -415,8 +414,9 @@ export class Db {
 
         for (const ks of chunks(keys, 900)) {
           this.db.prepare(/*sql*/`
-          SELECT id FROM [card] WHERE [key] IN (${Array(ks.length).fill('?').join(',')})
-          `).all(ks).map((c) => {
+          SELECT id FROM [card]
+          WHERE [key] IN (${Array(ks.length).fill('?').join(',')}) AND [user_id] = ?
+          `).all([...ks, userId]).map((c) => {
             if (_ids) {
               _ids.push(c.id)
             }
@@ -438,27 +438,27 @@ export class Db {
         this.db.prepare(/*sql*/`
         UPDATE [card]
         SET [key] = ?
-        WHERE [key] = ?
-        `).run(key, keys[0])
+        WHERE [key] = ? AND [user_id] = ?
+        `).run([key, keys[0], userId])
       }
 
       if (data) {
         const getK = this.db.prepare(/*sql*/`
-        SELECT [data] FROM [card] WHERE [key] = ?
+        SELECT [data] FROM [card] WHERE [key] = ? AND [user_id] = ?
         `)
         const update = this.db.prepare(/*sql*/`
         UPDATE [card]
         SET [data] = ?
-        WHERE [key] = ?
+        WHERE [key] = ? AND [user_id] = ?
         `)
 
         for (const k of keys) {
-          const r = getK.get(k)
+          const r = getK.get([k, userId])
 
           if (r) {
             try {
               const oldData = JSON.parse(r.data)
-              update.run(JSON.stringify(deepMerge(oldData, data)), k)
+              update.run([JSON.stringify(deepMerge(oldData, data)), k, userId])
             } catch (_) {}
           }
         }
@@ -468,11 +468,11 @@ export class Db {
         const update = this.db.prepare(/*sql*/`
         UPDATE [card]
         SET markdown = ?
-        WHERE [key] = ?
+        WHERE [key] = ? AND [user_id] = ?
         `)
 
         for (const k of keys) {
-          update.run(markdown, k)
+          update.run([markdown, k, userId])
         }
       }
 
@@ -628,5 +628,149 @@ export class Db {
 
       this.db.pragma('read_uncommitted = off;')
     })()
+  }
+
+  addTags (userId: number, keys: string[], tags: string[]) {
+    this.db.transaction(() => {
+      this.db.pragma('read_uncommitted = on;')
+
+      const create = this.db.prepare(/*sql*/`
+      INSERT INTO tag ([name]) VALUES (?)
+      ON CONFLICT DO NOTHING
+      `)
+      const link = this.db.prepare(/*sql*/`
+      INSERT INTO card_tag (card_id, tag_id) VALUES (
+        (SELECT id FROM [card] WHERE [key] = ? AND [user_id] = ?),
+        (SELECT id FROM tag WHERE [name] = ?)
+      )
+      ON CONFLICT DO NOTHING
+      `)
+
+      for (const t of tags) {
+        create.run([t])
+
+        for (const k of keys) {
+          link.run([k, userId, t])
+        }
+      }
+
+      this.db.pragma('read_uncommitted = off;')
+    })
+  }
+
+  removeTags (userId: number, keys: string[], tags: string[]) {
+    this.db.transaction(() => {
+      for (const ks of chunks(keys, 900)) {
+        this.db.prepare(/*sql*/`
+        DELETE FROM card_tag WHERE (
+          card_id = (SELECT id FROM [card] WHERE [key] IN ${Array(ks.length).fill('?').join(',')} AND [user_id] = ?) AND
+          tag_id = (SELECT id FROM tag WHERE [name] IN ${Array(tags.length).fill('?').join(',')})
+        )
+        `).run([...ks, userId, ...tags])
+      }
+    })
+  }
+
+  renderMin (userId: number, key: string) {
+    const r = this.db.prepare(/*sql*/`
+    SELECT id, [data], markdown
+    FROM [card]
+    WHERE [user_id] = ? AND [key] = ?
+    `).get([userId, key]) || {}
+
+    if (r.id) {
+      r.ref = this.db.prepare(/*sql*/`
+      SELECT child_id FROM card_ref
+      WHERE card_id = ?
+      `).all([r.id]).map((r0) => r0.child_id)
+    }
+
+    return r
+  }
+
+  markRight = this._updateSrsLevel(+1)
+  markWrong = this._updateSrsLevel(-1)
+  markRepeat = this._updateSrsLevel(0)
+
+  private _updateSrsLevel (dSrsLevel: number) {
+    return (userId: number, key: string) => {
+      const card = this.db.prepare(/*sql*/`
+      SELECT id FROM [card] WHERE [user_id] = ? AND [key] = ?
+      `).get([userId, key])
+
+      if (!card) {
+        throw new Error(`Card ${key} not found.`)
+      }
+
+      const quiz = this.db.prepare(/*sql*/`
+      SELECT id, stat, srs_level FROM quiz
+      WHERE card_id = ?
+      `).get([card.id])
+
+      let srsLevel = 0
+      let stat = {}
+      let nextReview = repeatReview()
+
+      if (quiz) {
+        srsLevel = quiz.srsLevel
+        stat = JSON.parse(quiz.stat)
+      }
+
+      if (dSrsLevel > 0) {
+        dotProp.set(stat, 'streak.right', dotProp.get(stat, 'streak.right', 0) + 1)
+        dotProp.set(stat, 'streak.wrong', 0)
+        dotProp.set(stat, 'lastRight', new Date())
+
+        if (dotProp.get(stat, 'streak.right', 1) > dotProp.get(stat, 'streak.maxRight', 0)) {
+          dotProp.set(stat, 'streak.maxRight', dotProp.get(stat, 'streak.right', 1))
+        }
+      } else if (dSrsLevel < 0) {
+        dotProp.set(stat, 'streak.wrong', dotProp.get(stat, 'streak.wrong', 0) + 1)
+        dotProp.set(stat, 'streak.right', 0)
+        dotProp.set(stat, 'lastWrong', new Date())
+
+        if (dotProp.get(stat, 'streak.wrong', 1) > dotProp.get(stat, 'streak.maxWrong', 0)) {
+          dotProp.set(stat, 'streak.maxWrong', dotProp.get(stat, 'streak.wrong', 1))
+        }
+      }
+
+      srsLevel += dSrsLevel
+
+      if (srsLevel >= srsMap.length) {
+        srsLevel = srsMap.length - 1
+      }
+
+      if (srsLevel < 0) {
+        srsLevel = 0
+      }
+
+      if (dSrsLevel > 0) {
+        nextReview = getNextReview(srsLevel)
+      }
+
+      if (!quiz) {
+        this.db.prepare(/*sql*/`
+        INSERT INTO quiz (srs_level, stat, next_review, card_id)
+        VALUES (?, ?, ?, ?)
+        `).run([srsLevel, JSON.stringify(stat), +nextReview, card.id])
+      } else {
+        this.db.prepare(/*sql*/`
+        UPDATE quiz
+        SET srs_level = ?, stat = ?, next_review = ?
+        WHERE id = ?
+        `).run([srsLevel, JSON.stringify(stat), +nextReview, quiz.id])
+      }
+    }
+  }
+
+  listLessons (userId: number) {
+    return this.db.prepare(/*sql*/`
+    SELECT ls.name [name], ls.description [description]
+    FROM lesson ls
+    JOIN deck d ON ls.id = d.lesson_id
+    JOIN card_deck cd ON cd.deck_id = d.id
+    JOIN [card] c ON c.id = cd.card_id
+    WHERE c.user_id = ?
+    `).all([userId])
   }
 }
