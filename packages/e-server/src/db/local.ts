@@ -8,6 +8,7 @@ import dotProp from 'dot-prop'
 
 import { removeNull, chunks, deepMerge } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
+import { g } from '../config'
 
 const zDateType = z.string().refine((d) => {
   return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
@@ -43,8 +44,57 @@ export const zDbSchema = z.object({
 
 export type IDbSchema = z.infer<typeof zDbSchema>
 
+export const dbSchema = {
+  $id: 'https://rep2recall.net/schema/dbSchema.json',
+  type: 'object',
+  properties: {
+    overwrite: { type: 'boolean' },
+    deck: { type: 'string' },
+    lesson: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          deck: { type: 'string' }
+        }
+      }
+    },
+    key: { type: 'string' },
+    data: { type: 'object' },
+    tag: { type: 'array', items: { type: 'string' } },
+    ref: { type: 'array', items: { type: 'string' } },
+    markdown: { type: 'string' },
+    nextReview: { type: 'string', format: 'date-time' },
+    srsLevel: { type: 'integer' },
+    stat: { type: 'object' }
+  }
+}
+
 export class Db {
-  db!: sqlite3.Database
+  db: sqlite3.Database
+  qSearch = new QSearch({
+    dialect: 'native',
+    schema: {
+      deck: {},
+      lesson: {},
+      key: {},
+      tag: {},
+      nextReview: { type: 'date' },
+      srsLevel: { type: 'number' },
+      data: { isAny: false },
+      'stat.streak.right': { type: 'number' },
+      'stat.streak.wrong': { type: 'number' },
+      'stat.streak.maxRight': { type: 'number' },
+      'stat.streak.maxWrong': { type: 'number' },
+      'stat.lastRight': { type: 'date' },
+      'stat.lastWrong': { type: 'date' }
+    },
+    normalizeDates: (d) => d ? dayjs(d).toDate() : null
+  })
 
   constructor (public filename: string) {
     this.db = sqlite3(filename)
@@ -157,37 +207,51 @@ export class Db {
     return (u ? u.id : null) || null
   }
 
+  getUser () {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    return this.db.prepare(/*sql*/`
+    SELECT email, [secret]
+    FROM user WHERE id = ?
+    `).get([userId])
+  }
+
+  newSecret () {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    const s = this.generateSecret()
+
+    this.db.prepare(/*sql*/`
+    UPDATE user
+    SET [secret] = ?
+    WHERE id = ?
+    `).run([s, userId])
+
+    return s
+  }
+
   close () {
     return this.db.close()
   }
 
-  find (userId: number, q: string | Record<string, any>, where?: string) {
-    const qSearch = new QSearch({
-      dialect: 'native',
-      schema: {
-        deck: {},
-        lesson: {},
-        key: {},
-        tag: {},
-        nextReview: { type: 'date' },
-        srsLevel: { type: 'number' },
-        data: { isAny: false },
-        'stat.streak.right': { type: 'number' },
-        'stat.streak.wrong': { type: 'number' },
-        'stat.streak.maxRight': { type: 'number' },
-        'stat.streak.maxWrong': { type: 'number' },
-        'stat.lastRight': { type: 'date' },
-        'stat.lastWrong': { type: 'date' }
-      },
-      normalizeDates: (d) => d ? dayjs(d).toDate() : null
-    })
+  find (q: string | Record<string, any>, postfix?: string) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
 
     if (typeof q === 'string') {
-      q = qSearch.parse(q).cond as Record<string, any>
+      q = this.qSearch.parse(q).cond as Record<string, any>
     }
 
     const result: IDbSchema[] = []
-    const filterFunction = qSearch.filterFunction(q)
+    const filterFunction = this.qSearch.filterFunction(q)
 
     const stmt = {
       getLesson: this.db.prepare(/*sql*/`
@@ -217,12 +281,11 @@ export class Db {
 
     for (const r of this.db.prepare(/*sql*/`
     SELECT id, [key], [data], markdown FROM [card]
-    WHERE [user_id] = ? ${where ? `AND (${where})` : ''}
+    WHERE [user_id] = ? ${postfix || ''}
     `).iterate(userId)) {
       r.lesson = stmt.getLesson.all([r.id])
 
       r.deck = r.lesson.filter((ls: any) => !ls.name).map((ls: any) => ls.deck)[0]
-      r.lesson = r.lesson.filter((ls: any) => ls.name)
 
       r.tag = stmt.getTag.all([r.id]).map((t) => t.name)
       r.ref = stmt.getRef.all([r.id]).map((cr) => cr.child_id)
@@ -231,9 +294,10 @@ export class Db {
 
       r.stat = JSON.parse(r.stat)
       r.data = JSON.parse(r.data)
+      r.nextReview = r.nextReview ? dayjs(r.nextReview).toISOString() : undefined
 
       if (!filterFunction(r)) {
-        return
+        continue
       }
 
       result.push(r)
@@ -242,7 +306,12 @@ export class Db {
     return result
   }
 
-  insert (userId: number, ...entries: IDbSchema[]) {
+  insert (...entries: IDbSchema[]) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     entries = entries.map((el) => {
       return zDbSchema.parse(removeNull(el))
     })
@@ -396,7 +465,12 @@ export class Db {
     return cardIds
   }
 
-  update (userId: number, keys: string[], set: IDbSchema) {
+  update (keys: string[], set: IDbSchema) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     const {
       tag,
       srsLevel, nextReview, stat,
@@ -630,7 +704,26 @@ export class Db {
     })()
   }
 
-  addTags (userId: number, keys: string[], tags: string[]) {
+  delete (...keys: string[]) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    for (const ks of chunks(keys, 900)) {
+      this.db.prepare(/*sql*/`
+      DELETE FROM [card]
+      WHERE [key] IN (${Array(ks.length).fill('?').join(',')}) AND [user_id] = ?
+      `).run([...ks, userId])
+    }
+  }
+
+  addTags (keys: string[], tags: string[]) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     this.db.transaction(() => {
       this.db.pragma('read_uncommitted = on;')
 
@@ -658,7 +751,12 @@ export class Db {
     })
   }
 
-  removeTags (userId: number, keys: string[], tags: string[]) {
+  removeTags (keys: string[], tags: string[]) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     this.db.transaction(() => {
       for (const ks of chunks(keys, 900)) {
         this.db.prepare(/*sql*/`
@@ -671,7 +769,12 @@ export class Db {
     })
   }
 
-  renderMin (userId: number, key: string) {
+  renderMin (key: string) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     const r = this.db.prepare(/*sql*/`
     SELECT id, [data], markdown
     FROM [card]
@@ -693,7 +796,12 @@ export class Db {
   markRepeat = this._updateSrsLevel(0)
 
   private _updateSrsLevel (dSrsLevel: number) {
-    return (userId: number, key: string) => {
+    return (key: string) => {
+      const userId = g.userId
+      if (!userId) {
+        throw new Error('Not logged in')
+      }
+
       const card = this.db.prepare(/*sql*/`
       SELECT id FROM [card] WHERE [user_id] = ? AND [key] = ?
       `).get([userId, key])
@@ -763,7 +871,12 @@ export class Db {
     }
   }
 
-  listLessons (userId: number) {
+  allLessons () {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
     return this.db.prepare(/*sql*/`
     SELECT ls.name [name], ls.description [description]
     FROM lesson ls
@@ -772,5 +885,35 @@ export class Db {
     JOIN [card] c ON c.id = cd.card_id
     WHERE c.user_id = ?
     `).all([userId])
+  }
+
+  allDecks (): string[] {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    return this.db.prepare(/*sql*/`
+    SELECT d.name deck
+    FROM deck d
+    JOIN card_deck cd ON cd.deck_id = d.id
+    JOIN [card] c ON c.id = cd.card_id
+    WHERE c.user_id = ?
+    `).all([userId]).map((r) => r.deck)
+  }
+
+  allTags (): string[] {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    return this.db.prepare(/*sql*/`
+    SELECT t.name tag
+    FROM tag t
+    JOIN card_tag ct ON ct.tag_id = t.id
+    JOIN [card] c ON c.id = ct.card_id
+    WHERE c.user_id = ?
+    `).all().map((r) => r.tag)
   }
 }
