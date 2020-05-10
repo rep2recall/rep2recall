@@ -23,15 +23,12 @@
     "fastify-static": "^2.7.0",
     "pino-pretty": "^4.0.0",
     "rimraf": "^3.0.2",
-    "sqlite": "^4.0.7",
-    "sqlite3": "^4.2.0",
     "zod": "^1.6.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^5.4.0",
     "@types/node": "^13.13.5",
     "@types/rimraf": "^3.0.0",
-    "electron": "^8.2.5",
     "ts-node-dev": "^1.0.0-pre.44",
     "typescript": "^3.8.3"
   }

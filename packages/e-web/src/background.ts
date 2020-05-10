@@ -1,12 +1,40 @@
+import path from 'path'
+import { fork } from 'child_process'
+import { URL } from 'url'
+
 import { app, protocol, BrowserWindow } from 'electron'
 import {
   createProtocol,
   installVueDevtools
 } from 'vue-cli-plugin-electron-builder/lib'
-import sqlite3 from 'better-sqlite3'
-sqlite3('test.db')
+import contextMenu from 'electron-context-menu'
+// @ts-ignore
+import ON_DEATH from 'death'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
+app.allowRendererProcessReuse = true
+
+contextMenu()
+
+process.env.PORT = process.env.PORT || '12345'
+
+if (!isDevelopment) {
+  const p = fork(path.join(__dirname, './server/index.js'), [], {
+    stdio: 'inherit'
+  })
+
+  ON_DEATH(() => {
+    if (!p.killed) {
+      p.kill()
+    }
+  })
+
+  app.once('before-quit', () => {
+    if (!p.killed) {
+      p.kill()
+    }
+  })
+}
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -18,19 +46,33 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { secure: tru
 function createWindow () {
   // Create the browser window.
   win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1024,
+    height: 768,
     webPreferences: {
       nodeIntegration: true
     }
   })
+  win.maximize()
 
+  createProtocol('app')
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
     win.loadURL(process.env.WEBPACK_DEV_SERVER_URL as string)
     // if (!process.env.IS_TEST) win.webContents.openDevTools()
   } else {
     createProtocol('app')
+    protocol.interceptHttpProtocol('app', (req, callback) => {
+      const { pathname } = new URL(req.url)
+
+      if (pathname.startsWith('/api') || pathname.startsWith('/media')) {
+        return callback({
+          url: new URL(pathname, `http://localhost:${process.env.PORT}`).href
+        })
+      }
+
+      protocol.uninterceptProtocol('app')
+    })
+
     // Load the index.html when not in development
     win.loadURL('app://./index.html')
   }
