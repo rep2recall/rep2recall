@@ -6,7 +6,7 @@ import * as z from 'zod'
 import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
 
-import { removeNull } from './util'
+import { removeNull, chunks, deepMerge } from './util'
 
 const zDateType = z.string().refine((d) => {
   return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
@@ -64,7 +64,7 @@ export class Db {
       id            INTEGER PRIMARY KEY,
       [user_id]     INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
       [key]         TEXT NOT NULL UNIQUE,
-      [data]        TEXT NOT NULL DEFAULT '{}', -- json
+      [data]        TEXT DEFAULT '{}', -- json
       markdown      TEXT
       -- relation m2m tag
       -- relation m2m ref
@@ -112,7 +112,7 @@ export class Db {
       card_id     INTEGER NOT NULL UNIQUE REFERENCES [card](id) ON DELETE CASCADE,
       next_review INTEGER NOT NULL, -- epoch seconds
       srs_level   INTEGER NOT NULL,
-      stat        TEXT NOT NULL DEFAULT '{}' -- json
+      stat        TEXT DEFAULT '{}' -- json
     );
     `)
   }
@@ -399,6 +399,224 @@ export class Db {
         nativeDb.run('COMMIT', () => {
           nativeDb.run('PRAGMA read_uncommitted = off')
           resolve(cardIds)
+        })
+      })
+    })
+  }
+
+  // @ts-ignore
+  async update (userId: number, keys: string[], set: IDbSchema) {
+    const {
+      tag,
+      srsLevel, nextReview, stat,
+      lesson, deck,
+      key,
+      data,
+      ref,
+      markdown
+    } = zDbSchema.parse(set)
+
+    let _ids: number[] | null = null
+    const getIds = async () => {
+      if (!_ids) {
+        _ids = []
+
+        for (const ks of chunks(keys, 900)) {
+          (await this.db.all(/*sql*/`
+          SELECT id FROM [card] WHERE [key] IN (${Array(ks.length).fill('?').join(',')})
+          `, ...ks)).map((c) => {
+            if (_ids) {
+              _ids.push(c.id)
+            }
+          })
+        }
+      }
+
+      return _ids
+    }
+
+    const nativeDb = this.db.db
+    return new Promise((resolve) => {
+      nativeDb.serialize(async () => {
+        nativeDb.run('BEGIN TRANSACTION')
+        nativeDb.run('PRAGMA read_uncommitted = on')
+
+        if (key) {
+          if (keys.length !== 1) {
+            throw new Error('Cannot set multiple cards to have the same key')
+          }
+
+          nativeDb.run(/*sql*/`
+          UPDATE [card]
+          SET [key] = ?
+          WHERE [key] = ?
+          `, key, keys[0])
+        }
+
+        if (data) {
+          for (const k of keys) {
+            const r = await this.db.get(/*sql*/`
+            SELECT [data] FROM [card] WHERE [key] = ?
+            `, k)
+
+            if (r) {
+              try {
+                const oldData = JSON.parse(r.data)
+                nativeDb.run(/*sql*/`
+                UPDATE [card]
+                SET [data] = ?
+                WHERE [key] = ?
+                `, deepMerge(oldData, data), k)
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (typeof markdown !== 'undefined') {
+          for (const k of keys) {
+            nativeDb.run(/*sql*/`
+            UPDATE [card]
+            SET markdown = ?
+            WHERE [key] = ?
+            `, markdown, k)
+          }
+        }
+
+        if (ref) {
+          for (const id of await getIds()) {
+            nativeDb.run(/*sql*/`
+            DELETE FROM card_ref
+            WHERE card_id = ?
+            `, id)
+
+            for (const rid of ref) {
+              nativeDb.run(/*sql*/`
+              INSERT INTO card_ref (card_id, child_id) VALUES (?, ?)
+              ON CONFLICT DO NOTHING
+              `, id, rid)
+            }
+          }
+        }
+
+        if (typeof srsLevel === 'number') {
+          for (const ids of chunks(await getIds(), 900)) {
+            nativeDb.run(/*sql*/`
+            UPDATE quiz
+            SET srs_level = ?
+            WHERE card_id IN (${Array(ids.length).fill('?').join(',')})
+            `, srsLevel, ...ids)
+          }
+        }
+
+        if (nextReview) {
+          for (const ids of chunks(await getIds(), 900)) {
+            nativeDb.run(/*sql*/`
+            UPDATE quiz
+            SET next_review = ?
+            WHERE card_id IN (${Array(ids.length).fill('?').join(',')})
+            `, +dayjs(nextReview).toDate(), ...ids)
+          }
+        }
+
+        if (stat) {
+          for (const id of await getIds()) {
+            const r = await this.db.get(/*sql*/`
+            SELECT stat FROM quiz WHERE card_id = ?
+            `, id)
+
+            if (r) {
+              try {
+                const oldStat = JSON.parse(r.stat)
+
+                nativeDb.run(/*sql*/`
+                UPDATE quiz
+                SET stat = ?
+                WHERE card_id = ?
+                `, JSON.stringify(deepMerge(oldStat, stat)), id)
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (deck) {
+          nativeDb.run(/*sql*/`
+          INSERT INTO deck ([name]) VALUES (?)
+          ON CONFLICT DO NOTHING
+          `, deck)
+
+          for (const id of await getIds()) {
+            nativeDb.run(/*sql*/`
+            DELETE FROM card_deck
+            WHERE card_id = ? AND deck_id = (
+              SELECT id FROM deck WHERE lesson_id IS NULL
+            )
+            `, id)
+
+            nativeDb.run(/*sql*/`
+            INSERT INTO card_deck (card_id, deck_id) VALUES (?, (
+              SELECT id FROM deck WHERE [name] = ? AND lesson_id IS NULL
+            ))
+            ON CONFLICT DO NOTHING
+            `, id, deck)
+          }
+        }
+
+        if (lesson) {
+          for (const ls of lesson) {
+            nativeDb.run(/*sql*/`
+            INSERT INTO lesson ([name], [description]) VALUES (?, ?)
+            ON CONFLICT DO NOTHING
+            `, ls.name, ls.description)
+
+            nativeDb.run(/*sql*/`
+            INSERT INTO deck ([name], lesson_id) VALUES (?, (
+              SELECT id FROM lesson WHERE [name] = ?
+            ))
+            ON CONFLICT DO NOTHING
+            `, ls.deck, ls.name)
+
+            for (const id of await getIds()) {
+              nativeDb.run(/*sql*/`
+              DELETE FROM card_deck
+              WHERE card_id = ? AND deck_id = (
+                SELECT id FROM deck WHERE lesson_id = (
+                  SELECT id FROM lesson WHERE [name] = ?
+                )
+              )
+              `, id, ls.name)
+
+              nativeDb.run(/*sql*/`
+              INSERT INTO card_deck (card_id, deck_id) VALUES (?, (
+                SELECT id FROM deck WHERE [name] = ? AND lesson_id = (
+                  SELECT id FROM lesson WHERE [name] = ?
+                )
+              ))
+              ON CONFLICT DO NOTHING
+              `, id, deck, ls.name)
+            }
+          }
+        }
+
+        if (tag) {
+          for (const t of tag) {
+            nativeDb.run(/*sql*/`
+            INSERT INTO tag ([name]) VALUES (?)
+            ON CONFLICT DO NOTHING
+            `, t)
+
+            for (const id of await getIds()) {
+              nativeDb.run(/*sql*/`
+              INSERT INTO card_tag (card_id, tag_id) VALUES (?, (
+                SELECT id FROM tag WHERE [name] = ?
+              ))
+              `, id, t)
+            }
+          }
+        }
+
+        nativeDb.run('COMMIT', () => {
+          nativeDb.run('PRAGMA read_uncommitted = off')
+          resolve()
         })
       })
     })
