@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@patarapolw/qsearch": "^1.2.2",
+    "better-sqlite3": "^7.0.1",
     "dayjs": "^1.8.26",
     "dot-prop": "^5.2.0",
     "sqlite": "^4.0.7",
@@ -18,6 +19,7 @@
     "zod": "^1.6.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^5.4.0",
     "@types/node": "^13.13.5",
     "ts-node-dev": "^1.0.0-pre.44",
     "typescript": "^3.8.3"
