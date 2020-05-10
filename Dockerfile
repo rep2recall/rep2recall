@@ -1,9 +1,9 @@
 FROM node:10-alpine AS ui
-RUN mkdir -p /ui
-WORKDIR /ui
-COPY packages/ui/package.json packages/ui/package-lock.json /ui/
+RUN mkdir -p /web
+WORKDIR /web
+COPY packages/web/package.json packages/web/package-lock.json /web/
 RUN npm i
-COPY packages/ui /ui
+COPY packages/web /web
 ARG VUE_APP_FIREBASE_CONFIG
 ARG VUE_APP_BASE_URL
 RUN npm run build
@@ -16,6 +16,6 @@ RUN npm i
 COPY packages/server /server
 RUN npm run build
 RUN npm prune --production; exit 0
-COPY --from=ui /ui/dist /server/public
+COPY --from=web /web/dist /server/public
 EXPOSE 8080
 CMD [ "npm", "start" ]
