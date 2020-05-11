@@ -1,10 +1,12 @@
 import { FastifyInstance } from 'fastify'
 import swagger from 'fastify-oas'
+import cors from 'fastify-cors'
 
 import { PORT, g, db } from '../config'
 import editRouter from './edit'
 import userRouter from './user'
 import quizRouter from './quiz'
+import mediaRouter from './media'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.register(swagger, {
@@ -69,9 +71,13 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     g.userId = db.signInOrCreate(process.env.DEFAULT_USER)
   })
 
+  f.register(cors)
+
   f.register(editRouter, { prefix: '/edit' })
   f.register(quizRouter, { prefix: '/quiz' })
   f.register(userRouter, { prefix: '/user' })
+  f.register(mediaRouter, { prefix: '/media' })
+
   next()
 }
 

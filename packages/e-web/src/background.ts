@@ -1,10 +1,10 @@
 import path from 'path'
 import { fork } from 'child_process'
 import { URL } from 'url'
+import fs from 'fs'
 
-import { app, protocol, BrowserWindow } from 'electron'
+import { app, protocol, BrowserWindow, session, shell } from 'electron'
 import {
-  createProtocol,
   installVueDevtools
 } from 'vue-cli-plugin-electron-builder/lib'
 import contextMenu from 'electron-context-menu'
@@ -17,10 +17,21 @@ app.allowRendererProcessReuse = true
 contextMenu()
 
 process.env.PORT = process.env.PORT || '12345'
+process.env.USER_DATA_PATH = process.env.USER_DATA_PATH || app.getPath('userData')
 
+let isServerStarted = false
 if (!isDevelopment) {
   const p = fork(path.join(__dirname, './server/index.js'), [], {
     stdio: 'inherit'
+  })
+  p.on('message', (msg) => {
+    if (msg === 'started') {
+      isServerStarted = true
+
+      if (!win) {
+        createWindow()
+      }
+    }
   })
 
   ON_DEATH(() => {
@@ -34,6 +45,8 @@ if (!isDevelopment) {
       p.kill()
     }
   })
+} else {
+  isServerStarted = true
 }
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -54,26 +67,33 @@ function createWindow () {
   })
   win.maximize()
 
-  createProtocol('app')
+  win.webContents.on('will-navigate', (evt, url) => {
+    console.log(evt)
+    // @ts-ignore
+    if (url !== evt.sender.getURL()) {
+      evt.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
     win.loadURL(process.env.WEBPACK_DEV_SERVER_URL as string)
     // if (!process.env.IS_TEST) win.webContents.openDevTools()
   } else {
-    createProtocol('app')
-    protocol.interceptHttpProtocol('app', (req, callback) => {
-      const { pathname } = new URL(req.url)
+    session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+      const { pathname } = new URL(details.url)
 
-      if (pathname.startsWith('/api') || pathname.startsWith('/media')) {
+      if (pathname.startsWith('/media')) {
         return callback({
-          url: new URL(pathname, `http://localhost:${process.env.PORT}`).href
+          redirectURL: new URL(pathname, `http://localhost:${process.env.PORT}`).href
         })
       }
 
-      protocol.uninterceptProtocol('app')
+      callback({})
     })
 
-    // Load the index.html when not in development
+    createProtocol('app')
     win.loadURL('app://./index.html')
   }
 
@@ -116,7 +136,9 @@ app.on('ready', async () => {
       console.error('Vue Devtools failed to install:', e.toString())
     }
   }
-  createWindow()
+  if (isServerStarted) {
+    createWindow()
+  }
 })
 
 // Exit cleanly on request from parent process in development mode.
@@ -132,4 +154,36 @@ if (isDevelopment) {
       app.quit()
     })
   }
+}
+
+function createProtocol (scheme: string) {
+  protocol.registerBufferProtocol(
+    scheme,
+    (request, respond) => {
+      let pathName = new URL(request.url).pathname
+      pathName = decodeURI(pathName) // Needed in case URL contains spaces
+
+      fs.readFile(path.join(__dirname, pathName), (error, data) => {
+        if (error) {
+          console.error(`Failed to read ${pathName} on ${scheme} protocol`, error)
+        }
+        const extension = path.extname(pathName).toLowerCase()
+        let mimeType = ''
+
+        if (extension === '.js') {
+          mimeType = 'text/javascript'
+        } else if (extension === '.html') {
+          mimeType = 'text/html'
+        } else if (extension === '.css') {
+          mimeType = 'text/css'
+        } else if (extension === '.svg' || extension === '.svgz') {
+          mimeType = 'image/svg+xml'
+        } else if (extension === '.json') {
+          mimeType = 'application/json'
+        }
+
+        respond({ mimeType, data })
+      })
+    }
+  )
 }

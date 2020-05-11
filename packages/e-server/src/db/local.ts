@@ -5,6 +5,7 @@ import * as z from 'zod'
 import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
 import dotProp from 'dot-prop'
+import { UploadedFile } from 'express-fileupload'
 
 import { removeNull, chunks, deepMerge } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
@@ -27,6 +28,7 @@ export const zDbSchema = z.object({
   data: z.record(z.any()).optional(),
   tag: z.array(z.string()).optional(),
   ref: z.array(z.string()).optional(),
+  media: z.array(z.string()).optional(),
   markdown: z.string().optional(),
   nextReview: zDateType.optional(),
   srsLevel: zPosInt.nullable().optional(),
@@ -67,6 +69,7 @@ export const dbSchema = {
     data: { type: 'object' },
     tag: { type: 'array', items: { type: 'string' } },
     ref: { type: 'array', items: { type: 'string' } },
+    media: { type: 'array', items: { type: 'string' } },
     markdown: { type: 'string' },
     nextReview: { type: 'string', format: 'date-time' },
     srsLevel: { type: 'integer' },
@@ -113,10 +116,25 @@ export class Db {
       [data]        TEXT DEFAULT '{}', -- json
       markdown      TEXT,
       UNIQUE ([user_id], [key])
+      -- relation m2m media
       -- relation m2m tag
       -- relation m2m ref
       -- relation m2m lesson
       -- relation o2m quiz
+    );
+
+    CREATE TABLE IF NOT EXISTS media (
+      id        INTEGER PRIMARY KEY,
+      [name]    TEXT NOT NULL UNIQUE,
+      mimetype  TEXT NOT NULL,
+      [data]    BLOB,
+      meta      TEXT DEFAULT '{}' -- json
+    );
+
+    CREATE TABLE IF NOT EXISTS card_media (
+      card_id   INTEGER NOT NULL REFERENCES [card](id) ON DELETE CASCADE,
+      media_id  INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+      UNIQUE (card_id, media_id)
     );
 
     CREATE TABLE IF NOT EXISTS tag (
@@ -415,6 +433,13 @@ export class Db {
       VALUES (?, ?, ?, ?)
       ON CONFLICT DO NOTHING
       `)
+      const insertMedia = this.db.prepare(/*sql*/`
+      INSERT INTO card_media (card_id, media_id)
+      VALUES (?, (
+        SELECT id FROM media WHERE [name] = ?
+      ))
+      ON CONFLICT DO NOTHING
+      `)
 
       for (const el of entries) {
         let cardId: any = null
@@ -453,6 +478,16 @@ export class Db {
           })
         }
 
+        if (el.media) {
+          el.media.map((m) => {
+            try {
+              insertMedia.run([cardId, m])
+            } catch (e) {
+              console.error(e)
+            }
+          })
+        }
+
         if (el.nextReview && el.srsLevel) {
           insertQuiz.run([cardId, JSON.stringify(el.stat || {}), el.srsLevel, el.nextReview])
         }
@@ -478,6 +513,7 @@ export class Db {
       key,
       data,
       ref,
+      media,
       markdown
     } = zDbSchema.parse(set)
 
@@ -566,6 +602,33 @@ export class Db {
           for (const rid of ref) {
             insert.run(id, rid)
           }
+        }
+      }
+
+      if (media) {
+        const clearMedia = this.db.prepare(/*sql*/`
+        DELETE FROM card_media
+        WHERE card_id = ?
+        `)
+
+        const insertMedia = this.db.prepare(/*sql*/`
+        INSERT INTO card_media (card_id, media_id)
+        VALUES (?, (
+          SELECT id FROM media WHERE [name] = ?
+        ))
+        ON CONFLICT DO NOTHING
+        `)
+
+        for (const id of getIds()) {
+          clearMedia.run([id])
+
+          media.map((m) => {
+            try {
+              insertMedia.run([id, m])
+            } catch (e) {
+              console.error(e)
+            }
+          })
         }
       }
 
@@ -869,6 +932,64 @@ export class Db {
         `).run([srsLevel, JSON.stringify(stat), +nextReview, quiz.id])
       }
     }
+  }
+
+  insertMedia (file: UploadedFile, key?: string) {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    const existingFilenames = this.db.prepare(/*sql*/`
+    SELECT [name]
+    FROM media m
+    JOIN card_media cm ON m.id = cm.media_id
+    JOIN [card] c ON c.id = cm.card_id
+    WHERE [user_id] = ?
+    `).all([userId]).map((m) => m.name)
+
+    let filename = file.name
+    if (filename === 'image.png') {
+      filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
+    }
+
+    const [, base, ext] = /^.+(\..+)?/.exec(file.name) || ['', filename, '']
+
+    while (existingFilenames.includes(filename)) {
+      filename = base + '-' + Math.random().toString(36).substr(2, 4) + ext
+    }
+
+    this.db.prepare(/*sql*/`
+    INSERT INTO media ([name], mimetype, [data])
+    VALUES (?, ?)
+    `).run([filename, file.mimetype, file.data.buffer])
+
+    if (key) {
+      this.db.prepare(/*sql*/`
+      INSERT INTO card_media (card_id, media_id)
+      VALUES (
+        (SELECT id FROM [card] WHERE [key] = ?),
+        (SELECT id FROM media WHERE [name] = ?)
+      )
+      `).run(key, filename)
+    }
+
+    return filename
+  }
+
+  getMedia (name: string): {
+    mimetype?: string
+    data?: Buffer
+  } {
+    const userId = g.userId
+    if (!userId) {
+      throw new Error('Not logged in')
+    }
+
+    return this.db.prepare(/*sql*/`
+    SELECT mimetype, [data] FROM media
+    WHERE [name] = ?
+    `).get([name]) || {}
   }
 
   allLessons () {

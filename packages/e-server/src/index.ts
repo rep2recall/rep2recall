@@ -1,11 +1,10 @@
-import path from 'path'
+import { Readable } from 'stream'
 
 import fastify from 'fastify'
-import fastifyStatic from 'fastify-static'
 import helmet from 'fastify-helmet'
 
 import router from './router'
-import { PORT, mediaPath } from './config'
+import { PORT, db } from './config'
 
 (async () => {
   const app = fastify({
@@ -25,19 +24,19 @@ import { PORT, mediaPath } from './config'
   }
 
   app.register(router, { prefix: '/api' })
-  app.register((f, _, next) => {
-    f.register(fastifyStatic, {
-      root: mediaPath
-    })
-    next()
-  }, { prefix: '/media' })
 
-  app.register(fastifyStatic, {
-    root: path.resolve(__dirname, '..')
-  })
+  app.get('/media/:name', (req, reply) => {
+    const { mimetype, data } = db.getMedia(req.params.name)
+    if (mimetype && data) {
+      reply.type(mimetype).send(new Readable({
+        read () {
+          this.push(data)
+        }
+      }))
+      return
+    }
 
-  app.setNotFoundHandler((_, reply) => {
-    reply.sendFile('index.html')
+    reply.status(404).send()
   })
 
   app.listen(PORT, (err) => {
@@ -46,5 +45,9 @@ import { PORT, mediaPath } from './config'
     }
 
     console.log(`Go to http://localhost:${PORT}`)
+
+    if (process.send) {
+      process.send('started')
+    }
   })
 })().catch(console.error)

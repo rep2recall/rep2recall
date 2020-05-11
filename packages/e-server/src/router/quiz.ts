@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify'
+import escapeRegExp from 'escape-string-regexp'
 
 import { db } from '../config'
 import { shuffle } from '../db/util'
@@ -67,7 +68,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     $and.push({
       $or: [
         { 'lesson.deck': deck },
-        { 'lesson.deck': { $startsWith: `${deck}/` } }
+        { 'lesson.deck': { $regex: new RegExp(`^${escapeRegExp(deck)}/`) } }
       ]
     })
 
