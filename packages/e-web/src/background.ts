@@ -68,7 +68,6 @@ function createWindow () {
   win.maximize()
 
   win.webContents.on('will-navigate', (evt, url) => {
-    console.log(evt)
     // @ts-ignore
     if (url !== evt.sender.getURL()) {
       evt.preventDefault()
