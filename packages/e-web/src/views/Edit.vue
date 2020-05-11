@@ -35,7 +35,7 @@ import dayjs from 'dayjs'
 import CodeMirror from 'codemirror'
 import axios, { AxiosInstance } from 'axios'
 import hbs from 'handlebars'
-import z from 'zod'
+import * as z from 'zod'
 import { normalizeArray, nullifyObject, stringSorter, deepMerge } from '@/assets/util'
 import { Matter } from '@/assets/make-html/matter'
 import MakeHtml from '@/assets/make-html'
@@ -143,18 +143,18 @@ export default class Edit extends Vue {
       }
     })
 
-    window.onbeforeunload = (e: any) => {
-      const msg = this.canSave ? 'Please save before leaving.' : null
-      if (msg) {
-        e.returnValue = msg
-        return msg
-      }
-    }
+    // window.onbeforeunload = (e: any) => {
+    //   const msg = this.canSave ? 'Please save before leaving.' : null
+    //   if (msg) {
+    //     e.returnValue = msg
+    //     return msg
+    //   }
+    // }
   }
 
-  beforeDestroy () {
-    window.onbeforeunload = null
-  }
+  // beforeDestroy () {
+  //   window.onbeforeunload = null
+  // }
 
   async getApi (silent?: boolean) {
     return await this.$store.dispatch('getApi', silent) as AxiosInstance
@@ -201,11 +201,11 @@ export default class Edit extends Vue {
           z.array(z.string())
         ]).parse(ref || {}),
         media: z.array(z.string()).optional(),
-        srsLevel: z.number().nullable().optional().check(srsLevel),
-        data: z.record(z.any()).check(data || {}),
-        stat: z.record(z.any()).check(stat || {}),
-        deck: z.string().optional().check(deck),
-        nextReview: z.string().optional().check(nextReview)
+        srsLevel: z.number().nullable().optional().parse(srsLevel),
+        data: z.record(z.any()).parse(data || {}),
+        stat: z.record(z.any()).parse(stat || {}),
+        deck: z.string().optional().parse(deck),
+        nextReview: z.string().optional().parse(nextReview)
       }
     } catch (e) {
       if (isFinal) {
@@ -353,6 +353,11 @@ export default class Edit extends Vue {
     this.key = this.key || this.matter.header.key
 
     if (this.outputWindow) {
+      this.onCtxChange({
+        [this.key]: self,
+        ...this.ctx
+      })
+
       const document = this.outputWindow.document
       this.makeHtml.patch(document.body, hbs.compile(new Matter().parse(this.markdown).content)({
         [this.key]: self,

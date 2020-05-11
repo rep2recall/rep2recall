@@ -37,7 +37,7 @@ export default class MakeHtml {
 
     this.md.addExtension({
       type: 'lang',
-      regex: /\n```css parsed\n(.+)\n```\n/gs,
+      regex: /\n```css parsed\n(.+?)\n```\n?/gs,
       replace: (_: string, p1: string) => {
         return this.makeCss(p1)
       }
@@ -45,7 +45,7 @@ export default class MakeHtml {
 
     this.md.addExtension({
       type: 'lang',
-      regex: /\n```js parsed\n(.+)\n```\n/gs,
+      regex: /\n```js parsed\n(.+?)\n```\n?/gs,
       replace: (_: string, p1: string) => {
         return `<script type="module">${p1}</script>`
       }
