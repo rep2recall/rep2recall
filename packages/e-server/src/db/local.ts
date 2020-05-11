@@ -290,6 +290,12 @@ export class Db {
       FROM card_ref
       WHERE card_id = ?
       `),
+      getMedia: this.db.prepare(/*sql*/`
+      SELECT m.name [name]
+      FROM media m
+      JOIN card_media cm ON cm.media_id = m.id
+      WHERE cm.card_id = ?
+      `),
       getQuiz: this.db.prepare(/*sql*/`
       SELECT srs_level srsLevel, next_review nextReview, stat
       FROM quiz
@@ -307,6 +313,7 @@ export class Db {
 
       r.tag = stmt.getTag.all([r.id]).map((t) => t.name)
       r.ref = stmt.getRef.all([r.id]).map((cr) => cr.child_id)
+      r.media = stmt.getMedia.all([r.id]).map((m) => m.name)
 
       Object.assign(r, stmt.getQuiz.all([r.id]))
 
@@ -498,6 +505,38 @@ export class Db {
     })()
 
     return cardIds
+  }
+
+  import (src: Db, cb?: (msg: string) => void) {
+    if (cb) {
+      cb('inserting media')
+    }
+
+    (() => {
+      const insert = this.db.prepare(/*sql*/`
+      INSERT INTO media ([name], mimetype, [data], meta)
+      VALUES (@name, @mimetype, @data, @meta)
+      `)
+
+      this.db.transaction(() => {
+        for (const m of src.db.prepare(/*sql*/`
+        SELECT [name], mimetype, [data], meta
+        FROM media
+        `).iterate()) {
+          try {
+            insert.run(m)
+          } catch (e) {
+            console.error(e)
+          }
+        }
+      })()
+    })()
+
+    if (cb) {
+      cb('inserting cards')
+    }
+
+    this.insert(...src.find(''))
   }
 
   update (keys: string[], set: IDbSchema) {

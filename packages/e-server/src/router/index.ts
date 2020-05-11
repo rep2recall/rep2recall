@@ -7,6 +7,7 @@ import editRouter from './edit'
 import userRouter from './user'
 import quizRouter from './quiz'
 import mediaRouter from './media'
+import fileRouter from './file'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.register(swagger, {
@@ -77,6 +78,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.register(quizRouter, { prefix: '/quiz' })
   f.register(userRouter, { prefix: '/user' })
   f.register(mediaRouter, { prefix: '/media' })
+  f.register(fileRouter, { prefix: '/file' })
 
   next()
 }
