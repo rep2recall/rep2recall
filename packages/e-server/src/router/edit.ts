@@ -46,7 +46,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     }
   }, async (req) => {
     const { key } = req.query
-    const r = db.find({ key }, 'LIMIT 1')
+    const r = db.find('', `AND [key] = '${key}' LIMIT 1`)
     return removeNull(r[0] || {})
   })
 

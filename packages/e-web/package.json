@@ -13,7 +13,6 @@
   },
   "main": "background.js",
   "dependencies": {
-    "@patarapolw/qsearch": "^1.2.2",
     "adm-zip": "^0.4.14",
     "any-serialize": "^1.4.12",
     "better-sqlite3": "^7.0.1",

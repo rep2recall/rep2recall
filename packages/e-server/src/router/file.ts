@@ -49,24 +49,21 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
   const processMap = new Map<string, any>()
 
   f.register(ws)
-  f.get('/process/:id', {
+  f.get('/process', {
     websocket: true,
     schema: {
       tags: ['file'],
       summary: 'Process an archive'
     }
-  }, (conn, req) => {
-    const id = req.params.id
+  }, (conn) => {
+    conn.socket.on('message', (msg: string) => {
+      const { id, type, filename } = JSON.parse(msg)
 
-    conn.socket.on('message', async (type: string) => {
       let isNew = false
       if (!processMap.has(id)) {
         processMap.set(id, { type })
         isNew = true
       }
-
-      const { message = '' } = processMap.get(id)
-      conn.socket.send(message)
 
       if (isNew) {
         if (type === 'apkg') {
@@ -75,11 +72,11 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
           zip.extractAllTo(path.join(tmpPath, id + '-folder'))
           db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), (msg) => {
             conn.socket.send(msg)
-          })
+          }, { filename })
         } else if (type === 'anki2') {
           db.importAnki2(path.join(tmpPath, id), (msg) => {
             conn.socket.send(msg)
-          })
+          }, { filename })
         } else {
           const src = new Db(path.join(tmpPath, id))
           db.import(src, (msg) => {
