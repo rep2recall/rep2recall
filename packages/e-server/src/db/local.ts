@@ -7,7 +7,7 @@ import dotProp from 'dot-prop'
 import { UploadedFile } from 'express-fileupload'
 import { Serialize } from 'any-serialize'
 
-import { removeNull, chunks, deepMerge, safeId } from './util'
+import { removeNull, chunks, deepMerge, safeId, slugify } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import { g } from '../config'
 import QSearch from './qsearch'
@@ -35,16 +35,7 @@ export const zDbSchema = z.object({
   markdown: z.string().optional(),
   nextReview: zDateType.optional(),
   srsLevel: zPosInt.nullable().optional(),
-  stat: z.object({
-    streak: z.object({
-      right: zPosInt.optional(),
-      wrong: zPosInt.optional(),
-      maxRight: zPosInt.optional(),
-      maxWrong: zPosInt.optional()
-    }),
-    lastRight: zDateType.optional(),
-    lastWrong: zDateType.optional()
-  }).optional()
+  stat: z.object({}).optional()
 })
 
 export type IDbSchema = z.infer<typeof zDbSchema>
@@ -345,10 +336,14 @@ export class Db {
     })
 
     const cardIds: number[] = []
+    this.db.pragma('foreign_keys = off;')
+
+    const getCardId = this.db.prepare(/*sql*/`
+    SELECT id FROM [card]
+    WHERE [user_id] = ? AND [key] = ?
+    `)
 
     this.db.transaction(() => {
-      this.db.pragma('foreign_keys = off;')
-
       const insertTag = this.db.prepare(/*sql*/`
       INSERT INTO tag ([name]) VALUES (?)
       ON CONFLICT DO NOTHING
@@ -402,10 +397,25 @@ export class Db {
       VALUES (?, ?, ?, ?)
       ON CONFLICT DO NOTHING
       `)
-      const getCardId = this.db.prepare(/*sql*/`
-      SELECT id FROM [card]
-      WHERE [user_id] = ? AND [key] = ?
-      `)
+
+      for (const el of entries) {
+        let cardId: any = null
+
+        if (el.overwrite && el.key) {
+          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
+        } else {
+          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
+
+          if (!cardId) {
+            cardId = (getCardId.get([userId, el.key]) || {}).id
+          }
+        }
+
+        cardIds.push(cardId)
+      }
+    })()
+
+    this.db.transaction(() => {
       const insertCardTag = this.db.prepare(/*sql*/`
       INSERT INTO card_tag (card_id, tag_id)
       VALUES (?, (
@@ -450,19 +460,7 @@ export class Db {
       `)
 
       for (const el of entries) {
-        let cardId: any = null
-
-        if (el.overwrite && el.key) {
-          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
-        } else {
-          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
-
-          if (!cardId) {
-            cardId = (getCardId.get([userId, el.key]) || {}).id
-          }
-        }
-
-        cardIds.push(cardId)
+        const cardId = (getCardId.get([userId, el.key]) || {}).id
 
         if (el.tag) {
           el.tag.map((t) => {
@@ -500,10 +498,9 @@ export class Db {
           insertQuiz.run([cardId, JSON.stringify(el.stat || {}), el.srsLevel, el.nextReview])
         }
       }
+    })()
 
-      this.db.pragma('foreign_keys = on;')
-    }).immediate()
-
+    this.db.pragma('foreign_keys = on;')
     return cardIds
   }
 
@@ -616,9 +613,15 @@ export class Db {
     const normalizeMustache = (s: string, keyData: string) => s.replace(
       /\{\{([^}]+?)\}\}/g,
       (_, p1) => {
-        const [, prefix = '', type, name] = /^([/#])?([^:]+?):(.+)$/.exec(p1) || ['', '', '', p1]
+        const [, prefix = '', type, name] = /^([/#])?(?:([^:]+?):)?(.+)$/.exec(p1) || ['', '', '', p1]
 
-        return type === 'text' ? `{{${prefix}${keyData}.data.${name}}}` : `{{{${prefix}${keyData}.data.${name}}}}`
+        if (prefix || type === 'text') {
+          return `{{${prefix}${keyData}.data.${slugify(name)}}}`
+        } else if (type === 'type') {
+          return '<input type=text />'
+        }
+
+        return `{{{${prefix}${keyData}.data.${slugify(name)}}}}`
       }
     )
 
@@ -637,14 +640,14 @@ export class Db {
     JOIN templates t ON t.ord = c.ord AND t.mid = n.mid
     `).all(), 1000)) {
       this.insert(...cs.map((el) => {
-        const ks: string[] = el.keys.split('\x1f')
+        const ks: string[] = el.keys.split('\x1f').map((k: string) => slugify(k))
         const vs: string[] = el.values.split('\x1f')
         const data: any = {}
         ks.map((k, i) => { data[k] = vs[i] })
 
         const keyData = 'data_' + ser.hash(data)
 
-        const css = el.css.trim()
+        const css = el.css.trim() + '\n'
         const keyCss = css ? 'css_' + ser.hash({ css }) : ''
 
         const qfmt = normalizeMustache(el.qfmt, keyData)
@@ -785,15 +788,17 @@ export class Db {
         WHERE card_id = ?
         `)
         const insert = this.db.prepare(/*sql*/`
-        INSERT INTO card_ref (card_id, child_id) VALUES (?, ?)
+        INSERT INTO card_ref (card_id, child_id) VALUES (?, (
+          SELECT id FROM [card] WHERE [key] = ?
+        ))
         ON CONFLICT DO NOTHING
         `)
 
         for (const id of getIds()) {
           deleteOld.run(id)
 
-          for (const rid of ref) {
-            insert.run(id, rid)
+          for (const r of ref) {
+            insert.run([id, r])
           }
         }
       }
@@ -1228,6 +1233,6 @@ export class Db {
     JOIN card_tag ct ON ct.tag_id = t.id
     JOIN [card] c ON c.id = ct.card_id
     WHERE c.user_id = ?
-    `).all().map((r) => r.tag)
+    `).all([userId]).map((r) => r.tag)
   }
 }

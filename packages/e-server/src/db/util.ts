@@ -1,7 +1,13 @@
 import { nanoid } from 'nanoid'
 
 export function safeId () {
-  return nanoid().replace(/-/g, '$')
+  return nanoid()
+}
+
+export function slugify (s: string) {
+  return s
+    .replace(/-/g, '$')
+    .replace(/ /g, '_')
 }
 
 /**
