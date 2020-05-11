@@ -6,10 +6,14 @@ import dayjs from 'dayjs'
 import QSearch from '@patarapolw/qsearch'
 import dotProp from 'dot-prop'
 import { UploadedFile } from 'express-fileupload'
+import { Serialize } from 'any-serialize'
+import { nanoid } from 'nanoid'
 
 import { removeNull, chunks, deepMerge } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import { g } from '../config'
+
+const ser = new Serialize()
 
 const zDateType = z.string().refine((d) => {
   return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
@@ -507,7 +511,7 @@ export class Db {
     return cardIds
   }
 
-  import (src: Db, cb?: (msg: string) => void) {
+  import (src: Db, cb: (msg: string) => void) {
     if (cb) {
       cb('inserting media')
     }
@@ -537,6 +541,164 @@ export class Db {
     }
 
     this.insert(...src.find(''))
+  }
+
+  importAnki2 (filename: string, cb: (msg: string) => void, meta: any = {}) {
+    const src = sqlite3(filename)
+
+    if (cb) {
+      cb('creating additional tables')
+    }
+
+    src.exec(/*sql*/`
+    CREATE TABLE IF NOT EXISTS decks (
+      id      INTEGER PRIMARY KEY,
+      [name]  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS media (
+      id      INTEGER PRIMARY KEY,
+      [name]  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS models (
+      id      INTEGER PRIMARY KEY,
+      [name]  TEXT NOT NULL,
+      flds    TEXT NOT NULL,  -- \x1f field
+      css     TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS templates (
+      mid     INTEGER NOT NULL REFERENCES models(id),
+      ord     INTEGER NOT NULL,
+      [name]  TEXT NOT NULL,
+      qfmt    TEXT NOT NULL,
+      afmt    TEXT
+    );
+    `)
+
+    const { decks, models } = src.prepare(/*sql*/`
+    SELECT decks, models FROM col
+    `).get()
+
+    src.transaction(() => {
+      const insertDeck = src.prepare(/*sql*/`
+      INSERT INTO decks (id, [name]) VALUES (?, ?) 
+      `)
+
+      for (const d of Object.values<any>(JSON.parse(decks))) {
+        insertDeck.run([parseInt(d.id), d.name])
+      }
+    })()
+
+    src.transaction(() => {
+      src.pragma('read_uncommitted = on;')
+
+      const insertModel = src.prepare(/*sql*/`
+      INSERT INTO models (id, [name], flds, css)
+      VALUES (?, ?, ?, ?)
+      `)
+      const insertTemplate = src.prepare(/*sql*/`
+      INSERT INTO templates (mid, ord, [name], qfmt, afmt)
+      VALUES (?, ?, ?, ?, ?)
+      `)
+
+      for (const m of Object.values<any>(JSON.parse(models))) {
+        insertModel.run([parseInt(m.id), m.name, m.flds.map((f: any) => f.name).join('\x1f'), m.css])
+
+        m.tmpls.map((t: any, i: number) => {
+          insertTemplate.run([parseInt(m.id), i, t.name, t.qfmt, t.afmt])
+        })
+      }
+
+      src.pragma('read_uncommitted = off;')
+    })()
+
+    if (cb) {
+      cb('inserting cards')
+    }
+
+    const normalizeMustache = (s: string) => s.replace(/\{\{([^:]+:)?([^}]+)}}/g, (_, type, name) => {
+      return type === 'text' ? `{{${name}}}` : `{{{${name}}}}`
+    })
+
+    for (const cs of chunks(src.prepare(/*sql*/`
+    SELECT
+      d.name  deck,
+      n.flds  [values],
+      m.flds  keys,
+      m.css   css,
+      t.qfmt  qfmt,
+      t.afmt  afmt,
+      t.name  template,
+      m.name  model
+    FROM cards c
+    JOIN notes n ON c.nid = n.id
+    JOIN decks d ON c.did = d.id
+    JOIN models m ON n.mid = m.id
+    JOIN templates t ON t.ord = c.ord AND t.mid = n.mid
+    `).all(), 1000)) {
+      this.insert(...cs.map((el) => {
+        const ks: string[] = el.keys.split('\x1f')
+        const vs: string[] = el.values.split('\x1f')
+        const data: any = {}
+        ks.map((k, i) => { data[k] = vs[i] })
+
+        const qfmt = normalizeMustache(el.qfmt)
+        const afmt = normalizeMustache(el.afmt)
+
+        const keyData = 'data-' + ser.hash(data)
+        const keyCss = el.css.trim() ? 'css-' + ser.hash({ css: el.css.trim() }) : ''
+        const keyTemplate = el.model + '/' + el.template + '-' + ser.hash({
+          qfmt,
+          afmt
+        })
+
+        return [
+          {
+            key: nanoid(),
+            ...(meta.name ? {
+              lesson: [
+                {
+                  name: meta.name,
+                  deck: el.deck
+                }
+              ]
+            } : {
+              deck: el.deck
+            }),
+            ref: [
+              keyData,
+              keyTemplate,
+              ...(keyCss ? [
+                keyCss
+              ] : [])
+            ],
+            markdown: `{{{${keyTemplate}.markdown}}}` + (keyCss ? ('\n\n===\n\n' + `{{{${keyCss}.markdown}}}`) : '')
+          },
+          {
+            overwrite: true,
+            key: keyData,
+            data
+          },
+          {
+            overwrite: true,
+            key: keyTemplate,
+            markdown: qfmt + '\n\n===\n\n' + afmt
+          },
+          ...(keyCss ? [
+            {
+              overwrite: true,
+              key: keyCss,
+              markdown: '```css parsed\n' + el.css + '\n```'
+            }
+          ] : [])
+        ]
+      })
+        .reduce((prev, c) => [...prev, ...c], [])
+        .filter((c: any, i: number, arr: any[]) => arr.map((el) => el.key).indexOf(c.key) === i)
+      )
+    }
   }
 
   update (keys: string[], set: IDbSchema) {

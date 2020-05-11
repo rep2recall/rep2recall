@@ -6,6 +6,7 @@ import ws from 'fastify-websocket'
 import fileUpload from 'fastify-file-upload'
 import { nanoid } from 'nanoid'
 import { UploadedFile } from 'express-fileupload'
+import AdmZip from 'adm-zip'
 
 import { tmpPath, db } from '../config'
 import { Db } from '../db/local'
@@ -57,7 +58,7 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
   }, (conn, req) => {
     const id = req.params.id
 
-    conn.socket.on('message', (type: string) => {
+    conn.socket.on('message', async (type: string) => {
       let isNew = false
       if (!processMap.has(id)) {
         processMap.set(id, { type })
@@ -68,14 +69,25 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       conn.socket.send(message)
 
       if (isNew) {
-        if (type === 'r2r') {
+        if (type === 'apkg') {
+          const zip = new AdmZip(path.join(tmpPath, id))
+          conn.socket.send('extracting APKG')
+          zip.extractAllTo(path.join(tmpPath, id + '-folder'))
+          db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), (msg) => {
+            conn.socket.send(msg)
+          })
+        } else if (type === 'anki2') {
+          db.importAnki2(path.join(tmpPath, id), (msg) => {
+            conn.socket.send(msg)
+          })
+        } else {
           const src = new Db(path.join(tmpPath, id))
           db.import(src, (msg) => {
             conn.socket.send(msg)
           })
-
-          conn.socket.send('done')
         }
+
+        conn.socket.send('done')
       }
     })
   })
