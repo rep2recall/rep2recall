@@ -9,23 +9,9 @@ import { Db } from './db/local'
 
 export const PORT = parseInt(process.env.PORT || '12345')
 
-export const userData = (() => {
-  try {
-    const { app } = require('electron')
-    return app.getPath('userData')
-  } catch (e) {
-    if (e) {
-      console.error(e)
-    }
-  }
+export const userData = process.env.USER_DATA_PATH || '.'
 
-  return '.'
-})()
-
-export const mediaPath = path.join(userData, 'media')
 export const tmpPath = path.join(userData, 'tmp')
-
-fs.mkdirSync(mediaPath, { recursive: true })
 fs.mkdirSync(tmpPath, { recursive: true })
 
 export const db = new Db(path.join(userData, 'user.db'))
@@ -36,6 +22,10 @@ export const g: {
 
 ON_DEATH(() => {
   rimraf(tmpPath, (err) => {
-    console.error(err)
+    if (err) {
+      console.error(err)
+    }
+
+    process.exit()
   })
 })
