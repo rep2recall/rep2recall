@@ -1,3 +1,9 @@
+import { nanoid } from 'nanoid'
+
+export function safeId () {
+  return nanoid().replace(/-/g, '$')
+}
+
 /**
  * Shuffles array in place. ES6 version
  * @param {Array} a items An array containing the items.

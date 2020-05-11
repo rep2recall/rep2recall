@@ -81,7 +81,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     })
 
     $and.push({
-      'lesson.key': lesson,
+      'lesson.name': lesson,
       'lesson.deck': { $exists: true }
     })
 
@@ -125,8 +125,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       $and: [
         cond,
         {
-          'lesson.key': lesson,
-          'lesson.deck': { $exists: true }
+          'lesson.name': lesson
         }
       ]
     }).map((r) => {

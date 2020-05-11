@@ -17,7 +17,7 @@ import { PORT, db } from './config'
 
   if (process.env.NODE_ENV === 'development') {
     app.addHook('preHandler', async (req) => {
-      if (req.body) {
+      if (req.body && req.req.url && !req.req.url.includes('/upload')) {
         req.log.info({ body: req.body }, 'body')
       }
     })

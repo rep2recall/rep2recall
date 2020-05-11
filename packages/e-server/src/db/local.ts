@@ -3,15 +3,14 @@ import crypto from 'crypto'
 import sqlite3 from 'better-sqlite3'
 import * as z from 'zod'
 import dayjs from 'dayjs'
-import QSearch from '@patarapolw/qsearch'
 import dotProp from 'dot-prop'
 import { UploadedFile } from 'express-fileupload'
 import { Serialize } from 'any-serialize'
-import { nanoid } from 'nanoid'
 
-import { removeNull, chunks, deepMerge } from './util'
+import { removeNull, chunks, deepMerge, safeId } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import { g } from '../config'
+import QSearch from './qsearch'
 
 const ser = new Serialize()
 
@@ -99,12 +98,12 @@ export class Db {
       'stat.streak.maxWrong': { type: 'number' },
       'stat.lastRight': { type: 'date' },
       'stat.lastWrong': { type: 'date' }
-    },
-    normalizeDates: (d) => d ? dayjs(d).toDate() : null
+    }
   })
 
   constructor (public filename: string) {
     this.db = sqlite3(filename)
+    this.db.pragma('read_uncommitted = on;')
 
     this.db.exec(/*sql*/`
     CREATE TABLE IF NOT EXISTS user (
@@ -118,7 +117,7 @@ export class Db {
       [user_id]     INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
       [key]         TEXT NOT NULL,
       [data]        TEXT DEFAULT '{}', -- json
-      markdown      TEXT,
+      markdown      TEXT DEFAULT '',
       UNIQUE ([user_id], [key])
       -- relation m2m media
       -- relation m2m tag
@@ -290,8 +289,9 @@ export class Db {
       WHERE ct.card_id = ?
       `),
       getRef: this.db.prepare(/*sql*/`
-      SELECT child_id
-      FROM card_ref
+      SELECT c.key ref
+      FROM card_ref cr
+      JOIN [card] c ON cr.child_id = c.id
       WHERE card_id = ?
       `),
       getMedia: this.db.prepare(/*sql*/`
@@ -312,16 +312,15 @@ export class Db {
     WHERE [user_id] = ? ${postfix || ''}
     `).iterate(userId)) {
       r.lesson = stmt.getLesson.all([r.id])
-
       r.deck = r.lesson.filter((ls: any) => !ls.name).map((ls: any) => ls.deck)[0]
 
       r.tag = stmt.getTag.all([r.id]).map((t) => t.name)
-      r.ref = stmt.getRef.all([r.id]).map((cr) => cr.child_id)
+      r.ref = stmt.getRef.all([r.id]).map((cr) => cr.ref)
       r.media = stmt.getMedia.all([r.id]).map((m) => m.name)
 
-      Object.assign(r, stmt.getQuiz.all([r.id]))
+      Object.assign(r, stmt.getQuiz.get([r.id]) || {})
 
-      r.stat = JSON.parse(r.stat)
+      r.stat = JSON.parse(r.stat || '{}')
       r.data = JSON.parse(r.data)
       r.nextReview = r.nextReview ? dayjs(r.nextReview).toISOString() : undefined
 
@@ -349,7 +348,6 @@ export class Db {
 
     this.db.transaction(() => {
       this.db.pragma('foreign_keys = off;')
-      this.db.pragma('read_uncommitted = on;')
 
       const insertTag = this.db.prepare(/*sql*/`
       INSERT INTO tag ([name]) VALUES (?)
@@ -390,8 +388,7 @@ export class Db {
       for (const ls of entries
         .map((el) => el.lesson)
         .filter((ls) => ls)
-        .reduce((prev, c) => [...prev!, ...c!], [])!
-        .filter((c, i, arr) => arr.map((ls) => ls.name).indexOf(c.name) === i)) {
+        .reduce((prev, c) => [...prev!, ...c!], [])!) {
         insertLesson.run([ls.name, ls.description])
         insertLessonDeck.run([ls.deck, ls.name])
       }
@@ -456,9 +453,9 @@ export class Db {
         let cardId: any = null
 
         if (el.overwrite && el.key) {
-          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null])
+          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
         } else {
-          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null])
+          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
 
           if (!cardId) {
             cardId = (getCardId.get([userId, el.key]) || {}).id
@@ -485,7 +482,7 @@ export class Db {
 
         if (el.lesson) {
           el.lesson.map((ls) => {
-            insertCardLesson.run([cardId, el.deck, ls.name])
+            insertCardLesson.run([cardId, ls.deck, ls.name])
           })
         }
 
@@ -505,8 +502,7 @@ export class Db {
       }
 
       this.db.pragma('foreign_keys = on;')
-      this.db.pragma('read_uncommitted = off;')
-    })()
+    }).immediate()
 
     return cardIds
   }
@@ -541,9 +537,12 @@ export class Db {
     }
 
     this.insert(...src.find(''))
+    src.close()
   }
 
-  importAnki2 (filename: string, cb: (msg: string) => void, meta: any = {}) {
+  importAnki2 (filename: string, cb: (msg: string) => void, meta: {
+    filename?: string
+  } = {}) {
     const src = sqlite3(filename)
 
     if (cb) {
@@ -592,8 +591,6 @@ export class Db {
     })()
 
     src.transaction(() => {
-      src.pragma('read_uncommitted = on;')
-
       const insertModel = src.prepare(/*sql*/`
       INSERT INTO models (id, [name], flds, css)
       VALUES (?, ?, ?, ?)
@@ -610,8 +607,6 @@ export class Db {
           insertTemplate.run([parseInt(m.id), i, t.name, t.qfmt, t.afmt])
         })
       }
-
-      src.pragma('read_uncommitted = off;')
     })()
 
     if (cb) {
@@ -619,8 +614,10 @@ export class Db {
     }
 
     const normalizeMustache = (s: string, keyData: string) => s.replace(
-      /\{\{([/#]?)([^:]+:)?([^}]+)}}/g,
-      (_, prefix, type, name) => {
+      /\{\{([^}]+?)\}\}/g,
+      (_, p1) => {
+        const [, prefix = '', type, name] = /^([/#])?([^:]+?):(.+)$/.exec(p1) || ['', '', '', p1]
+
         return type === 'text' ? `{{${prefix}${keyData}.data.${name}}}` : `{{{${prefix}${keyData}.data.${name}}}}`
       }
     )
@@ -632,9 +629,7 @@ export class Db {
       m.flds  keys,
       m.css   css,
       t.qfmt  qfmt,
-      t.afmt  afmt,
-      t.name  template,
-      m.name  model
+      t.afmt  afmt
     FROM cards c
     JOIN notes n ON c.nid = n.id
     JOIN decks d ON c.did = d.id
@@ -647,49 +642,21 @@ export class Db {
         const data: any = {}
         ks.map((k, i) => { data[k] = vs[i] })
 
-        const keyData = 'data-' + ser.hash(data)
+        const keyData = 'data_' + ser.hash(data)
 
         const css = el.css.trim()
-        const keyCss = css ? 'css-' + ser.hash({ css }) : ''
+        const keyCss = css ? 'css_' + ser.hash({ css }) : ''
 
         const qfmt = normalizeMustache(el.qfmt, keyData)
         const afmt = normalizeMustache(el.afmt, keyData)
-        const keyTemplate = el.model + '/' + el.template + '-' + ser.hash({
-          qfmt,
-          afmt
-        })
+
+        const deck = el.deck.replace(/::/g, '/')
 
         return [
-          {
-            key: nanoid(),
-            ...(meta.name ? {
-              lesson: [
-                {
-                  name: meta.name,
-                  deck: el.deck
-                }
-              ]
-            } : {
-              deck: el.deck
-            }),
-            ref: [
-              keyData,
-              keyTemplate,
-              ...(keyCss ? [
-                keyCss
-              ] : [])
-            ],
-            markdown: `{{{${keyTemplate}.markdown}}}` + (keyCss ? ('\n\n===\n\n' + `{{{${keyCss}.markdown}}}`) : '')
-          },
           {
             overwrite: true,
             key: keyData,
             data
-          },
-          {
-            overwrite: true,
-            key: keyTemplate,
-            markdown: qfmt + '\n\n===\n\n' + afmt
           },
           ...(keyCss ? [
             {
@@ -697,13 +664,35 @@ export class Db {
               key: keyCss,
               markdown: '```css parsed\n' + css + '\n```'
             }
-          ] : [])
+          ] : []),
+          {
+            key: safeId(),
+            ...(meta.filename ? {
+              lesson: [
+                {
+                  name: meta.filename,
+                  deck
+                }
+              ]
+            } : {
+              deck
+            }),
+            ref: [
+              keyData,
+              ...(keyCss ? [
+                keyCss
+              ] : [])
+            ],
+            markdown: qfmt + '\n\n===\n\n' + afmt + (keyCss ? ('\n\n===\n\n' + `{{{${keyCss}.markdown}}}`) : '')
+          }
         ]
       })
         .reduce((prev, c) => [...prev, ...c], [])
         .filter((c: any, i: number, arr: any[]) => arr.map((el) => el.key).indexOf(c.key) === i)
       )
     }
+
+    src.close()
   }
 
   update (keys: string[], set: IDbSchema) {
@@ -744,8 +733,6 @@ export class Db {
     }
 
     this.db.transaction(() => {
-      this.db.pragma('read_uncommitted = on;')
-
       if (key) {
         if (keys.length !== 1) {
           throw new Error('Cannot set multiple cards to have the same key')
@@ -968,8 +955,6 @@ export class Db {
           }
         }
       }
-
-      this.db.pragma('read_uncommitted = off;')
     })()
   }
 
@@ -1045,16 +1030,18 @@ export class Db {
     }
 
     const r = this.db.prepare(/*sql*/`
-    SELECT id, [data], markdown
+    SELECT id, [key], [data], markdown
     FROM [card]
     WHERE [user_id] = ? AND [key] = ?
     `).get([userId, key]) || {}
 
     if (r.id) {
       r.ref = this.db.prepare(/*sql*/`
-      SELECT child_id FROM card_ref
+      SELECT c.key ref
+      FROM card_ref cr
+      JOIN [card] c ON cr.child_id = c.id
       WHERE card_id = ?
-      `).all([r.id]).map((r0) => r0.child_id)
+      `).all([r.id]).map((r0) => r0.ref)
     }
 
     return r
@@ -1205,7 +1192,7 @@ export class Db {
     }
 
     return this.db.prepare(/*sql*/`
-    SELECT ls.name [name], ls.description [description]
+    SELECT DISTINCT ls.name [name], ls.description [description]
     FROM lesson ls
     JOIN deck d ON ls.id = d.lesson_id
     JOIN card_deck cd ON cd.deck_id = d.id
@@ -1221,7 +1208,7 @@ export class Db {
     }
 
     return this.db.prepare(/*sql*/`
-    SELECT d.name deck
+    SELECT DISTINCT d.name deck
     FROM deck d
     JOIN card_deck cd ON cd.deck_id = d.id
     JOIN [card] c ON c.id = cd.card_id
@@ -1236,7 +1223,7 @@ export class Db {
     }
 
     return this.db.prepare(/*sql*/`
-    SELECT t.name tag
+    SELECT DISTINCT t.name tag
     FROM tag t
     JOIN card_tag ct ON ct.tag_id = t.id
     JOIN [card] c ON c.id = ct.card_id

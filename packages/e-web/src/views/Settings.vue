@@ -2,7 +2,7 @@
 .u-flex.u-col(style="margin-top: 1em;")
   div
     h4.title.is-4 Upload from archives
-  .u-flex(style="align-items: center; justify-contents: center;")
+  .u-flex.u-m-2em(style="align-items: center; justify-content: center;")
     b-field
       b-upload(v-model="dropFiles" multiple drag-drop accept=".r2r,.apkg,.anki2")
         section.section
@@ -35,19 +35,24 @@
     span .
   b-modal(:active="dropFiles.length > 0")
     .card(v-for="d, i in dropFiles" :key="i")
-      b-field(:label="d.name")
-        b-progress(:value="d.progress" :type="d.type" show-value) {{d.text}}
+      .card-content
+        b-field(:label="d.name")
+          b-progress(:value="dotProp.get(d, 'msg.progress')" :type="dotProp.get(d, 'msg.type')" show-value)
+            | {{dotProp.get(d, 'msg.text')}}
 </template>
 
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
 import { AxiosInstance } from 'axios'
 import { remote } from 'electron'
+import dotProp from 'dot-prop'
 
 @Component
 export default class Settings extends Vue {
   dropFiles: any[] = []
   apiKey = ''
+
+  dotProp = dotProp
 
   get apiUrl () {
     return new URL('/api/doc', `http://localhost:${remote.process.env.PORT}`).href
@@ -66,24 +71,29 @@ export default class Settings extends Vue {
   async onDropFiles () {
     const api = await this.getApi()
     this.dropFiles.map(async (f) => {
+      this.$set(f, 'msg', { text: '', type: '' })
+
       const formData = new FormData()
       formData.append('file', f)
+
       const r = await api.post('/api/file/upload', formData, {
         onUploadProgress: (evt: ProgressEvent) => {
-          f.text = `Uploading: ${(evt.loaded / evt.total * 100).toFixed(0)}%`
-          f.type = 'is-warning'
+          f.msg.text = `Uploading: ${(evt.loaded / evt.total * 100).toFixed(0)}%`
+          f.msg.type = 'is-warning'
         }
       })
-      const ws = new WebSocket(`ws://localhost:${remote.process.env.PORT}/api/file/process/${r.data.id}`)
+      const ws = new WebSocket(`ws://localhost:${remote.process.env.PORT}/api/file/process`)
       ws.onopen = () => {
-        f.text = 'Processing...'
-        f.type = 'is-success'
+        f.msg.text = 'Processing...'
+        f.msg.type = 'is-success'
 
-        ws.send(f.name.replace(/^.+\./, ''))
+        const [, filename, type] = /^(.+)\.([^.]+)$/.exec(f.name) || ['', f.name, '']
+
+        ws.send(JSON.stringify({ id: r.data.id, filename, type }))
       }
       ws.onmessage = (evt) => {
         if (evt.data !== 'done') {
-          f.text = `Processing: ${evt.data}`
+          f.msg.text = `Processing: ${evt.data}`
         } else {
           this.dropFiles = this.dropFiles.filter((f0) => f0 !== f)
         }

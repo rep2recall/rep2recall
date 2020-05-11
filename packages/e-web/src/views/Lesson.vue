@@ -8,10 +8,10 @@ section
         .column.is-6(v-for="ls in lessons" :key="ls.key")
           .card
             .card-header.u-cursor-pointer(
-              @contextmenu.prevent="(evt) => { selectedLesson = ls.key; $refs.contextmenu.open(evt) }"
+              @contextmenu.prevent="(evt) => { selectedLesson = (ls.key || ls.name); $refs.contextmenu.open(evt) }"
             )
               h2.card-header-title.u-hover-blue {{ls.name}}
-              router-link.button.is-success(:to="'/quiz/' + ls.key") Start
+              router-link.button.is-success(:to="'/quiz/' + (ls.key || ls.name)") Start
             .card-content
               .content(v-html="ls.description")
   vue-context(ref="contextmenu")
