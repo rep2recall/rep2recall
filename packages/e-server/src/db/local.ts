@@ -618,9 +618,12 @@ export class Db {
       cb('inserting cards')
     }
 
-    const normalizeMustache = (s: string) => s.replace(/\{\{([^:]+:)?([^}]+)}}/g, (_, type, name) => {
-      return type === 'text' ? `{{${name}}}` : `{{{${name}}}}`
-    })
+    const normalizeMustache = (s: string, keyData: string) => s.replace(
+      /\{\{([/#]?)([^:]+:)?([^}]+)}}/g,
+      (_, prefix, type, name) => {
+        return type === 'text' ? `{{${prefix}${keyData}.data.${name}}}` : `{{{${prefix}${keyData}.data.${name}}}}`
+      }
+    )
 
     for (const cs of chunks(src.prepare(/*sql*/`
     SELECT
@@ -644,11 +647,13 @@ export class Db {
         const data: any = {}
         ks.map((k, i) => { data[k] = vs[i] })
 
-        const qfmt = normalizeMustache(el.qfmt)
-        const afmt = normalizeMustache(el.afmt)
-
         const keyData = 'data-' + ser.hash(data)
-        const keyCss = el.css.trim() ? 'css-' + ser.hash({ css: el.css.trim() }) : ''
+
+        const css = el.css.trim()
+        const keyCss = css ? 'css-' + ser.hash({ css }) : ''
+
+        const qfmt = normalizeMustache(el.qfmt, keyData)
+        const afmt = normalizeMustache(el.afmt, keyData)
         const keyTemplate = el.model + '/' + el.template + '-' + ser.hash({
           qfmt,
           afmt
@@ -690,7 +695,7 @@ export class Db {
             {
               overwrite: true,
               key: keyCss,
-              markdown: '```css parsed\n' + el.css + '\n```'
+              markdown: '```css parsed\n' + css + '\n```'
             }
           ] : [])
         ]
