@@ -1,16 +1,24 @@
 {
   "name": "e-rep2recall",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "",
   "main": "app.js",
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps",
-    "build": "electron-builder"
+    "build": "electron-builder -p always"
   },
-  "keywords": [],
-  "author": "",
+  "repository": "github:patarapolw/rep2recall",
+  "keywords": [
+    "anki",
+    "rep2recall"
+  ],
+  "author": {
+    "email": "patarapolw@gmail.com",
+    "name": "Pacharapol Withayasakpunt",
+    "url": "https://rep2recall.net"
+  },
   "license": "ISC",
   "dependencies": {
     "death": "^1.1.0",

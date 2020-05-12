@@ -59,6 +59,6 @@ VUE_APP_BASE_URL=          # Where you want to deploy
 
 For the development machine, you can create `.env` first, then `source .`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
 
-## Plans
+## Offline versions
 
-- Offline support.
+Offline versions are now available via Electron at <https://github.com/patarapolw/rep2recall/releases>
