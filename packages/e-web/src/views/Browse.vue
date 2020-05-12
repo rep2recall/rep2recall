@@ -272,11 +272,7 @@ export default class Query extends Vue {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
           const api = await this.getApi(true)
-          const r = await api.get('/api/edit/', {
-            params: {
-              key
-            }
-          })
+          const r = await api.post('/api/edit/info', { key })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
         } else {

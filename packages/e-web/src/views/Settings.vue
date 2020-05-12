@@ -44,7 +44,6 @@
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
 import { AxiosInstance } from 'axios'
-import { remote } from 'electron'
 import dotProp from 'dot-prop'
 
 @Component
@@ -55,7 +54,7 @@ export default class Settings extends Vue {
   dotProp = dotProp
 
   get apiUrl () {
-    return new URL('/api/doc', `http://localhost:${remote.process.env.PORT}`).href
+    return '/api/doc'
   }
 
   async created () {
@@ -82,7 +81,7 @@ export default class Settings extends Vue {
           f.msg.type = 'is-warning'
         }
       })
-      const ws = new WebSocket(`ws://localhost:${remote.process.env.PORT}/api/file/process`)
+      const ws = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/api/file/process`)
       ws.onopen = () => {
         f.msg.text = 'Processing...'
         f.msg.type = 'is-success'

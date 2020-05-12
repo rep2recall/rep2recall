@@ -1,7 +1,9 @@
 import { Readable } from 'stream'
+import path from 'path'
 
 import fastify from 'fastify'
 import helmet from 'fastify-helmet'
+import fStatic from 'fastify-static'
 
 import router from './router'
 import { PORT, db } from './config'
@@ -37,6 +39,14 @@ import { PORT, db } from './config'
     }
 
     reply.status(404).send()
+  })
+
+  app.register(fStatic, {
+    root: path.join(__dirname, '../web')
+  })
+
+  app.setNotFoundHandler((_, reply) => {
+    reply.sendFile('index.html')
   })
 
   app.listen(PORT, (err) => {

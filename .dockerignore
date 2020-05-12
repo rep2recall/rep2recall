@@ -1,5 +1,6 @@
 **/node_modules
 packages/e-*
+packages/k-*
 packages/server/public
 packages/**/dist
 .env
