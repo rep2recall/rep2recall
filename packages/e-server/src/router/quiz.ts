@@ -170,12 +170,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     }))
   })
 
-  f.get('/', {
+  f.post('/info', {
     schema: {
       summary: 'Render a quiz item',
       tags: ['quiz'],
-      querystring: {
-        key: { type: 'string' }
+      body: {
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' }
+        }
       },
       response: {
         200: {
@@ -189,7 +193,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    return db.renderMin(req.query.key)
+    return db.renderMin(req.body.key)
   })
 
   f.patch('/right', {

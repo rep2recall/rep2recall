@@ -168,6 +168,7 @@ export class Db {
     );
 
     CREATE TABLE IF NOT EXISTS quiz (
+      id        INTEGER PRIMARY KEY,
       card_id     INTEGER NOT NULL UNIQUE REFERENCES [card](id) ON DELETE CASCADE,
       next_review INTEGER NOT NULL, -- epoch seconds
       srs_level   INTEGER NOT NULL,
@@ -618,10 +619,10 @@ export class Db {
         if (prefix || type === 'text') {
           return `{{${prefix}${keyData}.data.${slugify(name)}}}`
         } else if (type === 'type') {
-          return '<input type=text />'
+          return `<input type=text id=typeans placeholder="${keyData}.data.${slugify(name)}" />`
         }
 
-        return `{{{${prefix}${keyData}.data.${slugify(name)}}}}`
+        return `{{{${keyData}.data.${slugify(name)}}}}`
       }
     )
 

@@ -2,7 +2,6 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 import axios from 'axios'
 import { SnackbarProgrammatic as Snackbar, LoadingProgrammatic as Loading } from 'buefy'
-import { remote } from 'electron'
 
 Vue.use(Vuex)
 
@@ -24,7 +23,6 @@ const store = new Vuex.Store({
   actions: {
     async getApi ({ commit }, silent = false) {
       const api = axios.create({
-        baseURL: `http://localhost:${remote.process.env.PORT}`,
         validateStatus: (status) => {
           commit('setLastStatus', status)
 

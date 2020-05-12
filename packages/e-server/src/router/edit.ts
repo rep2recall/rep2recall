@@ -5,11 +5,11 @@ import { removeNull, sorter } from '../db/util'
 import { dbSchema } from '../db/local'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
-  f.get('/', {
+  f.post('/info', {
     schema: {
       tags: ['edit'],
       summary: 'Get info of an item',
-      querystring: {
+      body: {
         type: 'object',
         required: ['key'],
         properties: {
@@ -45,7 +45,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    const { key } = req.query
+    const { key } = req.body
     const r = db.find('', `AND [key] = '${key}' LIMIT 1`)
     return removeNull(r[0] || {})
   })

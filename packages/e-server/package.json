@@ -1,15 +1,28 @@
 {
-  "name": "e-server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "rep2recall-desktop",
+  "version": "0.2.0",
+  "description": "Repeat until Recall, desktop version",
+  "main": "lib/index.js",
+  "bin": "lib/index.js",
+  "pkg": {
+    "scripts": "lib/**/*.js",
+    "assets": "web/**/*"
+  },
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
-    "build": "tsc -P src/tsconfig.json",
+    "tsc": "tsc -P src/tsconfig.json",
+    "pkg": "pkg . -t node10-macos-x64 --o dist/${npm_package_name}-macos-x64",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "rep2recall",
+    "anki"
+  ],
+  "author": {
+    "email": "patarapolw@gmail.com",
+    "name": "Pacharapol Withayasakpunt",
+    "url": "https://rep2recall.net"
+  },
   "license": "ISC",
   "dependencies": {
     "adm-zip": "^0.4.14",
@@ -24,6 +37,7 @@
     "fastify-file-upload": "^2.0.1",
     "fastify-helmet": "^3.0.2",
     "fastify-oas": "^2.7.0",
+    "fastify-static": "^2.7.0",
     "fastify-websocket": "^1.1.2",
     "nanoid": "^3.1.6",
     "pino-pretty": "^4.0.0",
@@ -37,6 +51,7 @@
     "@types/nanoid": "^2.1.0",
     "@types/node": "^13.13.5",
     "@types/rimraf": "^3.0.0",
+    "@types/ws": "^7.2.4",
     "ts-node-dev": "^1.0.0-pre.44",
     "typescript": "^3.8.3"
   }
