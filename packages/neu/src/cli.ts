@@ -109,7 +109,8 @@ async function main () {
     copyWin()
     copyLinux()
 
-    spawn('zip', ['-r', 'app.zip', dir], {
+    fs.ensureDirSync('release')
+    spawn('zip', ['-r', path.join('release', 'app.zip'), dir], {
       stdio: 'inherit'
     })
   }
