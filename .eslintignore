@@ -8,4 +8,4 @@ tmp
 dist
 node_modules*
 lib/
-/packages/app/neutralino
+/packages/e-app/server/
