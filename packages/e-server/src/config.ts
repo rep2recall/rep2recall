@@ -21,6 +21,8 @@ export const g: {
 } = {}
 
 ON_DEATH(() => {
+  db.close()
+
   rimraf(tmpPath, (err) => {
     if (err) {
       console.error(err)

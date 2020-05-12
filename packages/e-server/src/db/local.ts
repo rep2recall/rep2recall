@@ -9,7 +9,6 @@ import { Serialize } from 'any-serialize'
 
 import { removeNull, chunks, deepMerge, safeId, slugify } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
-import { g } from '../config'
 import QSearch from './qsearch'
 
 const ser = new Serialize()
@@ -21,6 +20,7 @@ const zPosInt = z.number().refine((i) => Number.isInteger(i) && i > 0, 'not posi
 
 export const zDbSchema = z.object({
   overwrite: z.boolean().optional(),
+  ignoreErrors: z.boolean().optional(),
   deck: z.string().optional(),
   lesson: z.array(z.object({
     name: z.string(),
@@ -45,6 +45,7 @@ export const dbSchema = {
   type: 'object',
   properties: {
     overwrite: { type: 'boolean' },
+    ignoreErrors: { type: 'boolean' },
     deck: { type: 'string' },
     lesson: {
       type: 'array',
@@ -94,6 +95,7 @@ export class Db {
 
   constructor (public filename: string) {
     this.db = sqlite3(filename)
+    this.db.pragma('journal_mode = WAL')
     this.db.pragma('read_uncommitted = on;')
 
     this.db.exec(/*sql*/`
@@ -221,7 +223,7 @@ export class Db {
   }
 
   getUser () {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -233,7 +235,7 @@ export class Db {
   }
 
   newSecret () {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -254,7 +256,7 @@ export class Db {
   }
 
   find (q: string | Record<string, any>, postfix?: string) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -327,7 +329,7 @@ export class Db {
   }
 
   insert (...entries: IDbSchema[]) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -345,7 +347,7 @@ export class Db {
     `)
 
     this.db.transaction(() => {
-      const insertTag = this.db.prepare(/*sql*/`
+      const insertTagIgnore = this.db.prepare(/*sql*/`
       INSERT INTO tag ([name]) VALUES (?)
       ON CONFLICT DO NOTHING
       `)
@@ -355,10 +357,10 @@ export class Db {
         .filter((ts) => ts)
         .reduce((prev, c) => [...prev!, ...c!], [])!
         .filter((c, i, arr) => arr.indexOf(c) === i)) {
-        insertTag.run([t])
+        insertTagIgnore.run([t])
       }
 
-      const insertDeck = this.db.prepare(/*sql*/`
+      const insertDeckIgnore = this.db.prepare(/*sql*/`
       INSERT INTO deck ([name]) VALUES (?)
       ON CONFLICT DO NOTHING
       `)
@@ -367,14 +369,14 @@ export class Db {
         .map((el) => el.deck)
         .filter((d) => d)
         .filter((c, i, arr) => arr.indexOf(c) === i)) {
-        insertDeck.run([d])
+        insertDeckIgnore.run([d])
       }
 
-      const insertLesson = this.db.prepare(/*sql*/`
+      const insertLessonIgnore = this.db.prepare(/*sql*/`
       INSERT INTO lesson ([name], [description]) VALUES (?, ?)
       ON CONFLICT DO NOTHING
       `)
-      const insertLessonDeck = this.db.prepare(/*sql*/`
+      const insertLessonDeckIgnore = this.db.prepare(/*sql*/`
       INSERT INTO deck ([name], lesson_id) VALUES (?, (
         SELECT id FROM lesson WHERE [name] = ?
       ))
@@ -385,58 +387,56 @@ export class Db {
         .map((el) => el.lesson)
         .filter((ls) => ls)
         .reduce((prev, c) => [...prev!, ...c!], [])!) {
-        insertLesson.run([ls.name, ls.description])
-        insertLessonDeck.run([ls.deck, ls.name])
+        insertLessonIgnore.run([ls.name, ls.description])
+        insertLessonDeckIgnore.run([ls.deck, ls.name])
       }
+
+      const insertCard = (ignoreErrors?: boolean) => this.db.prepare(/*sql*/`
+      INSERT INTO [card] ([user_id], [key], [data], markdown)
+      VALUES (?, ?, ?, ?)
+      ${ignoreErrors ? 'ON CONFLICT DO NOTHING' : ''}
+      `)
 
       const insertCardOverwrite = this.db.prepare(/*sql*/`
       INSERT OR REPLACE INTO [card] ([user_id], [key], [data], markdown)
       VALUES (?, ?, ?, ?)
       `)
-      const insertCardIgnore = this.db.prepare(/*sql*/`
-      INSERT INTO [card] ([user_id], [key], [data], markdown)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT DO NOTHING
-      `)
 
       for (const el of entries) {
         let cardId: any = null
 
-        if (el.overwrite && el.key) {
-          cardId = insertCardOverwrite.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
+        if (el.overwrite) {
+          cardId = insertCardOverwrite
+            .run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
         } else {
-          cardId = insertCardIgnore.run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
+          cardId = insertCard(el.ignoreErrors)
+            .run([userId, el.key, JSON.stringify(el.data || {}), el.markdown || null]).lastInsertRowid
+        }
 
-          if (!cardId) {
-            cardId = (getCardId.get([userId, el.key]) || {}).id
-          }
+        if (!cardId) {
+          cardId = (getCardId.get([userId, el.key]) || {}).id
         }
 
         cardIds.push(cardId)
       }
-    })()
 
-    this.db.transaction(() => {
       const insertCardTag = this.db.prepare(/*sql*/`
       INSERT INTO card_tag (card_id, tag_id)
       VALUES (?, (
         SELECT id FROM tag WHERE [name] = ?
       ))
-      ON CONFLICT DO NOTHING
       `)
       const insertCardRef = this.db.prepare(/*sql*/`
       INSERT INTO card_ref (card_id, child_id)
       VALUES (?, (
         SELECT id FROM [card] WHERE [key] = ?
       ))
-      ON CONFLICT DO NOTHING
       `)
       const insertCardDeck = this.db.prepare(/*sql*/`
       INSERT INTO card_deck (card_id, deck_id)
       VALUES (?, (
         SELECT id FROM [deck] WHERE [name] = ? AND lesson_id IS NULL
       ))
-      ON CONFLICT DO NOTHING
       `)
       const insertCardLesson = this.db.prepare(/*sql*/`
       INSERT INTO card_deck (card_id, deck_id)
@@ -445,19 +445,16 @@ export class Db {
           SELECT id FROM lesson WHERE [name] = ?
         )
       ))
-      ON CONFLICT DO NOTHING
       `)
       const insertQuiz = this.db.prepare(/*sql*/`
       INSERT INTO quiz (card_id, stat, srs_level, next_review)
       VALUES (?, ?, ?, ?)
-      ON CONFLICT DO NOTHING
       `)
       const insertMedia = this.db.prepare(/*sql*/`
       INSERT INTO card_media (card_id, media_id)
       VALUES (?, (
         SELECT id FROM media WHERE [name] = ?
       ))
-      ON CONFLICT DO NOTHING
       `)
 
       for (const el of entries) {
@@ -658,23 +655,24 @@ export class Db {
 
         return [
           {
-            overwrite: true,
+            ignoreErrors: true,
             key: keyData,
             data
           },
           ...(keyCss ? [
             {
-              overwrite: true,
+              ignoreErrors: true,
               key: keyCss,
               markdown: '```css parsed\n' + css + '\n```'
             }
           ] : []),
           {
-            key: safeId(),
+            key: 'anki_' + safeId(),
             ...(meta.filename ? {
               lesson: [
                 {
-                  name: meta.filename,
+                  name: (meta.filename || filename).replace(/\..+?$/, ''),
+                  description: meta.filename,
                   deck
                 }
               ]
@@ -700,7 +698,7 @@ export class Db {
   }
 
   update (keys: string[], set: IDbSchema) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -965,7 +963,7 @@ export class Db {
   }
 
   delete (...keys: string[]) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -979,7 +977,7 @@ export class Db {
   }
 
   addTags (keys: string[], tags: string[]) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1012,7 +1010,7 @@ export class Db {
   }
 
   removeTags (keys: string[], tags: string[]) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1030,7 +1028,7 @@ export class Db {
   }
 
   renderMin (key: string) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1059,7 +1057,7 @@ export class Db {
 
   private _updateSrsLevel (dSrsLevel: number) {
     return (key: string) => {
-      const userId = g.userId
+      const userId = this.signInOrCreate()
       if (!userId) {
         throw new Error('Not logged in')
       }
@@ -1134,7 +1132,7 @@ export class Db {
   }
 
   insertMedia (file: UploadedFile, key?: string) {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1180,7 +1178,7 @@ export class Db {
     mimetype?: string
     data?: Buffer
   } {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1192,7 +1190,7 @@ export class Db {
   }
 
   allLessons () {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1208,7 +1206,7 @@ export class Db {
   }
 
   allDecks (): string[] {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
@@ -1223,7 +1221,7 @@ export class Db {
   }
 
   allTags (): string[] {
-    const userId = g.userId
+    const userId = this.signInOrCreate()
     if (!userId) {
       throw new Error('Not logged in')
     }
