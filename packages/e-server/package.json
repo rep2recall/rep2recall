@@ -1,6 +1,6 @@
 {
-  "name": "rep2recall-desktop",
-  "version": "0.2.0",
+  "name": "rep2recall-local-server",
+  "version": "0.3.0",
   "description": "Repeat until Recall, desktop version",
   "main": "lib/index.js",
   "bin": "lib/index.js",

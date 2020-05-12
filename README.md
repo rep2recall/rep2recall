@@ -61,4 +61,6 @@ For the development machine, you can create `.env` first, then `source .`, or us
 
 ## Offline versions
 
-Offline versions are now available via Electron at <https://github.com/patarapolw/rep2recall/releases>
+Offline versions are now available via Electron at <https://github.com/patarapolw/rep2recall/releases>.
+
+Also, now [Anki](https://apps.ankiweb.net/)-compatible.
