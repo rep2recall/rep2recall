@@ -10,8 +10,11 @@
   },
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
-    "tsc": "tsc -P src/tsconfig.json",
-    "pkg": "pkg . -t node10-macos-x64 --o dist/${npm_package_name}-macos-x64",
+    "build": "tsc -P src/tsconfig.json",
+    "build:web": "cd ../e-web && OUT_DIR=../e-server/web npm run build",
+    "predist": "npm run build && npm run build:web",
+    "dist": "pkg . --out-path dist",
+    "dist:mac": "pkg . --out-path dist -t node10-macos-x64",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
