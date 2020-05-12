@@ -70,7 +70,9 @@ export default class Settings extends Vue {
   async onDropFiles () {
     const api = await this.getApi()
     this.dropFiles.map(async (f) => {
-      this.$set(f, 'msg', { text: '', type: '' })
+      this.$set(f, 'msg', {})
+      this.$set(f.msg, 'text', '')
+      this.$set(f.msg, 'type', '')
 
       const formData = new FormData()
       formData.append('file', f)
@@ -79,22 +81,31 @@ export default class Settings extends Vue {
         onUploadProgress: (evt: ProgressEvent) => {
           f.msg.text = `Uploading: ${(evt.loaded / evt.total * 100).toFixed(0)}%`
           f.msg.type = 'is-warning'
+          this.$forceUpdate()
         }
       })
+      const oldId = r.data.id
+
       const ws = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/api/file/process`)
       ws.onopen = () => {
         f.msg.text = 'Processing...'
         f.msg.type = 'is-success'
+        this.$forceUpdate()
 
-        const [, filename, type] = /^(.+)\.([^.]+)$/.exec(f.name) || ['', f.name, '']
-
-        ws.send(JSON.stringify({ id: r.data.id, filename, type }))
+        const [,, type] = /^(.+)\.([^.]+)$/.exec(f.name) || ['', f.name, '']
+        ws.send(JSON.stringify({ id: oldId, filename: f.name, type }))
       }
       ws.onmessage = (evt) => {
-        if (evt.data !== 'done') {
-          f.msg.text = `Processing: ${evt.data}`
-        } else {
-          this.dropFiles = this.dropFiles.filter((f0) => f0 !== f)
+        const { id, status } = JSON.parse(evt.data)
+
+        if (id === oldId) {
+          if (status !== 'done') {
+            f.msg.text = `Processing: ${status}`
+            f.msg.type = 'is-success'
+            this.$forceUpdate()
+          } else {
+            this.dropFiles = this.dropFiles.filter((f0) => f0 !== f)
+          }
         }
       }
     })

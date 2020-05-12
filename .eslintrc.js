@@ -29,6 +29,7 @@ module.exports = {
     '@typescript-eslint'
   ],
   rules: {
+    'no-new': 0,
     'no-unused-vars': 0,
     'import/default': 0,
     'import/no-unresolved': 0,

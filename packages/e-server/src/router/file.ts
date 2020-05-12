@@ -46,7 +46,8 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
     return { id }
   })
 
-  const processMap = new Map<string, any>()
+  // eslint-disable-next-line func-call-spacing
+  const processMap = new Map<string, (msg: string) => void>()
 
   f.register(ws)
   f.get('/process', {
@@ -61,30 +62,32 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
 
       let isNew = false
       if (!processMap.has(id)) {
-        processMap.set(id, { type })
+        processMap.set(id, (status) => {
+          conn.socket.send(JSON.stringify({ id, status }))
+        })
         isNew = true
       }
 
       if (isNew) {
         if (type === 'apkg') {
           const zip = new AdmZip(path.join(tmpPath, id))
-          conn.socket.send('extracting APKG')
+          processMap.get(id)!('extracting APKG')
           zip.extractAllTo(path.join(tmpPath, id + '-folder'))
           db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), (msg) => {
-            conn.socket.send(msg)
+            processMap.get(id)!(msg)
           }, { filename })
         } else if (type === 'anki2') {
           db.importAnki2(path.join(tmpPath, id), (msg) => {
-            conn.socket.send(msg)
+            processMap.get(id)!(msg)
           }, { filename })
         } else {
           const src = new Db(path.join(tmpPath, id))
           db.import(src, (msg) => {
-            conn.socket.send(msg)
+            processMap.get(id)!(msg)
           })
         }
 
-        conn.socket.send('done')
+        processMap.get(id)!('done')
       }
     })
   })
