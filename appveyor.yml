@@ -26,7 +26,7 @@ install:
 
 build_script:
   - cd packages\e-app
-  - bash install-and-run.sh
+  - bash install-and-build.sh
   - cd ..\e-server
   - npm run dist -- -t 'node12-win-x64' -o dist\rep2recall-local-server-win-x64
 
