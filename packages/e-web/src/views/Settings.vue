@@ -70,9 +70,7 @@ export default class Settings extends Vue {
   async onDropFiles () {
     const api = await this.getApi()
     this.dropFiles.map(async (f) => {
-      this.$set(f, 'msg', {})
-      this.$set(f.msg, 'text', '')
-      this.$set(f.msg, 'type', '')
+      this.$set(f, 'msg', { text: '', type: '' })
 
       const formData = new FormData()
       formData.append('file', f)
