@@ -1,4 +1,5 @@
 import path from 'path'
+import { Worker } from 'worker_threads'
 
 import { FastifyInstance } from 'fastify'
 import ws from 'fastify-websocket'
@@ -6,10 +7,8 @@ import ws from 'fastify-websocket'
 import fileUpload from 'fastify-file-upload'
 import { nanoid } from 'nanoid'
 import { UploadedFile } from 'express-fileupload'
-import AdmZip from 'adm-zip'
 
-import { tmpPath, db } from '../config'
-import { Db } from '../db/local'
+import { tmpPath } from '../config'
 
 export default (f: FastifyInstance, _: any, next: () => void) => {
   f.register(fileUpload)
@@ -47,7 +46,7 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
   })
 
   // eslint-disable-next-line func-call-spacing
-  const processMap = new Map<string, (msg: string) => void>()
+  const socketMap = new Map<string, (msg: any) => void>()
 
   f.register(ws)
   f.get('/process', {
@@ -60,34 +59,36 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
     conn.socket.on('message', (msg: string) => {
       const { id, type, filename } = JSON.parse(msg)
 
-      let isNew = false
-      if (!processMap.has(id)) {
-        processMap.set(id, (status) => {
-          conn.socket.send(JSON.stringify({ id, status }))
-        })
-        isNew = true
-      }
+      const isNew = !socketMap.has(id)
+      socketMap.set(id, (json: any) => {
+        conn.socket.send(JSON.stringify(json))
+      })
 
       if (isNew) {
-        if (type === 'apkg') {
-          const zip = new AdmZip(path.join(tmpPath, id))
-          processMap.get(id)!('extracting APKG')
-          zip.extractAllTo(path.join(tmpPath, id + '-folder'))
-          db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), (msg) => {
-            processMap.get(id)!(msg)
-          }, { filename })
-        } else if (type === 'anki2') {
-          db.importAnki2(path.join(tmpPath, id), (msg) => {
-            processMap.get(id)!(msg)
-          }, { filename })
-        } else {
-          const src = new Db(path.join(tmpPath, id))
-          db.import(src, (msg) => {
-            processMap.get(id)!(msg)
-          })
+        const spawn = () => {
+          const worker = new Worker(path.join(__dirname, '../worker/process-upload.js'))
+
+          worker
+            .on('online', () => {
+              worker.postMessage({ id, type, filename })
+            })
+            .on('message', (status = 'done') => {
+            socketMap.get(id)!({ id, status })
+            })
+            .on('error', (err) => {
+              console.error(`Error: ${filename}, ${err.message}`)
+            })
+            .on('exit', (code) => {
+              if (code === 0) {
+                console.log(`Worker: ${filename} exited with code ${code}`)
+                socketMap.get(id)!({ id, status: 'done' })
+              } else {
+                console.error(`Worker: ${filename} exited with code ${code}`)
+              }
+            })
         }
 
-        processMap.get(id)!('done')
+        spawn()
       }
     })
   })
