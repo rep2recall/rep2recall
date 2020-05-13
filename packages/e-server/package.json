@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "tsc-watch -P src/tsconfig.json --onSuccess 'node lib/index.js'",
     "build": "tsc -P src/tsconfig.json",
-    "build:web": "cd ../e-web && OUT_DIR=../e-server/web npm run build",
+    "build:web": "cd ../e-web && npm run build -- --dest ../e-server/web",
     "predist": "npm run build && npm run build:web",
     "dist": "pkg .",
     "dist:mac": "npm run dist -- -t node12-macos-x64 -o dist/rep2recall-local-server-macos-x64",
