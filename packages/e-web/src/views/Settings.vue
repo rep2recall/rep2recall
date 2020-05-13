@@ -4,7 +4,12 @@
     h4.title.is-4 Upload from archives
   .u-flex.u-m-2em(style="align-items: center; justify-content: center;")
     b-field
-      b-upload(v-model="dropFiles" multiple drag-drop accept=".r2r,.apkg,.anki2")
+      b-upload(
+        v-model="dropFile"
+        :multiple="false"
+        drag-drop
+        accept=".r2r,.apkg,.anki2"
+      )
         section.section
           .content.has-text-centered
             p
@@ -33,8 +38,8 @@
     span &nbsp;
     a(:href="apiUrl" target="_blank" alt="API URL") {{apiUrl}}
     span .
-  b-modal(:active="dropFiles.length > 0")
-    .card(v-for="d, i in dropFiles" :key="i")
+  b-modal(:active="dropFile" :can-cancel="false")
+    .card(v-if="dropFile" v-for="d, i in [dropFile]" :key="i")
       .card-content
         b-field(:label="d.name")
           b-progress(:value="dotProp.get(d, 'msg.progress')" :type="dotProp.get(d, 'msg.type')" show-value)
@@ -48,7 +53,7 @@ import dotProp from 'dot-prop'
 
 @Component
 export default class Settings extends Vue {
-  dropFiles: any[] = []
+  dropFile: any = null
   apiKey = ''
 
   dotProp = dotProp
@@ -66,15 +71,17 @@ export default class Settings extends Vue {
     return await this.$store.dispatch('getApi', silent) as AxiosInstance
   }
 
-  @Watch('dropFiles')
-  async onDropFiles () {
-    const api = await this.getApi()
-    this.dropFiles.map(async (f) => {
+  @Watch('dropFile')
+  async onDropFile () {
+    if (this.dropFile) {
+      const f = this.dropFile
+
       this.$set(f, 'msg', { text: '', type: '' })
 
       const formData = new FormData()
       formData.append('file', f)
 
+      const api = await this.getApi()
       const r = await api.post('/api/file/upload', formData, {
         onUploadProgress: (evt: ProgressEvent) => {
           f.msg.text = `Uploading: ${(evt.loaded / evt.total * 100).toFixed(0)}%`
@@ -94,19 +101,25 @@ export default class Settings extends Vue {
         ws.send(JSON.stringify({ id: oldId, filename: f.name, type }))
       }
       ws.onmessage = (evt) => {
-        const { id, status } = JSON.parse(evt.data)
+        const { id, status, error } = JSON.parse(evt.data)
 
         if (id === oldId) {
-          if (status !== 'done') {
-            f.msg.text = `Processing: ${status}`
-            f.msg.type = 'is-success'
-            this.$forceUpdate()
+          if (error) {
+            this.$buefy.dialog.alert({
+              message: error
+            })
           } else {
-            this.dropFiles = this.dropFiles.filter((f0) => f0 !== f)
+            if (status !== 'done') {
+              f.msg.text = `Processing: ${status}`
+              f.msg.type = 'is-success'
+              this.$forceUpdate()
+            } else {
+              this.dropFile = null
+            }
           }
         }
       }
-    })
+    }
   }
 
   resetApiKey () {

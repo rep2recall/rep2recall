@@ -5,3 +5,5 @@
 /lib/
 /web/
 /dist/
+.clinic
+isolate-*

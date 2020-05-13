@@ -40,10 +40,12 @@ export async function mapAsync<T, R = T> (
   }))
 }
 
-export function * chunks<T> (arr: T[], n: number) {
-  for (let i = 0; i < arr.length; i += n) {
-    yield arr.slice(i, i + n)
+export function chunks<T> (arr: T[], chunkSize: number) {
+  var R = []
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    R.push(arr.slice(i, i + chunkSize))
   }
+  return R
 }
 
 export function deepMerge (dst: any, src: any) {

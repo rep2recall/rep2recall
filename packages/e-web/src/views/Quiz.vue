@@ -222,6 +222,10 @@ export default class Quiz extends Vue {
       const el1 = el.cloneNode(true) as HTMLScriptElement
       el.replaceWith(el1)
     })
+
+    d.querySelectorAll('a').forEach((el) => {
+      el.target = '_blank'
+    })
   }
 
   nextQuizItem () {

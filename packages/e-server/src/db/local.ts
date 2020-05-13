@@ -7,7 +7,7 @@ import dotProp from 'dot-prop'
 import { UploadedFile } from 'express-fileupload'
 import { Serialize } from 'any-serialize'
 
-import { removeNull, chunks, deepMerge, safeId, slugify } from './util'
+import { removeNull, chunks, deepMerge, slugify } from './util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import QSearch from './qsearch'
 
@@ -111,6 +111,7 @@ export class Db {
       [key]         TEXT NOT NULL,
       [data]        TEXT DEFAULT '{}', -- json
       markdown      TEXT DEFAULT '',
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE ([user_id], [key])
       -- relation m2m media
       -- relation m2m tag
@@ -124,7 +125,8 @@ export class Db {
       [name]    TEXT NOT NULL UNIQUE,
       mimetype  TEXT NOT NULL,
       [data]    BLOB,
-      meta      TEXT DEFAULT '{}' -- json
+      meta      TEXT DEFAULT '{}', -- json
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS card_media (
@@ -135,7 +137,8 @@ export class Db {
 
     CREATE TABLE IF NOT EXISTS tag (
       id      INTEGER PRIMARY KEY,
-      [name]  TEXT NOT NULL UNIQUE
+      [name]  TEXT NOT NULL UNIQUE,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS card_tag (
@@ -153,13 +156,15 @@ export class Db {
     CREATE TABLE IF NOT EXISTS lesson (
       id            INTEGER PRIMARY KEY,
       [name]        TEXT NOT NULL UNIQUE,
-      [description] TEXT
+      [description] TEXT,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS deck (
-      id        INTEGER PRIMARY KEY,
-      [name]    TEXT NOT NULL,
-      lesson_id INTEGER REFERENCES lesson(id) ON DELETE CASCADE,
+      id          INTEGER PRIMARY KEY,
+      [name]      TEXT NOT NULL,
+      lesson_id   INTEGER REFERENCES lesson(id) ON DELETE CASCADE,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE ([name], lesson_id)
     );
 
@@ -170,11 +175,12 @@ export class Db {
     );
 
     CREATE TABLE IF NOT EXISTS quiz (
-      id        INTEGER PRIMARY KEY,
+      id          INTEGER PRIMARY KEY,
       card_id     INTEGER NOT NULL UNIQUE REFERENCES [card](id) ON DELETE CASCADE,
       next_review INTEGER NOT NULL, -- epoch seconds
       srs_level   INTEGER NOT NULL,
-      stat        TEXT DEFAULT '{}' -- json
+      stat        TEXT DEFAULT '{}', -- json
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     `)
   }
@@ -535,7 +541,7 @@ export class Db {
     src.close()
   }
 
-  importAnki2 (filename: string, cb: (msg: string) => void, meta: {
+  importAnki2 (filename: string, cb: (msg: string, percent?: number) => void, meta: {
     filename?: string
   } = {}) {
     const src = sqlite3(filename)
@@ -623,20 +629,28 @@ export class Db {
       }
     )
 
-    for (const cs of chunks(src.prepare(/*sql*/`
+    const allCards = src.prepare(/*sql*/`
     SELECT
       d.name  deck,
       n.flds  [values],
       m.flds  keys,
       m.css   css,
       t.qfmt  qfmt,
-      t.afmt  afmt
+      t.afmt  afmt,
+      t.name  template,
+      m.name  model
     FROM cards c
     JOIN notes n ON c.nid = n.id
     JOIN decks d ON c.did = d.id
     JOIN models m ON n.mid = m.id
     JOIN templates t ON t.ord = c.ord AND t.mid = n.mid
-    `).all(), 1000)) {
+    `).all()
+
+    for (const [i, cs] of chunks(allCards, 1000).entries()) {
+      if (cb) {
+        cb(`inserting cards: ${i * 1000} of ${allCards.length}`, i * 1000 / allCards.length)
+      }
+
       this.insert(...cs.map((el) => {
         const ks: string[] = el.keys.split('\x1f').map((k: string) => slugify(k))
         const vs: string[] = el.values.split('\x1f')
@@ -653,6 +667,8 @@ export class Db {
 
         const deck = el.deck.replace(/::/g, '/')
 
+        const name = (meta.filename || filename).replace(/\..+?$/, '')
+
         return [
           {
             ignoreErrors: true,
@@ -667,11 +683,11 @@ export class Db {
             }
           ] : []),
           {
-            key: 'anki_' + safeId(),
+            key: `anki_${name}_${el.model}_${el.template}_${keyData}`,
             ...(meta.filename ? {
               lesson: [
                 {
-                  name: (meta.filename || filename).replace(/\..+?$/, ''),
+                  name,
                   description: meta.filename,
                   deck
                 }
@@ -1202,6 +1218,7 @@ export class Db {
     JOIN card_deck cd ON cd.deck_id = d.id
     JOIN [card] c ON c.id = cd.card_id
     WHERE c.user_id = ?
+    ORDER BY ls.created_at DESC
     `).all([userId])
   }
 
@@ -1217,6 +1234,7 @@ export class Db {
     JOIN card_deck cd ON cd.deck_id = d.id
     JOIN [card] c ON c.id = cd.card_id
     WHERE c.user_id = ?
+    ORDER BY deck ASC
     `).all([userId]).map((r) => r.deck)
   }
 
@@ -1232,6 +1250,7 @@ export class Db {
     JOIN card_tag ct ON ct.tag_id = t.id
     JOIN [card] c ON c.id = ct.card_id
     WHERE c.user_id = ?
+    ORDER BY tag ASC
     `).all([userId]).map((r) => r.tag)
   }
 }

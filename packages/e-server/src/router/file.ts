@@ -1,5 +1,4 @@
 import path from 'path'
-import { Worker } from 'worker_threads'
 
 import { FastifyInstance } from 'fastify'
 import ws from 'fastify-websocket'
@@ -7,6 +6,8 @@ import ws from 'fastify-websocket'
 import fileUpload from 'fastify-file-upload'
 import { nanoid } from 'nanoid'
 import { UploadedFile } from 'express-fileupload'
+import { spawn, Worker } from 'threads'
+import pino from 'pino'
 
 import { tmpPath } from '../config'
 
@@ -56,7 +57,11 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       summary: 'Process an archive'
     }
   }, (conn) => {
-    conn.socket.on('message', (msg: string) => {
+    const logger = pino({
+      prettyPrint: true
+    })
+
+    conn.socket.on('message', async (msg: string) => {
       const { id, type, filename } = JSON.parse(msg)
 
       const isNew = !socketMap.has(id)
@@ -65,30 +70,31 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       })
 
       if (isNew) {
-        const spawn = () => {
-          const worker = new Worker(path.join(__dirname, '../worker/process-upload.js'))
+        const worker = (await spawn(new Worker('../worker/process-upload.js')))
+        logger.info(`Start processing: ${filename}`)
 
-          worker
-            .on('online', () => {
-              worker.postMessage({ id, type, filename })
-            })
-            .on('message', (status = 'done') => {
-            socketMap.get(id)!({ id, status })
-            })
-            .on('error', (err) => {
-              console.error(`Error: ${filename}, ${err.message}`)
-            })
-            .on('exit', (code) => {
-              if (code === 0) {
-                console.log(`Worker: ${filename} exited with code ${code}`)
-                socketMap.get(id)!({ id, status: 'done' })
-              } else {
-                console.error(`Worker: ${filename} exited with code ${code}`)
-              }
-            })
+        worker.observable()
+          .subscribe(
+            (status) => {
+              socketMap.get(id)!({ id, status })
+              logger.info(`Processing status: ${filename}: ${status}`)
+            },
+            (err) => {
+              socketMap.get(id)!({ id, error: err.message })
+              logger.error(`Processing error: ${filename}: ${err.message}`)
+            }
+          )
+
+        try {
+          await worker.run({ id, type, filename })
+        } catch (err) {
+          socketMap.get(id)!({ id, error: err.message })
+          logger.error(`Processing error: ${filename}: ${err.message}`)
+          console.error(err)
         }
 
-        spawn()
+        socketMap.get(id)!({ id, status: 'done' })
+        logger.info(`Finished processing: ${filename}`)
       }
     })
   })
