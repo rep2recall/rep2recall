@@ -19,6 +19,7 @@ init:
 environment:
   GH_TOKEN:
     secure: TXtSpQSnYgiwVuZ3+qlPiY55BJ0Ah8RmRLM1AUjwXIttEuAPpEK8zimvgHgF646k
+  OUT_DIR:
 
 install:
   - ps: Install-Product node 12 x64
@@ -28,7 +29,7 @@ build_script:
   - cd packages\e-app
   - bash install-and-build.sh
   - cd ..\e-server
-  - npm run dist -- -t 'node12-win-x64' -o dist\rep2recall-local-server-win-x64
+  - bash -c "npm run dist -- -t node12-win-x64 -o dist/rep2recall-local-server-win-x64"
 
 deploy:
   - provider: GitHub
