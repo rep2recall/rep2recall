@@ -6,8 +6,6 @@ Repeat until recall, with widening intervals.
 
 This is a remake of <https://github.com/patarapolw/rep2recall-web>.
 
-As for offline version, you might try <https://github.com/patarapolw/rep2recall-app>.
-
 ## Features
 
 - [Handlebars](https://handlebarsjs.com/) support across markdown files
