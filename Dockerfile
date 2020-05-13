@@ -1,4 +1,4 @@
-FROM node:10-alpine AS ui
+FROM node:10-alpine AS web
 RUN mkdir -p /web
 WORKDIR /web
 COPY packages/web/package.json packages/web/package-lock.json /web/
