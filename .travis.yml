@@ -12,7 +12,7 @@ cache:
 
 script:
   - cd packages/e-app
-  - ./install-and-run.sh
+  - ./install-and-build.sh
   - cd ../e-server
   - npm run dist -- -t 'node12-linux-x64' -o dist/rep2recall-local-server-linux-x64
 
