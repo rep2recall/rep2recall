@@ -2,7 +2,6 @@
   "name": "rep2recall",
   "private": true,
   "scripts": {
-    "preinstall": "npx check-npm-yarn",
     "build": "docker build -t gcr.io/$PROJECT_ID/rep2recall --build-arg VUE_APP_FIREBASE_CONFIG --build-arg VUE_APP_BASE_URL .",
     "dev": "concurrently 'cd packages/server && npm run dev' 'cd packages/web && npm run serve'",
     "start": "docker run -p 8080:8080 -e MONGO_URI -e SECRET -e FIREBASE_SDK -e DEFAULT_USER -e VUE_APP_BASE_URL gcr.io/$PROJECT_ID/rep2recall",

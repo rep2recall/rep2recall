@@ -7,7 +7,6 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
-    "preinstall": "npx check-npm-yarn",
     "build": "tsc -p src/tsconfig.json",
     "start": "node dist/index.js"
   },
