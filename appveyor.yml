@@ -1,0 +1,42 @@
+branches:
+  only:
+    - master
+
+image: Visual Studio 2017
+
+platform:
+  - x64
+
+cache:
+  - packages\e-app\node_modules
+  - packages\e-server\node_modules
+  - packages\e-web\node_modules
+  - '%USERPROFILE%\.electron'
+
+init:
+  - git config --global core.autocrlf input
+
+environment:
+  GH_TOKEN:
+    secure: TXtSpQSnYgiwVuZ3+qlPiY55BJ0Ah8RmRLM1AUjwXIttEuAPpEK8zimvgHgF646k
+
+install:
+  - ps: Install-Product node 12 x64
+  - ps: $env:Path = "C:\Program Files\Git\bin;$env:Path"
+
+build_script:
+  - cd packages\e-app
+  - bash install-and-run.sh
+  - cd ..\e-server
+  - npm run dist -- -t 'node12-win-x64' -o dist\rep2recall-local-server-win-x64
+
+deploy:
+  - provider: GitHub
+    auth_token:
+      secure: cOCsr5nxEGGYV0CvAfvxAjEofm0p2Qw2AM76Pvr112YVpmqWu15KA+31GvzBTTmX
+    artifact: dist/rep2recall-local-server-win-x64
+    draft: true
+    on:
+      branch: master
+
+test: off
