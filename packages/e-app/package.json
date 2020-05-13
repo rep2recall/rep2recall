@@ -48,10 +48,6 @@
   "build": {
     "appId": "dev.polvcode.rep2recall",
     "productName": "Rep2Recall Desktop",
-    "linux": {
-      "publish":{
-        "target": "AppImage"
-      }
-    }
+    "publish": [{"provider": "github"}]
   }
 }
