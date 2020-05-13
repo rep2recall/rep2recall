@@ -4,6 +4,11 @@ dist: xenial
 node_js:
   - 12
 
+addons:
+  snaps:
+  - name: snapcraft
+    confinement: classic
+
 cache:
   directories:
     - packages/e-app/node_modules
