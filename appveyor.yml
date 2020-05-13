@@ -24,12 +24,15 @@ environment:
 install:
   - ps: Install-Product node 12 x64
   - ps: $env:Path = "C:\Program Files\Git\bin;$env:Path"
+  - curl -sf https://gobinaries.com/tj/robo | sh
 
 build_script:
-  - cd packages\e-app
-  - bash install-and-build.sh
-  - cd ..\e-server
-  - bash -c "npm run dist -- -t node12-win-x64 -o dist/rep2recall-local-server-win-x64"
+  - cd packages\e-web && npm i && cd -
+  - cd packages\e-app && npm i && cd -
+  - cd packages\e-server
+  - npm i && npm run dist -- -t 'node12-win-x64' -o dist/rep2recall-local-server-win-x64
+  - cd -
+  - robo desktop-build
 
 deploy:
   - provider: GitHub
