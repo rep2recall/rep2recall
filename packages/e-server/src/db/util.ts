@@ -60,7 +60,13 @@ export function deepMerge (dst: any, src: any) {
     }
   }
 
-  return typeof dst === 'undefined' ? src : dst
+  if (typeof dst === 'undefined') {
+    return src
+  } else if (typeof dst === 'object' && !dst) {
+    return undefined
+  }
+
+  return dst
 }
 
 export const sorter = (ords: {

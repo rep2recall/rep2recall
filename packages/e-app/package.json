@@ -42,7 +42,11 @@
     "zod": "^1.6.0",
     "threads": "^1.4.1",
     "observable-fns": "^0.5.1",
-    "pino": "^6.2.1"
+    "pino": "^6.2.1",
+    "dot-prop-immutable": "^2.1.0",
+    "pouchdb": "^7.2.1",
+    "sqlite": "^4.0.7",
+    "sqlite3": "^4.2.0"
   },
   "devDependencies": {
     "electron": "^8.2.5",

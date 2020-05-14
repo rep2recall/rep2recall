@@ -2,7 +2,6 @@ import { FastifyInstance } from 'fastify'
 
 import { db } from '../config'
 import { removeNull, sorter } from '../db/util'
-import { dbSchema } from '../db/local'
 
 const router = (f: FastifyInstance, _: any, next: () => void) => {
   f.post('/info', {
