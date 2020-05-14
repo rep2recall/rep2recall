@@ -24,7 +24,8 @@ environment:
 install:
   - ps: Install-Product node 12 x64
   - ps: $env:Path = "C:\Program Files\Git\bin;$env:Path"
-  - curl -sf https://gobinaries.com/tj/robo | sh
+  - ps: Start-FileDownload https://gobinaries.com/tj/robo -Filename robo.sh
+  - sh robo.sh
 
 build_script:
   - cd packages\e-web && npm i && cd -
