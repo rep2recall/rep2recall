@@ -6,9 +6,11 @@ import dotProp from 'dot-prop-immutable'
 import * as z from 'zod'
 import { Observable } from 'observable-fns'
 import { Serialize } from 'any-serialize'
+import { UploadedFile } from 'express-fileupload'
 
 import { defaultDbStat, zInsertCardQuizItem, zQueryItem, zInsertLessonDeckItem, zInsertItem, zUpdateItem } from './schema'
 import { sorter, removeNull, slugify, chunks, deepMerge } from './util'
+import { repeatReview, srsMap, getNextReview } from './quiz'
 
 const ser = new Serialize()
 
@@ -180,7 +182,7 @@ export class DbSqlite {
       date_sync     DATETIME,
       [key]         TEXT NOT NULL UNIQUE,
       [name]        TEXT NOT NULL,
-      [description] TEXT NOT NULL DEFAULT ''
+      [description] TEXT
     );
 
     CREATE INDEX IF NOT EXISTS lesson_set_cardId_idx ON lesson(set_cardId);
@@ -196,6 +198,17 @@ export class DbSqlite {
     );
 
     CREATE INDEX IF NOT EXISTS deck_lessonId_idx ON deck(lessonId);
+
+    CREATE TABLE IF NOT EXISTS media (
+      [uid]         TEXT PRIMARY KEY,
+      date_created  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      date_sync     DATETIME,
+      [key]         TEXT NOT NULL UNIQUE,
+      [name]        TEXT NOT NULL,
+      mimetype      TEXT,
+      [data]        BLOB,
+      dict_meta     TEXT
+    );
     `)
   }
 
@@ -1073,6 +1086,145 @@ export class DbSqlite {
     }
 
     return null
+  }
+
+  markRight = this._updateSrsLevel(+1)
+  markWrong = this._updateSrsLevel(-1)
+  markRepeat = this._updateSrsLevel(0)
+
+  _updateSrsLevel (dSrsLevel: number) {
+    return async (key: string) => {
+      const d = await this.sql.get(/*sql*/`
+      SELECT srsLevel, dict_stat, q.uid [uid]
+      FROM quiz q
+      JOIN [card] c ON c.uid = q.cardId
+      WHERE c.key = ?
+      `, [key])
+
+      let srsLevel = 0
+      let stat = {
+        streak: {
+          right: 0,
+          wrong: 0,
+          maxRight: 0,
+          maxWrong: 0
+        }
+      }
+      let nextReview = +repeatReview()
+
+      if (d) {
+        srsLevel = d.srsLevel
+        stat = this.types.dict.toNative(d.dict_stat)
+      }
+
+      if (dSrsLevel > 0) {
+        stat = dotProp.set(stat, 'streak.right', dotProp.get(stat, 'streak.right', 0) + 1)
+        stat = dotProp.set(stat, 'streak.wrong', 0)
+        stat = dotProp.set(stat, 'lastRight', +new Date())
+
+        if (dotProp.get(stat, 'streak.right', 1) > dotProp.get(stat, 'streak.maxRight', 0)) {
+          stat = dotProp.set(stat, 'streak.maxRight', dotProp.get(stat, 'streak.right', 1))
+        }
+      } else if (dSrsLevel < 0) {
+        stat = dotProp.set(stat, 'streak.wrong', dotProp.get(stat, 'streak.wrong', 0) + 1)
+        stat = dotProp.set(stat, 'streak.right', 0)
+        stat = dotProp.set(stat, 'lastWrong', +new Date())
+
+        if (dotProp.get(stat, 'streak.wrong', 1) > dotProp.get(stat, 'streak.maxWrong', 0)) {
+          stat = dotProp.set(stat, 'streak.maxWrong', dotProp.get(stat, 'streak.wrong', 1))
+        }
+      }
+
+      srsLevel += dSrsLevel
+
+      if (srsLevel >= srsMap.length) {
+        srsLevel = srsMap.length - 1
+      }
+
+      if (srsLevel < 0) {
+        srsLevel = 0
+      }
+
+      if (dSrsLevel > 0) {
+        nextReview = +getNextReview(srsLevel)
+      }
+
+      if (!d) {
+        const newQuiz = {
+          quizId: nanoid(),
+          key,
+          srsLevel,
+          date_nextReview: nextReview,
+          dict_stat: this.types.dict.toSql(stat)
+        }
+
+        await this.sql.run(/*sql*/`
+        INSERT INTO quiz ([uid], cardId, srsLevel, date_nextReview, dict_stat)
+        VALUES (
+          @quizId,
+          (SELECT [uid] FROM [card] WHERE [key] = @key),
+          @srsLevel, @date_nextReview, @dict_stat
+        )
+        `, newQuiz)
+      } else {
+        await this.sql.run(/*sql*/`
+        UPDATE quiz
+        SET
+          dict_stat = ?,
+          date_nextReview = ?,
+          srsLevel = ?
+        WHERE [uid] = ?
+        `, [
+          this.types.dict.toSql(stat),
+          nextReview,
+          srsLevel,
+          d.uid
+        ])
+      }
+    }
+  }
+
+  async insertMedia (file: UploadedFile, key?: string) {
+    const uid = nanoid()
+    key = key || uid
+
+    await this.sql.run(/*sql*/`
+    INSERT INTO media ([uid], [key], [name], mimetype, [data])
+    VALUES (?, ?, ?, ?, ?)
+    `, [uid, key, file.name, file.mimetype, file.data])
+
+    return key
+  }
+
+  async getMedia (key: string) {
+    const m = await this.sql.get(/*sql*/`
+    SELECT [name], mimetype, [data], dict_meta FROM media
+    WHERE [key] = ?
+    `, [key])
+
+    if (m) {
+      m.meta = this.types.dict.toNative(m.dict_meta)
+      delete m.dict_meta
+      return m
+    }
+
+    return null
+  }
+
+  async allLesson () {
+    return await this.sql.all(/*sql*/`
+    SELECT [key], [name], [description]
+    FROM lesson
+    `)
+  }
+
+  async allTag () {
+    return Array.from<string>((await this.sql.all(/*sql*/`
+    SELECT set_tag FROM [card]
+    `)).reduce((prev, r) => {
+      (this.types.set.toNative(r.set_tag) || []).map((t) => prev.add(t))
+      return prev
+    }, new Set())).sort()
   }
 }
 
