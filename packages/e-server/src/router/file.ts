@@ -50,13 +50,13 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
   const socketMap = new Map<string, (msg: any) => void>()
 
   f.register(ws)
-  f.get('/process', {
+  f.get('/:id', {
     websocket: true,
     schema: {
       tags: ['file'],
       summary: 'Process an archive'
     }
-  }, (conn) => {
+  }, (conn, req, params = {}) => {
     const logger = pino({
       prettyPrint: true
     })
