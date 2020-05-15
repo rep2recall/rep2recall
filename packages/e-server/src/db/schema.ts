@@ -1,117 +1,68 @@
 import * as z from 'zod'
-import dayjs from 'dayjs'
 
-const zDateType = z.string().refine((d) => {
-  return typeof d === 'string' && isNaN(d as any) && dayjs(d).isValid()
-}, 'not a Date')
-const zPosInt = z.number().refine((i) => Number.isInteger(i) && i > 0, 'not positive integer')
+export const zNonNeg = z.number().refine((i) => Number.isInteger(i) && i >= 0, 'not non-negative integer')
+export const zTimestamp = zNonNeg
+export const zValidSqliteJsonKey = z.string().refine((s) => /[^A-Z0-9_-]/i.test(s), 'Invalid SQLite JSON key')
 
-export const zDbSchema = z.object({
-  // Write option
-  // onConflict: z.union([z.literal('ignore'), z.literal('overwrite')]).optional(),
-  onConflict: z.string().optional(),
-  // IDbCard
-  id: z.string().optional(),
-  data: z.record(z.any()).optional(),
-  markdown: z.string().optional(),
-  tag: z.array(z.string()).optional(),
-  ref: z.record(z.any()).optional(),
-  media: z.record(z.any()).optional(),
-  // IDbLesson
-  lesson: z.string().optional(),
-  lessonDescription: z.string().optional(),
-  deck: z.string().optional(),
-  // IDbQuiz
-  nextReview: zDateType.optional(),
-  srsLevel: zPosInt.optional(),
-  stat: z.object({
-    streak: z.object({
-      right: zPosInt,
-      wrong: zPosInt,
-      maxRight: zPosInt,
-      maxWrong: zPosInt
-    }),
-    lastRight: zDateType,
-    lastWrong: zDateType
-  }).optional()
+export const zDbStat = z.object({
+  streak: z.object({
+    right: zNonNeg,
+    wrong: zNonNeg,
+    maxRight: zNonNeg,
+    maxWrong: zNonNeg
+  }),
+  lastRight: zTimestamp.optional(),
+  lastWrong: zTimestamp.optional()
 })
 
-export type IDbSchema = z.infer<typeof zDbSchema>
-
-export const dbSchema = {
-  $id: 'https://rep2recall.net/schema/dbSchema.json',
-  type: 'object',
-  properties: {
-    overwrite: { type: 'boolean' },
-    ignoreErrors: { type: 'boolean' },
-    deck: { type: 'string' },
-    lesson: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['key'],
-        properties: {
-          key: { type: 'string' },
-          name: { type: 'string' },
-          description: { type: 'string' },
-          deck: { type: 'string' }
-        }
-      }
-    },
-    key: { type: 'string' },
-    data: { type: 'object' },
-    tag: { type: 'array', items: { type: 'string' } },
-    ref: { type: 'array', items: { type: 'string' } },
-    media: { type: 'array', items: { type: 'string' } },
-    markdown: { type: 'string' },
-    nextReview: { type: 'string', format: 'date-time' },
-    srsLevel: { type: 'integer' },
-    stat: { type: 'object' }
+export const defaultDbStat: z.infer<typeof zDbStat> = {
+  streak: {
+    right: 0,
+    wrong: 0,
+    maxRight: 0,
+    maxWrong: 0
   }
 }
 
-export type DateString = string
+export const zQueryItem = z.object({
+  uid: z.string().optional(),
+  key: z.string().optional(),
+  markdown: z.string().optional(),
+  data: z.record(z.any()).optional(),
+  tag: z.array(zValidSqliteJsonKey).optional(),
+  ref: z.record(z.any()).optional(),
+  media: z.record(z.any()).optional(),
+  lesson: z.string().optional(),
+  deck: z.string().optional(),
+  nextReview: z.date().optional(),
+  srsLevel: zNonNeg.optional(),
+  stat: zDbStat.deepPartial().optional()
+})
 
-export interface IDbUser {
-  email?: string
-  secret: string
-  createdAt: DateString
-}
+// const zOnConflict = z.union([z.literal('ignore'), z.literal('overwrite')]).optional()
+const zOnConflict = z.string().refine(
+  (s) => ['ignore', 'overwrite'].includes(s),
+  'Invalid keyword'
+).optional()
 
-export interface IDbCard {
-  userId: string
-  data: Record<string, string>
-  markdown: string
-  createdAt: DateString
-  tag: string[]
-  ref: Record<string, any>
-  media: Record<string, any>
-  quizId?: string
-}
+export const zInsertCardQuizItem = z.object({
+  onConflict: zOnConflict,
+  key: zValidSqliteJsonKey.optional(),
+  markdown: z.string().optional(),
+  data: z.record(z.any()).optional(),
+  tag: z.array(zValidSqliteJsonKey).optional(),
+  ref: z.record(z.any()).optional(),
+  media: z.record(z.any()).optional(),
+  srsLevel: z.number().optional(),
+  nextReview: zTimestamp.optional(),
+  stat: zDbStat.optional()
+})
 
-export interface IDbQuiz {
-  srsLevel: number
-  nextReview: DateString
-  stat: {
-    streak: {
-      right: number
-      wrong: number
-      maxRight: number
-      maxWrong: number
-    }
-    lastRight?: DateString
-    lastWrong?: DateString
-  }
-}
-
-export interface IDbLesson {
-  name: string
-  description: string
-  createdAt: DateString
-}
-
-export interface IDbDeck {
-  name: string
-  lessonId: string
-  cardIds: string[]
-}
+export const zInsertLessonDeckItem = z.object({
+  onConflict: zOnConflict,
+  lessonId: z.string().optional(),
+  lessonName: z.string().optional(),
+  lessonDescription: z.string().optional(),
+  deck: z.string().optional(),
+  cardIds: z.array(zValidSqliteJsonKey).optional()
+})

@@ -1,7 +1,7 @@
-import { nanoid } from 'nanoid'
+import crypto from 'crypto'
 
-export function safeId () {
-  return nanoid()
+export function generateSecret () {
+  return crypto.randomBytes(64).toString('base64')
 }
 
 export function slugify (s: string) {
@@ -69,12 +69,15 @@ export function deepMerge (dst: any, src: any) {
   return dst
 }
 
-export const sorter = (ords: {
-  key: string
-  type: 1 | -1
-}[], nullsLast?: boolean) => (a: any, b: any) => {
+export const sorter = (keys: string[], nullsLast?: boolean) => (a: any, b: any) => {
   if (a && b) {
-    for (const { key, type } of ords) {
+    for (let key of keys) {
+      let direction = -1
+      if (key[0] === '-') {
+        direction = 1
+        key = key.substr(1)
+      }
+
       const m = a[key]
       const n = b[key]
 
@@ -92,7 +95,7 @@ export const sorter = (ords: {
           continue
         }
 
-        return r * type
+        return r * direction
       } else {
         if (nullsLast) {
           if (isUndefinedOrNull(m)) {
@@ -102,7 +105,7 @@ export const sorter = (ords: {
           }
         }
 
-        return (tA - tB) * type
+        return (tA - tB) * direction
       }
     }
 

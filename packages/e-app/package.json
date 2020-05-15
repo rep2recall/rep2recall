@@ -46,7 +46,10 @@
     "dot-prop-immutable": "^2.1.0",
     "pouchdb": "^7.2.1",
     "sqlite": "^4.0.7",
-    "sqlite3": "^4.2.0"
+    "sqlite3": "^4.2.0",
+    "http-pouchdb": "^4.2.0",
+    "pouchdb-adapter-node-websql": "^7.0.0",
+    "pouchdb-find": "^7.2.1"
   },
   "devDependencies": {
     "electron": "^8.2.5",
