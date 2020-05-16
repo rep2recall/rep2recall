@@ -1,69 +1,73 @@
 import { nanoid } from 'nanoid'
-import QSearch from '@patarapolw/qsearch'
 import dotProp from 'dot-prop-immutable'
 import { Observable } from 'observable-fns'
 import { Serialize } from 'any-serialize'
 import { UploadedFile } from 'express-fileupload'
 import sqlite3 from 'better-sqlite3'
 
-import { sorter, removeNull, slugify, chunks, deepMerge } from '../util'
+import { removeNull, slugify, chunks, deepMerge } from '../util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import { defaultDbStat } from './defaults'
 import { validate } from '../schema/ajv'
 import { QueryItem, QueryItemPartial, InsertCardQuizItem, InsertLessonDeckItem, InsertItem, OnConflict, UpdateItem, RenderItemMin } from '../schema/schema'
 
 const ser = new Serialize()
+type CallbackType = () => void
 
 export class DbSqlite {
   static replicate (from: DbSqlite, to: DbSqlite, uids?: string[]) {
     return new Observable<{
       message: string
     }>((obs) => {
-      const getDateSync = (r: any) => Math.max(r.date_created, r.date_sync || 0)
+      (async () => {
+        const getDateSync = (r: any) => Math.max(r.date_created, r.date_sync || 0)
+        to.sql.pragma('foreign_keys=off;')
+        to.sql.transaction(() => {
+          const syncTable = (tableName: string) => {
+            for (const r1 of from.sql.prepare(/*sql*/`
+            SELECT * FROM ${safeColumnName(tableName)}
+            `).iterate()) {
+              const uid = r1.uid
 
-      to.sql.transaction(() => {
-        const syncTable = (tableName: string) => {
-          for (const r1 of from.sql.prepare(/*sql*/`
-          SELECT * FROM ${safeColumnName(tableName)}
-          `).iterate()) {
-            const uid = r1.uid
+              if (uids && !uids.includes(uid)) {
+                continue
+              }
 
-            if (uids && !uids.includes(uid)) {
-              continue
-            }
+              const r2 = to.sql.prepare(/*sql*/`
+              SELECT date_created, date_sync FROM ${safeColumnName(tableName)} WHERE [uid] = @uid
+              `).get({ uid })
 
-            const r2 = to.sql.prepare(/*sql*/`
-            SELECT date_created, date_sync FROM ${safeColumnName(tableName)} WHERE [uid] = @uid
-            `).get({ uid })
+              const updateSync = () => {
+                r1.date_sync = new Date().toISOString()
 
-            const updateSync = () => {
-              r1.date_sync = new Date().toISOString()
+                to.sql.prepare(/*sql*/`
+                REPLACE INTO ${safeColumnName(tableName)} (${Object.keys(r1).map(safeColumnName)})
+                VALUES (${Object.keys(r1).map((c) => `@${c}`)})
+                `).run(r1)
+              }
 
-              to.sql.prepare(/*sql*/`
-              REPLACE INTO ${safeColumnName(tableName)} (${Object.keys(r1).map(safeColumnName)})
-              VALUES (${Object.keys(r1).map((c) => `@${c}`)})
-              `).run(r1)
-            }
-
-            if (r2) {
-              if (getDateSync(r1) > getDateSync(r2)) {
+              if (r2) {
+                if (getDateSync(r1) > getDateSync(r2)) {
+                  updateSync()
+                }
+              } else {
                 updateSync()
               }
-            } else {
-              updateSync()
             }
           }
-        }
 
-        for (const tableName of ['card', 'quiz', 'lesson', 'deck']) {
-          obs.next({
-            message: `Uploading table: ${tableName}`
-          })
-          syncTable(tableName)
-        }
+          for (const tableName of ['quiz', 'lesson']) {
+            obs.next({
+              message: `Uploading table: ${tableName}`
+            })
+            syncTable(tableName)
+          }
+        })
+
+        obs.complete()
+      })().finally(() => {
+        to.sql.pragma('foreign_keys=on;')
       })
-
-      obs.complete()
     })
   }
 
@@ -97,22 +101,6 @@ export class DbSqlite {
         return s ? JSON.parse(s) : null
       }
     },
-    set: {
-      sep: '\x1f',
-      is (a: any): a is Array<any> | Set<any> {
-        return Array.isArray(a) || a instanceof Set
-      },
-      toSql (a: any) {
-        if (!this.is(a)) {
-          return null
-        }
-
-        return this.sep + Array.from(a).join(this.sep) + this.sep
-      },
-      toNative (s?: string) {
-        return s ? s.split(this.sep).filter((el) => el) : null
-      }
-    },
     date: {
       toSql (a: any) {
         return a ? new Date(a).toISOString() : null
@@ -124,78 +112,159 @@ export class DbSqlite {
   }
 
   sql: sqlite3.Database
-  isReady = false
 
   constructor (
-    public filename: string
+    public filename: string,
+    isOptimized?: boolean
   ) {
     this.sql = sqlite3(filename)
+
+    if (isOptimized) {
+      this.sql.pragma('journal_mode=WAL')
+    }
+
+    // if (!this.hasTable()) {
+    this.init()
+    // }
+  }
+
+  // private hasTable () {
+  //   return !!this.sql.prepare(/*sql*/`
+  //   SELECT * FROM sqlite_master WHERE type='table' LIMIT 1
+  //   `).get()
+  // }
+
+  private init () {
     this.sql.exec(/*sql*/`
-      PRAGMA journal_mode=WAL;
-      PRAGMA case_sentitive_like=on;
-  
-      CREATE TABLE IF NOT EXISTS [card] (
-        [uid]         TEXT PRIMARY KEY,
-        date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        date_sync     TEXT,
-        [key]         TEXT NOT NULL UNIQUE,
-        markdown      TEXT,
-        dict_data     TEXT,
-        set_media     TEXT,
-        set_ref       TEXT,
-        set_tag       TEXT
-      );
-  
-      CREATE INDEX IF NOT EXISTS card_key_idx ON [card]([key]);
-      CREATE INDEX IF NOT EXISTS card_set_media_idx ON [card](set_media);
-      CREATE INDEX IF NOT EXISTS card_set_ref_idx ON [card](set_ref);
-      CREATE INDEX IF NOT EXISTS card_set_tag_idx ON [card](set_tag);
-  
-      CREATE TABLE IF NOT EXISTS quiz (
-        [uid]           TEXT PRIMARY KEY,
-        date_created    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        date_sync       TEXT,
-        cardId          TEXT NOT NULL,
-        srsLevel        INTEGER NOT NULL DEFAULT 0,
-        date_nextReview TEXT NOT NULL,
-        dict_stat       TEXT NOT NULL DEFAULT '${JSON.stringify(defaultDbStat)}'
-      );
-  
-      CREATE INDEX IF NOT EXISTS quiz_cardId_idx ON quiz(cardId);
-  
-      CREATE TABLE IF NOT EXISTS lesson (
-        [uid]         TEXT PRIMARY KEY,
-        date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        date_sync     TEXT,
-        [key]         TEXT NOT NULL UNIQUE,
-        [name]        TEXT NOT NULL,
-        [description] TEXT
-      );
-  
-      CREATE TABLE IF NOT EXISTS deck (
-        [uid]         TEXT PRIMARY KEY,
-        date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        date_sync     TEXT,
-        [name]        TEXT NOT NULL,
-        lessonId      TEXT NOT NULL,
-        set_cardId    TEXT,
-        UNIQUE ([name], lessonId)
-      );
-  
-      CREATE INDEX IF NOT EXISTS deck_lessonId_idx ON deck(lessonId);
-      CREATE INDEX IF NOT EXISTS deck_set_cardId_idx ON deck(set_cardId);
-  
-      CREATE TABLE IF NOT EXISTS media (
-        [uid]         TEXT PRIMARY KEY,
-        date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        date_sync     TEXT,
-        [key]         TEXT NOT NULL UNIQUE,
-        [name]        TEXT NOT NULL,
-        mimetype      TEXT,
-        [data]        BLOB,
-        dict_meta     TEXT
-      );
+    CREATE TABLE IF NOT EXISTS [card] (
+      [uid]         TEXT PRIMARY KEY,
+      date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_sync     TEXT,
+      [key]         TEXT NOT NULL UNIQUE,
+      markdown      TEXT,
+      dict_data     TEXT
+      -- set_media     TEXT,
+      -- set_ref       TEXT,
+      -- set_tag       TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz (
+      [uid]           TEXT PRIMARY KEY,
+      date_created    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_sync       TEXT,
+      cardId          TEXT NOT NULL,
+      srsLevel        INTEGER NOT NULL DEFAULT 0,
+      date_nextReview TEXT NOT NULL,
+      dict_stat       TEXT NOT NULL DEFAULT '${JSON.stringify(defaultDbStat)}'
+    );
+
+    CREATE INDEX IF NOT EXISTS quiz_cardId_idx ON quiz(cardId);
+
+    CREATE TABLE IF NOT EXISTS lesson (
+      [uid]         TEXT PRIMARY KEY,
+      date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_sync     TEXT,
+      [key]         TEXT NOT NULL UNIQUE,
+      [name]        TEXT NOT NULL,
+      [description] TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS deck (
+      [uid]         TEXT PRIMARY KEY,
+      date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_sync     TEXT,
+      [name]        TEXT NOT NULL,
+      lessonId      TEXT NOT NULL,
+      -- set_cardId    TEXT,
+      UNIQUE ([name], lessonId)
+    );
+
+    CREATE INDEX IF NOT EXISTS deck_lessonId_idx ON deck(lessonId);
+    CREATE INDEX IF NOT EXISTS deck_set_cardId_idx ON deck(set_cardId);
+
+    CREATE TABLE IF NOT EXISTS media (
+      [uid]         TEXT PRIMARY KEY, -- Also is unique key
+      date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_sync     TEXT,
+      [name]        TEXT NOT NULL,
+      mimetype      TEXT,
+      [data]        BLOB,
+      dict_meta     TEXT
+    );
+
+    -- Relationship (sets, i.e. o2m) --
+
+    CREATE TABLE IF NOT EXISTS card_media (
+      cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
+      mediaId       TEXT NOT NULL REFERENCES media([uid]) ON DELETE CASCADE,
+      PRIMARY KEY (cardId, mediaId)
+    );
+
+    CREATE TABLE IF NOT EXISTS card_ref (
+      cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
+      refId         TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
+      PRIMARY KEY (cardId, refId)
+    );
+
+    CREATE TABLE IF NOT EXISTS card_tag (
+      cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
+      tag           TEXT NOT NULL,
+      PRIMARY KEY (cardId, tag)
+    );
+
+    CREATE TABLE IF NOT EXISTS deck_card (
+      deckId        TEXT NOT NULL REFERENCES deck([uid]) ON DELETE CASCADE,
+      cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
+      PRIMARY KEY (deckId, cardId)
+    );
+    `)
+  }
+
+  iterateCard () {
+    return new Observable((obs) => {
+      const mediaStmt = this.sql.prepare(/*sql*/`
+      SELECT mediaId id FROM card_media WHERE cardId = @cardId
       `)
+      const refStmt = this.sql.prepare(/*sql*/`
+      SELECT refId id FROM card_ref WHERE cardId = @cardId
+      `)
+      const tagStmt = this.sql.prepare(/*sql*/`
+      SELECT tag FROM card_tag WHERE cardId = @cardId
+      `)
+
+      for (const row of this.sql.prepare(/*sql*/`
+      SELECT * FROM [card]
+      `).iterate()) {
+        const { uid: cardId } = row
+
+        row.set_media = mediaStmt.all({ cardId }).map((r) => r.id)
+        row.set_ref = refStmt.all({ cardId }).map((r) => r.id)
+        row.set_tag = tagStmt.all({ cardId }).map((r) => r.tag)
+
+        obs.next(row)
+      }
+
+      obs.complete()
+    })
+  }
+
+  iterateDeck () {
+    return new Observable((obs) => {
+      const cardStmt = this.sql.prepare(/*sql*/`
+      SELECT cardId id FROM deck_card WHERE deckId = @deckId
+      `)
+
+      for (const row of this.sql.prepare(/*sql*/`
+      SELECT * FROM deck
+      `).iterate()) {
+        const { uid: deckId } = row
+        row.set_card = cardStmt.all({ deckId }).map((r) => r.id)
+
+        obs.next(row)
+      }
+
+      obs.complete()
+    })
   }
 
   normalizeRow (r: any) {
@@ -204,7 +273,7 @@ export class DbSqlite {
     for (const k of Object.keys(r)) {
       const [k1, k2] = k.split('_')
       if (k2 && r[k]) {
-        if (k1 === 'dict' || k1 === 'set' || k1 === 'date') {
+        if (k1 === 'dict' || k1 === 'date') {
           r[k2] = this.types[k1].toNative(r[k])
           delete r[k]
         }
@@ -214,7 +283,7 @@ export class DbSqlite {
     for (const k of ['stat.lastRight', 'stat.lastWrong']) {
       const v = dotProp.get(r, k)
       if (v) {
-        r = dotProp.set(r, k, new Date(v))
+        r = dotProp.set(r, k, this.types.date.toNative(v))
       }
     }
 
@@ -228,23 +297,34 @@ export class DbSqlite {
       c.key         [key],
       c.markdown    markdown,
       c.dict_data   dict_data,
-      c.set_tag     set_tag,
-      c.set_ref     set_ref,
-      c.set_media   set_media,
       ls.name       lesson,
       d.name        deck,
       q.date_nextReview   date_nextReview,
       q.srsLevel    srsLevel,
       q.dict_stat   dict_stat
     FROM [card] c
-    JOIN deck   d   ON d.set_cardId LIKE '%\x1f'||c.uid||'\x1f%'
-    JOIN lesson ls  ON d.lessonId = ls.uid
-    JOIN quiz   q   ON q.cardId = c.uid
-    WHERE c.key = ?
-    `).get([key])
+    LEFT JOIN deck_card dc ON dc.cardId = c.uid
+    LEFT JOIN deck d       ON dc.deckId = d.uid
+    LEFT JOIN lesson ls    ON d.lessonId = ls.uid
+    LEFT JOIN quiz   q     ON q.cardId = c.uid
+    WHERE c.key = @key
+    `).get({ key })
 
     if (r) {
       r = this.normalizeRow(r)
+
+      r.media = this.sql.prepare(/*sql*/`
+      SELECT mediaId id FROM card_media WHERE cardId = @cardId
+      `).all({ cardId: r.uid }).map((r0) => r0.id)
+
+      r.ref = this.sql.prepare(/*sql*/`
+      SELECT refId id FROM card_ref WHERE cardId = @cardId
+      `).all({ cardId: r.uid }).map((r0) => r0.id)
+
+      r.tag = this.sql.prepare(/*sql*/`
+      SELECT tag FROM card_tag WHERE cardId = @cardId
+      `).all({ cardId: r.uid }).map((r0) => r0.tag)
+
       return validate<QueryItem>('schema.json#/definitions/QueryItem', r)
     }
 
@@ -254,64 +334,179 @@ export class DbSqlite {
   query (q: string | Record<string, any>, opts: {
     offset?: number
     limit?: number
-    sort?: string[]
+    sort?: string
     fields?: (keyof QueryItem | 'uid')[]
-  } = {}): {
-    result: QueryItemPartial[]
-    count: number
-  } {
-    const cond = typeof q === 'string' ? this.qSearch.parse(q).cond : q
-    const allData: QueryItemPartial[] = []
+  } = {}) {
+    return new Observable<{
+      result?: QueryItemPartial
+      i: number
+      cancelFunction: CallbackType
+    }>((obs) => {
+      let { offset = 0, limit, sort, fields } = opts
 
-    for (let row of this.sql.prepare(/*sql*/`
-    SELECT
-      c.uid         [uid],
-      c.key         [key],
-      c.markdown    markdown,
-      c.dict_data   dict_data,
-      c.set_tag     set_tag,
-      c.set_ref     set_ref,
-      c.set_media   set_media,
-      ls.name       lesson,
-      d.name        deck,
-      q.date_nextReview   date_nextReview,
-      q.srsLevel    srsLevel,
-      q.dict_stat   dict_stat
-    FROM [card] c
-    LEFT JOIN deck   d   ON d.set_cardId LIKE '%\x1f'||c.uid||'\x1f%'
-    LEFT JOIN lesson ls  ON d.lessonId = ls.uid
-    LEFT JOIN quiz   q   ON q.cardId = c.uid
-    ORDER BY c.date_created DESC
-    `).iterate()) {
-      row = this.normalizeRow(row)
-
-      if (this.qSearch.filterFunction(cond)(row)) {
-        allData.push(validate('schema.json#/definitions/QueryItem', row))
+      let i = 0
+      let count = 0
+      let isEnded = false
+      const cancelFunction = () => {
+        obs.complete()
+        isEnded = true
       }
-    }
 
-    const { offset = 0, limit, sort = [], fields } = opts
-    const end = limit ? offset + limit : undefined
+      const joinNeeded = new Set<string>()
 
-    return {
-      result: allData
-        .sort(sorter(sort, true))
-        .slice(offset, end)
-        .map((r) => {
-          if (fields) {
-            const tmp = r
-            r = {}
+      if (!fields) {
+        joinNeeded.add('card_tag')
+        joinNeeded.add('card_ref')
+        joinNeeded.add('card_media')
+      } else {
+        if (fields.includes('tag')) {
+          joinNeeded.add('card_tag')
+        }
 
-            for (const k of fields) {
-              const v = dotProp.get(tmp, k)
-              r = dotProp.set(tmp, k, v)
+        if (fields.includes('ref')) {
+          joinNeeded.add('card_ref')
+        }
+
+        if (fields.includes('media')) {
+          joinNeeded.add('card_media')
+        }
+
+        if (fields.includes('lesson')) {
+          joinNeeded.add('lesson')
+        }
+
+        if (fields.includes('deck')) {
+          joinNeeded.add('lesson')
+          joinNeeded.add('deck')
+        }
+
+        if (['nextReview', 'srsLevel', 'stat'].some((t) => fields!.includes(t as any))) {
+          joinNeeded.add('quiz')
+        }
+
+        if (fields.some((t) => t.startsWith('stat.'))) {
+          joinNeeded.add('quiz')
+        }
+      }
+
+      let direction = 'asc'
+      if (sort) {
+        if (sort.startsWith('-')) {
+          direction = 'desc'
+          sort = sort.substr(1)
+        }
+
+        if (sort === 'lesson') {
+          joinNeeded.add('lesson')
+        }
+
+        if (sort === 'deck') {
+          joinNeeded.add('lesson')
+          joinNeeded.add('deck')
+        }
+
+        if (['nextReview', 'srsLevel'].some((t) => sort === t)) {
+          joinNeeded.add('quiz')
+        }
+
+        if (sort.startsWith('stat.')) {
+          joinNeeded.add('quiz')
+          sort = `json_extract(dict_stat, '$.${sort.replace(/^stat\./, '')}')`
+        } else if (sort.startsWith('data.')) {
+          sort = `json_extract(dict_data, '$.${sort.replace(/^data\./, '')}')`
+        } else {
+          sort = `[${sort}]`
+        }
+      }
+
+      const { where = 'WHERE TRUE', filterFunction } = this.qSearch.parse(q, joinNeeded)
+
+      const cardTagStmt = joinNeeded.has('card_tag') ? this.sql.prepare(/*sql*/`
+      SELECT tag FROM card_tag WHERE cardId = @cardId
+      `) : null
+      const cardMediaStmt = joinNeeded.has('card_media') ? this.sql.prepare(/*sql*/`
+      SELECT mediaId id FROM card_media WHERE cardId = @cardId
+      `) : null
+      const cardRefStmt = joinNeeded.has('card_ref') ? this.sql.prepare(/*sql*/`
+      SELECT refId id FROM card_ref WHERE cardId = @cardId
+      `) : null
+
+      for (const row of this.sql.prepare(/*sql*/`
+      SELECT
+        ${(!fields || fields.includes('lesson')) ? 'ls.name    lesson,' : ''}
+        ${(!fields || fields.includes('deck')) ? '  d.name       deck,' : ''}
+        ${(!fields || ['nextReview', 'srsLevel', 'stat'].some((t) => fields?.includes(t as any))) ? `
+        q.date_nextReview   date_nextReview,
+        q.srsLevel    srsLevel,
+        q.dict_stat   dict_stat,` : ''}
+        c.uid         [uid],
+        c.key         [key],
+        c.markdown    markdown,
+        c.dict_data   dict_data
+        -- c.set_tag     set_tag,
+        -- c.set_ref     set_ref,
+        -- c.set_media   set_media,
+      FROM [card] c
+      ${joinNeeded.has('deck') ? /*sql*/`
+      LEFT JOIN deck_card dc  ON dc.cardId = c.uid
+      LEFT JOIN deck d        ON dc.deckId = d.uid
+      ` : ''}
+      ${joinNeeded.has('lesson') ? /*sql*/`
+      LEFT JOIN lesson ls  ON d.lessonId = ls.uid
+      ` : ''}
+      ${joinNeeded.has('quiz') ? /*sql*/`
+      LEFT JOIN quiz   q   ON q.cardId = c.uid
+      ` : ''}
+      ${where}
+      ${sort ? /*sql*/`
+      ORDER BY ${sort} ${direction} NULLS LAST
+      ` : 'ORDER BY c.date_created DESC'}
+      `).iterate()) {
+        if (isEnded) {
+          return
+        }
+
+        if (cardMediaStmt) {
+          row.media = cardMediaStmt.all({ cardId: row.uid }).map((r) => r.id)
+        }
+
+        if (cardRefStmt) {
+          row.ref = cardRefStmt.all({ cardId: row.uid }).map((r) => r.id)
+        }
+
+        if (cardTagStmt) {
+          row.tag = cardTagStmt.all({ cardId: row.uid }).map((r) => r.tag)
+        }
+
+        let result: QueryItemPartial | undefined
+
+        if (filterFunction(row)) {
+          if (i >= offset && (limit ? count < limit : true)) {
+            result = this.normalizeRow(row)
+
+            if (fields) {
+              const tmp = result
+              result = {}
+              for (const f of fields) {
+                result = dotProp.set(result, f, dotProp.get(tmp, f))
+              }
             }
+
+            count++
           }
 
-          return validate('schema.json#/definitions/QueryItemPartial', r)
-        }),
-      count: allData.length
-    }
+          i++
+        }
+
+        obs.next({
+          i,
+          result,
+          cancelFunction
+        })
+      }
+
+      obs.complete()
+    })
   }
 
   insertCardQuiz (...entries: InsertCardQuizItem[]) {
@@ -330,10 +525,10 @@ export class DbSqlite {
           uid,
           key,
           markdown: el.markdown,
-          dict_data: this.types.dict.toSql(el.data),
-          set_tag: this.types.set.toSql(el.tag),
-          set_ref: this.types.set.toSql(el.ref),
-          set_media: this.types.set.toSql(el.media)
+          dict_data: this.types.dict.toSql(el.data)
+          // set_tag: this.types.set.toSql(el.tag),
+          // set_ref: this.types.set.toSql(el.ref),
+          // set_media: this.types.set.toSql(el.media)
         })
 
         this.sql.prepare(/*sql*/`
@@ -346,6 +541,33 @@ export class DbSqlite {
         SELECT [uid] cardId FROM [card]
         WHERE [key] = @key
         `).get({ key })
+
+        if (el.tag) {
+          const stmt = this.sql.prepare(/*sql*/`
+          INSERT INTO card_tag (cardId, tag)
+          VALUES (@cardId, @tag)
+          ON CONFLICT DO NOTHING
+          `)
+          el.tag.map((tag) => stmt.run({ cardId, tag }))
+        }
+
+        if (el.media) {
+          const stmt = this.sql.prepare(/*sql*/`
+          INSERT INTO card_media (cardId, mediaId)
+          VALUES (@cardId, @id)
+          ON CONFLICT DO NOTHING
+          `)
+          el.media.map((id) => stmt.run({ cardId, id }))
+        }
+
+        if (el.ref) {
+          const stmt = this.sql.prepare(/*sql*/`
+          INSERT INTO card_ref (cardId, refId)
+          VALUES (@cardId, @id)
+          ON CONFLICT DO NOTHING
+          `)
+          el.ref.map((id) => stmt.run({ cardId, id }))
+        }
 
         if ([el.srsLevel, el.nextReview, el.stat].every((t) => typeof t !== 'undefined')) {
           const quizItem = removeNull({
@@ -422,26 +644,18 @@ export class DbSqlite {
         `).run(deckItem)
 
         if (el.cardIds) {
-          const { deckId, set_cardId } = this.sql.prepare(/*sql*/`
-          SELECT [uid] deckId, set_cardId FROM deck
+          const { deckId } = this.sql.prepare(/*sql*/`
+          SELECT [uid] deckId FROM deck
           WHERE [name] = @name AND lessonId = @lessonId
           `).get({ name: el.deck, lessonId })
 
-          const existingCardIds = new Set(this.types.set.toNative(set_cardId))
-          const newCardIds = el.cardIds || []
+          const stmt = this.sql.prepare(/*sql*/`
+          INSERT INTO deck_card (deckId, cardId)
+          VALUES (@deckId, @cardId)
+          ON CONFLICT DO NOTHING
+          `)
 
-          if (newCardIds.some((cid) => existingCardIds.has(cid))) {
-            newCardIds.map((cid) => existingCardIds.add(cid))
-
-            this.sql.prepare(/*sql*/`
-            UPDATE deck
-            SET set_cardId = ?
-            WHERE [uid] = ?
-            `).run([
-              this.types.set.toSql(Array.from(existingCardIds)),
-              deckId
-            ])
-          }
+          el.cardIds.map((cardId) => stmt.run({ deckId, cardId }))
         }
 
         idsMap.set(lessonId, el)
@@ -482,50 +696,58 @@ export class DbSqlite {
       obs.next({
         message: 'Querying'
       })
-      const rCard = this.query(q, {
+      this.query(q, {
         fields: ['uid', 'ref', 'media', 'deck', 'lesson']
-      })
-      rCard.result.map(({ uid, ref, media, deck, lesson }) => {
-        if (uid) {
-          uids.add(uid)
-        }
-        if (ref) {
-          ref.map((r) => uids.add(r))
-        }
-        if (media) {
-          media.map((r) => uids.add(r))
-        }
-        this.sql.prepare(/*sql*/`
-        SELECT q.uid quizId
-        FROM [card] c
-        JOIN quiz q ON q.cardId = c.uid
-        WHERE cardId = @cardId
-        `).all({ cardId: uid }).map(({ quizId }) => {
-          uids.add(quizId)
-        })
+      }).subscribe(
+        ({ result }) => {
+          if (result) {
+            const { uid, ref, media, deck, lesson } = result
 
-        this.sql.prepare(/*sql*/`
-        SELECT d.uid deckId, ls.uid lessonId
-        FROM deck d
-        JOIN lesson ls ON d.lessonId = ls.uid
-        WHERE ls.name = @lesson AND d.name = @deck
-        `).all({ lesson, deck }).map(({ deckId, lessonId }) => {
-          uids.add(deckId)
-          uids.add(lessonId)
-        })
-      })
+            if (uid) {
+              uids.add(uid)
+            }
+            if (ref) {
+              ref.map((r) => uids.add(r))
+            }
+            if (media) {
+              media.map((r) => uids.add(r))
+            }
+            this.sql.prepare(/*sql*/`
+            SELECT q.uid quizId
+            FROM [card] c
+            JOIN quiz q ON q.cardId = c.uid
+            WHERE cardId = @cardId
+            `).all({ cardId: uid }).map(({ quizId }) => {
+              uids.add(quizId)
+            })
 
-      obs.next({
-        message: 'Creating destination database'
-      })
-      const dstDb = new DbSqlite(filename)
+            this.sql.prepare(/*sql*/`
+            SELECT d.uid deckId, ls.uid lessonId
+            FROM deck d
+            JOIN lesson ls ON d.lessonId = ls.uid
+            WHERE ls.name = @lesson AND d.name = @deck
+            `).all({ lesson, deck }).map(({ deckId, lessonId }) => {
+              uids.add(deckId)
+              uids.add(lessonId)
+            })
+          }
+        },
+        obs.error,
+        () => {
+          obs.next({
+            message: 'Creating destination database'
+          })
 
-      DbSqlite.replicate(this, dstDb, Array.from(uids))
-        .subscribe(
-          obs.next,
-          obs.error,
-          obs.complete
-        )
+          const dstDb = new DbSqlite(filename)
+
+          DbSqlite.replicate(this, dstDb, Array.from(uids))
+            .subscribe(
+              obs.next,
+              obs.error,
+              obs.complete
+            )
+        }
+      )
     })
   }
 
@@ -775,7 +997,7 @@ export class DbSqlite {
   update (keys: string[], set: UpdateItem) {
     validate('schema.json#/definitions/NonEmptyArray', keys)
     const {
-      key, markdown, data, tag, ref, media,
+      key: newKey, markdown, data, tag, ref, media,
       srsLevel, nextReview, stat,
       lessonKey, lesson, lessonDescription,
       deck
@@ -786,60 +1008,84 @@ export class DbSqlite {
 
       const cardIds: string[] = []
 
-      if ([data, tag, ref, media].some((el) => typeof el !== 'undefined')) {
-        keys.map((k) => {
+      if ([
+        data, tag, ref, media,
+        lessonKey, lesson, lessonDescription,
+        deck
+      ].some((el) => typeof el !== 'undefined')) {
+        keys.map((oldKey) => {
           let newData = {
-            dict_data: data as any,
-            set_tag: tag as any,
-            set_ref: ref as any,
-            set_media: media as any
+            dict_data: data as any
           }
 
-          const { uid, dict_data, set_tag, set_ref, set_media } = this.sql.prepare(/*sql*/`
-          SELECT [uid], ${Object.keys(newData).map(safeColumnName)} FROM [card]
+          const { cardId, dict_data } = this.sql.prepare(/*sql*/`
+          SELECT [uid] cardId, ${Object.keys(newData).map(safeColumnName)} FROM [card]
           WHERE [key] = @key
-          `).get({ key: k })
+          `).get({ key: oldKey })
 
-          cardIds.push(uid)
+          cardIds.push(cardId)
+
+          if (tag) {
+            this.sql.prepare(/*sql*/`
+            DELETE FROM card_tag
+            WHERE cardId = @cardId
+            `).run({ cardId })
+
+            const stmt = this.sql.prepare(/*sql*/`
+            INSERT INTO card_tag (cardId, tag)
+            VALUES (@cardId, @t)
+            `)
+
+            tag.map((t) => t ? stmt.run({ cardId, t }) : null)
+          }
+
+          if (ref) {
+            this.sql.prepare(/*sql*/`
+            DELETE FROM card_ref
+            WHERE cardId = @cardId
+            `).run({ cardId })
+
+            const stmt = this.sql.prepare(/*sql*/`
+            INSERT INTO card_ref (cardId, refId)
+            VALUES (@cardId, @id)
+            `)
+
+            ref.map((id) => id ? stmt.run({ cardId, id }) : null)
+          }
+
+          if (media) {
+            this.sql.prepare(/*sql*/`
+            DELETE FROM card_media
+            WHERE cardId = @cardId
+            `).run({ cardId })
+
+            const stmt = this.sql.prepare(/*sql*/`
+            INSERT INTO card_media (cardId, mediaId)
+            VALUES (@cardId, @id)
+            `)
+
+            media.map((id) => id ? stmt.run({ cardId, id }) : null)
+          }
 
           let newDictData: Record<string, any> | undefined
           if (data) {
             newDictData = deepMerge(this.types.dict.toNative(dict_data) || {}, data)
           }
 
-          let newSetTag: Set<string> | undefined
-          if (tag) {
-            newSetTag = new Set(this.types.set.toNative(set_tag) || [])
-            tag.map((t) => t ? newSetTag!.add(t) : null)
-          }
-
-          let newSetRef: Set<string> | undefined
-          if (ref) {
-            newSetRef = new Set(this.types.set.toNative(set_ref) || [])
-            ref.map((r) => r ? newSetRef!.add(r) : null)
-          }
-
-          let newSetMedia: Set<string> | undefined
-          if (media) {
-            newSetMedia = new Set(this.types.set.toNative(set_media) || [])
-            media.map((m) => m ? newSetMedia!.add(m) : null)
-          }
-
           newData = removeNull({
-            dict_data: this.types.dict.toSql(newDictData),
-            set_tag: this.types.set.toSql(newSetTag),
-            set_ref: this.types.set.toSql(newSetRef),
-            set_media: this.types.set.toSql(newSetMedia)
+            dict_data: this.types.dict.toSql(newDictData)
           })
 
-          this.sql.prepare(/*sql*/`
-          UPDATE [card]
-          SET ${Object.keys(newData).map((k) => `${safeColumnName(k)} = @${k}`)}
-          WHERE [uid] = @uid
-          `).run({
-            ...newData,
-            uid
-          })
+          if (Object.keys(newData).length) {
+            this.sql.prepare(/*sql*/`
+            UPDATE [card]
+            SET ${Object.keys(newData).map((k) => `${safeColumnName(k)} = @${k}`)}
+            WHERE [uid] = @cardId
+            `).run({
+              ...newData,
+              cardId
+            })
+          }
         })
       }
 
@@ -851,8 +1097,8 @@ export class DbSqlite {
         }
       }
 
-      if ([key, markdown].some((t) => typeof t !== 'undefined')) {
-        const update = { key, markdown }
+      if ([newKey, markdown].some((t) => typeof t !== 'undefined')) {
+        const update = { key: newKey, markdown }
 
         for (const ids of chunks(cardIds, 900)) {
           const params = Object.values(update) as any[]
@@ -935,37 +1181,29 @@ export class DbSqlite {
       }
 
       if (lessonId && deck) {
-        const d = this.sql.prepare(/*sql*/`
-        SELECT set_cardId FROM deck
-        WHERE lessonId = @lessonId AND [name] = @deck
-        `).get({ lessonId, deck })
+        const newDeck = removeNull({
+          uid: nanoid(),
+          name: deck,
+          lessonId
+        })
 
-        if (d) {
-          const setCardId = new Set(this.types.set.toNative(d.set_cardId))
-          keys.map((k) => setCardId.add(k))
+        this.sql.prepare(/*sql*/`
+        INSERT INTO deck (${Object.keys(newDeck).map(safeColumnName)})
+        VALUES (${Object.keys(newDeck).map((c) => `@${c}`)})
+        ON CONFLICT DO NOTHING
+        `).run(newDeck)
 
-          this.sql.prepare(/*sql*/`
-          UPDATE deck
-          SET set_cardId = @set_cardId
-          WHERE lessonId = @lessonId AND [name] = @deck
-          `).run({
-            set_cardId: this.types.set.toSql(setCardId),
-            lessonId,
-            deck
-          })
-        } else {
-          const newDeck = removeNull({
-            uid: nanoid(),
-            name: deck,
-            lessonId,
-            set_cardId: this.types.set.toSql(keys)
-          })
+        const { deckId } = this.sql.prepare(/*sql*/`
+        SELECT [uid] deckId FROM deck WHERE [name] = @deck AND lessonId = @lessonId
+        `).get({ deck, lessonId })
 
-          this.sql.prepare(/*sql*/`
-          INSERT INTO deck (${Object.keys(newDeck).map(safeColumnName)})
-          VALUES (${Object.keys(newDeck).map((c) => `@${c}`)})
-          `).run(newDeck)
-        }
+        const stmt = this.sql.prepare(/*sql*/`
+        INSERT INTO deck_card (deckId, cardId)
+        VALUES (@deckId, @cardId)
+        ON CONFLICT DO NOTHING
+        `)
+
+        cardIds.map((cardId) => stmt.run({ deckId, cardId }))
       }
 
       this.sql.pragma('read_uncommited=off;')
@@ -974,79 +1212,34 @@ export class DbSqlite {
 
   delete (...keys: string[]) {
     this.sql.transaction(() => {
-      const cardIds: string[] = []
-
       for (const ks of chunks(keys, 900)) {
         this.sql.prepare(/*sql*/`
-        SELECT [uid] FROM [card]
-        WHERE [key] IN (${Array(ks.length).fill('?')})
-        `).all(ks).map((r) => {
-          cardIds.push(r.uid)
-        })
-      }
-
-      const decks = this.sql.prepare(/*sql*/`
-      SELECT [uid], set_cardId FROM deck
-      `).all().map((d) => {
-        const setCardId = new Set(this.types.set.toNative(d.set_cardId))
-        cardIds.map((id) => setCardId.delete(id))
-
-        return {
-          uid: d.uid,
-          set_cardId: this.types.set.toSql(setCardId)
-        }
-      })
-
-      for (const ids of chunks(cardIds, 900)) {
-        this.sql.prepare(/*sql*/`
         DELETE FROM [card]
-        WHERE [uid] IN (${Array(ids.length).fill('?')})
-        `).run(ids)
-
-        this.sql.prepare(/*sql*/`
-        DELETE FROM quiz
-        WHERE cardId IN (${Array(ids.length).fill('?')})
-        `).run(ids)
-      }
-
-      for (const ds of decks.filter((d) => d.set_cardId)) {
-        this.sql.prepare(/*sql*/`
-        UPDATE deck
-        SET set_cardId = @set_cardId
-        WHERE [uid] = @uid
-        `).run(ds)
-      }
-
-      for (const ids of chunks(
-        decks.filter((d) => !d.set_cardId).map((d) => d.uid),
-        900
-      )) {
-        this.sql.prepare(/*sql*/`
-        DELETE FROM deck
-        WHERE [uid] IN (${Array(ids.length).fill('?')})
-        `).run(ids)
+        WHERE [key] IN (${Array(ks.length).fill('?')})
+        `).run(ks)
       }
     })
   }
 
-  renderMin (key: string) {
-    const r = this.sql.prepare(/*sql*/`
-    SELECT [key], dict_data, markdown, set_ref, set_media
-    FROM [card]
-    WHERE [key] = ?
-    `).get([key])
-
-    if (r) {
-      return validate<RenderItemMin>('schema.json#/definitions/RenderItemMin', removeNull({
-        key: r.key,
-        data: this.types.dict.toNative(r.dict_data),
-        ref: this.types.set.toNative(r.set_ref),
-        media: this.types.set.toNative(r.set_media),
-        markdown: r.markdown
-      }))
-    }
-
-    return null
+  async renderMin (key: string) {
+    return new Promise<RenderItemMin | null>((resolve, reject) => {
+      this.query({ key }, {
+        limit: 1,
+        fields: ['key', 'data', 'ref', 'media', 'markdown']
+      }).subscribe(
+        ({ result: r, cancelFunction }) => {
+          if (r) {
+            cancelFunction()
+            resolve(validate('schema.json#/definitions/RenderItemMin', {
+              key: r.key!,
+              ...r
+            }))
+          }
+        },
+        reject,
+        () => resolve(null)
+      )
+    })
   }
 
   markRight = this._updateSrsLevel(+1)
@@ -1071,7 +1264,7 @@ export class DbSqlite {
           maxWrong: 0
         }
       }
-      let nextReview = +repeatReview()
+      let nextReview = repeatReview().toISOString()
 
       if (d) {
         srsLevel = d.srsLevel
@@ -1107,7 +1300,7 @@ export class DbSqlite {
       }
 
       if (dSrsLevel > 0) {
-        nextReview = +getNextReview(srsLevel)
+        nextReview = getNextReview(srsLevel).toISOString()
       }
 
       if (!d) {
@@ -1131,37 +1324,42 @@ export class DbSqlite {
         this.sql.prepare(/*sql*/`
         UPDATE quiz
         SET
-          dict_stat = ?,
-          date_nextReview = ?,
-          srsLevel = ?
-        WHERE [uid] = ?
-        `).run([
-          this.types.dict.toSql(stat),
+          dict_stat = @stat,
+          date_nextReview = @nextReview,
+          srsLevel = @srsLevel
+        WHERE [uid] = @quizId
+        `).run({
+          stat: this.types.dict.toSql(stat),
           nextReview,
           srsLevel,
-          d.uid
-        ])
+          deckId: d.uid
+        })
       }
     }
   }
 
-  insertMedia (file: UploadedFile, key?: string) {
+  insertMedia (file: UploadedFile) {
     const uid = nanoid()
-    key = key || uid
+    const newMedia = {
+      uid,
+      name: file.name,
+      mimetype: file.mimetype,
+      data: file.data
+    }
 
     this.sql.prepare(/*sql*/`
-    INSERT INTO media ([uid], [key], [name], mimetype, [data])
-    VALUES (?, ?, ?, ?, ?)
-    `).run([uid, key, file.name, file.mimetype, file.data])
+    INSERT INTO media (${Object.keys(newMedia).map(safeColumnName)})
+    VALUES (${Object.keys(newMedia).map((k) => `@${k}`)})
+    `).run(newMedia)
 
-    return key
+    return uid
   }
 
-  getMedia (key: string) {
+  getMedia (uid: string) {
     const m = this.sql.prepare(/*sql*/`
     SELECT [name], mimetype, [data], dict_meta FROM media
-    WHERE [key] = ?
-    `).get([key])
+    WHERE [uid] = @uid
+    `).get({ uid })
 
     if (m) {
       m.meta = this.types.dict.toNative(m.dict_meta)
@@ -1189,36 +1387,24 @@ export class DbSqlite {
   }
 
   allTag () {
-    return Array.from<string>(this.sql.prepare(/*sql*/`
-    SELECT set_tag FROM [card]
-    `).all().reduce((prev, r) => {
-      (this.types.set.toNative(r.set_tag) || []).map((t) => prev.add(t))
-      return prev
-    }, new Set())).sort()
+    return this.sql.prepare(/*sql*/`
+    SELECT DISTINCT tag FROM card_tag
+    `).all().map((ct) => ct.tag)
   }
 
   addTag (keys: string[], tags: string[]) {
     this.sql.transaction(() => {
-      for (const k of keys) {
-        const c = this.sql.prepare(/*sql*/`
-        SELECT set_tag FROM [card] WHERE [key] = ?
-        `).get([k])
+      const stmt = this.sql.prepare(/*sql*/`
+      INSERT INTO card_tag (cardId, tag)
+      VALUES ((
+        SELECT [uid] FROM [card] WHERE [key] = @key
+      ), @tag)
+      ON CONFLICT DO NOTHING
+      `)
 
-        if (c) {
-          const setTag = new Set(this.types.set.toNative(c.set_tag))
-          const originalLength = setTag.size
-          tags.map((t) => setTag.add(t))
-
-          if (setTag.size !== originalLength) {
-            this.sql.prepare(/*sql*/`
-            UPDATE [card]
-            SET set_tag = ?
-            WHERE [key] = ?
-            `).run([
-              this.types.set.toSql(setTag),
-              k
-            ])
-          }
+      for (const key of keys) {
+        for (const tag of tags) {
+          stmt.run({ key, tag })
         }
       }
     })()
@@ -1226,24 +1412,13 @@ export class DbSqlite {
 
   removeTag (keys: string[], tags: string[]) {
     this.sql.transaction(() => {
-      for (const k of keys) {
-        const c = this.sql.prepare(/*sql*/`
-        SELECT set_tag FROM [card] WHERE [key] = ?
-        `).get([k])
-
-        if (c) {
-          const setTag = new Set(this.types.set.toNative(c.set_tag))
-          if (tags.map((t) => setTag.delete(t)).some((r) => r)) {
-            this.sql.prepare(/*sql*/`
-            UPDATE [card]
-            SET set_tag = ?
-            WHERE [key] = ?
-            `).run([
-              this.types.set.toSql(setTag),
-              k
-            ])
-          }
-        }
+      for (const ks of chunks(keys, 900)) {
+        this.sql.prepare(/*sql*/`
+        DELETE FROM card_tag
+        WHERE cardId IN (
+          SELECT [uid] FROM [card] WHERE [key] IN (${Array(ks.length).fill('?')})
+        ) AND tag IN (${Array(tags.length).fill('?')})
+        `).run([...ks, ...tags])
       }
     })()
   }

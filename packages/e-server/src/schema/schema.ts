@@ -15,13 +15,18 @@ export type NonNegInt = number
  */
 export type Timestamp = string
 /**
+ * @format date-time
+ * @TJS-type string
+ */
+export type TimestampOrDate = string | Date
+/**
  * @pattern ^[A-Za-z0-9_-]+$
  */
 export type Key = string
 /**
  * @additionalProperties true
  */
-export type Datamap = Record<string, any>
+export type DataMap = Record<string, any>
 
 export interface DbStat {
   streak: {
@@ -38,7 +43,7 @@ export interface QueryItem {
   uid: string
   key: Key
   markdown?: string
-  data?: Datamap
+  data?: DataMap
   tag?: string[]
   ref?: Key[]
   media?: Key[]
@@ -56,7 +61,7 @@ export type OnConflict = 'ignore' | 'overwrite' | undefined
 export interface CardQuizItem {
   key: Key
   markdown?: string
-  data?: Datamap
+  data?: DataMap
   tag?: string[]
   ref?: Key[]
   media?: Key[]
@@ -88,9 +93,64 @@ export type InsertItem = CardQuizItem & LessonDeckItem & {
 export type UpdateItem = DeepPartial<CardQuizItem & LessonDeckItem>
 
 export interface RenderItemMin {
-  key: string
-  data?: Datamap
-  ref?: string[]
+  key: Key
+  data?: DataMap
+  ref?: Key[]
   media?: string[]
   markdown?: string
+}
+
+export interface DbCard {
+  uid: string
+  created: TimestampOrDate
+  updated?: TimestampOrDate
+  sync?: TimestampOrDate
+  key: Key
+  markdown?: string
+  data?: DataMap
+  media: string[]
+  ref: Key[]
+  tag: string[]
+}
+
+export interface DbDeck {
+  uid: string
+  created: TimestampOrDate
+  updated?: TimestampOrDate
+  sync?: TimestampOrDate
+  name: string
+  lessonId: string
+  card: Key[]
+}
+
+export interface DbMedia {
+  uid: string
+  created: TimestampOrDate
+  updated?: TimestampOrDate
+  sync?: TimestampOrDate
+  name: string
+  mimetype?: string
+  data?: Buffer
+  meta?: Record<string, any>
+}
+
+export interface DbQuiz {
+  uid: string
+  created: TimestampOrDate
+  updated?: TimestampOrDate
+  sync?: TimestampOrDate
+  cardId?: string
+  srsLevel: NonNegInt
+  nextReview: Timestamp
+  stat: DbStat
+}
+
+export interface DbLesson {
+  uid: string
+  created: TimestampOrDate
+  updated?: TimestampOrDate
+  sync?: TimestampOrDate
+  key: Key
+  name: string
+  description?: string
 }
