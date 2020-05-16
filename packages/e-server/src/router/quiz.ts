@@ -1,10 +1,12 @@
 import { FastifyInstance } from 'fastify'
 import escapeRegExp from 'escape-string-regexp'
+import $RefParser from '@apidevtools/json-schema-ref-parser'
 
 import { db } from '../config'
-import { shuffle } from '../db/util'
+import { shuffle } from '../util'
+import schema from '../schema/schema.json'
 
-const router = (f: FastifyInstance, _: any, next: () => void) => {
+const router = async (f: FastifyInstance, _: any, next: () => void) => {
   f.get('/lessons', {
     schema: {
       summary: 'List all lessons',
@@ -29,7 +31,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       }
     }
   }, async () => {
-    const entries = db.allLessons()
+    const entries = db.allLesson()
     return {
       entries
     }
@@ -67,8 +69,8 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
 
     $and.push({
       $or: [
-        { 'lesson.deck': deck },
-        { 'lesson.deck': { $regex: new RegExp(`^${escapeRegExp(deck)}/`) } }
+        { deck },
+        { deck: { $regex: new RegExp(`^${escapeRegExp(deck)}/`) } }
       ]
     })
 
@@ -81,12 +83,13 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     })
 
     $and.push({
-      'lesson.name': lesson,
-      'lesson.deck': { $exists: true }
+      lesson
     })
 
     return {
-      keys: shuffle(db.find({ $and }).map((c) => c.key))
+      keys: shuffle(db.query({ $and }, {
+        fields: ['key']
+      }).result.map((c) => c.key))
     }
   })
 
@@ -121,20 +124,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     const { q, lesson } = req.body
     const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    const rs = db.find({
+    const rs = db.query({
       $and: [
         cond,
         {
-          'lesson.name': lesson
+          lesson: lesson
         }
       ]
-    }).map((r) => {
-      if (r.lesson) {
-        r.deck = r.lesson.map((ls) => ls.deck)[0]
-      }
-
-      return r
-    })
+    }, {
+      fields: ['deck', 'stat', 'srsLevel', 'nextReview']
+    }).result
 
     const deckStat: Record<string, {
       due: number
@@ -170,11 +169,11 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     }))
   })
 
-  f.post('/info', {
+  f.get('/', {
     schema: {
       summary: 'Render a quiz item',
       tags: ['quiz'],
-      body: {
+      querystring: {
         type: 'object',
         required: ['key'],
         properties: {
@@ -182,18 +181,12 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         }
       },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            data: {},
-            ref: { type: 'array', items: { type: 'string' } },
-            markdown: { type: 'string' }
-          }
-        }
+        200: (await $RefParser.dereference(schema as any)).definitions!.RenderItemMin
       }
+    },
+    handler: async (req) => {
+      return db.renderMin(req.query.key)
     }
-  }, async (req) => {
-    return db.renderMin(req.body.key)
   })
 
   f.patch('/right', {
@@ -201,14 +194,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       summary: 'Mark as right',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' }
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' }
+        }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     db.markRight(req.query.key)
-    return {
-      error: null
-    }
+    reply.status(201).send()
   })
 
   f.patch('/wrong', {
@@ -216,14 +211,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       summary: 'Mark as wrong',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' }
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' }
+        }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     db.markWrong(req.query.key)
-    return {
-      error: null
-    }
+    reply.status(201).send()
   })
 
   f.patch('/repeat', {
@@ -231,14 +228,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       summary: 'Mark for repetition',
       tags: ['quiz'],
       querystring: {
-        key: { type: 'string' }
+        type: 'object',
+        required: ['key'],
+        properties: {
+          key: { type: 'string' }
+        }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     db.markRepeat(req.query.key)
-    return {
-      error: null
-    }
+    reply.status(201).send()
   })
 
   next()

@@ -5,16 +5,16 @@ import path from 'path'
 import ON_DEATH from 'death'
 import rimraf from 'rimraf'
 
-import { Db } from './db/pouch'
+import { DbSqlite } from './db/sqlite'
 
 export const PORT = parseInt(process.env.PORT || '12345')
 
-export const userData = process.env.USER_DATA_PATH || path.join(__dirname, '../storage')
+export const userData = process.env.USER_DATA_PATH || path.join(__dirname, '..')
 
 export const tmpPath = path.join(userData, 'tmp')
 fs.mkdirSync(tmpPath, { recursive: true })
 
-export const db = new Db(path.join(userData, 'pouch'))
+export const db = new DbSqlite(path.join(userData, 'user.db'))
 
 export const g: {
   userId?: string

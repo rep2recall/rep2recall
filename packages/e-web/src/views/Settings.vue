@@ -16,29 +16,13 @@
               b-icon(icon="upload" size="is-large")
             p Drop your files (*.r2r, *.apkg, *.anki2) here or click to upload
   div
-    h4.title.is-4 API Key
-  .u-flex.u-row.u-m-2em
-    div(style="margin-right: 1em;")
-      code(style="word-break: break-all;") {{apiKey}}
-    .u-grow
-    button.button.is-danger(@click="resetApiKey") Reset
-  p
-    span Please login with API key using
-    span &nbsp;
-    a(
-      href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication#Basic_authentication_scheme"
-      alt="MDN Basic Authentication"
-    ) Basic Authentication
-    span &nbsp;
-    code your@email.com:api_key
-    span &nbsp;
-    span with base64 encoding.
+    h4.title.is-4 Accessing the app programmatically (API)
   p
     span The API documentation is at
     span &nbsp;
     a(:href="apiUrl" target="_blank" alt="API URL") {{apiUrl}}
     span .
-  b-modal(:active="dropFile" :can-cancel="false")
+  b-modal(:active="!!dropFile" :can-cancel="false")
     .card(v-if="dropFile" v-for="d, i in [dropFile]" :key="i")
       .card-content
         b-field(:label="d.name")
@@ -62,11 +46,6 @@ export default class Settings extends Vue {
     return '/api/doc'
   }
 
-  async created () {
-    const api = await this.getApi()
-    this.apiKey = (await api.get('/api/user/')).data.secret
-  }
-
   async getApi (silent?: boolean) {
     return await this.$store.dispatch('getApi', silent) as AxiosInstance
   }
@@ -76,7 +55,7 @@ export default class Settings extends Vue {
     if (this.dropFile) {
       const f = this.dropFile
 
-      this.$set(f, 'msg', { text: '', type: '' })
+      this.$set(f, 'msg', { text: '', type: '', progress: null })
 
       const formData = new FormData()
       formData.append('file', f)
@@ -91,27 +70,29 @@ export default class Settings extends Vue {
       })
       const oldId = r.data.id
 
-      const ws = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/api/file/process`)
+      const ws = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/api/file/${oldId}`)
       ws.onopen = () => {
         f.msg.text = 'Processing...'
         f.msg.type = 'is-success'
+        f.msg.progress = null
         this.$forceUpdate()
 
         const [,, type] = /^(.+)\.([^.]+)$/.exec(f.name) || ['', f.name, '']
         ws.send(JSON.stringify({ id: oldId, filename: f.name, type }))
       }
       ws.onmessage = (evt) => {
-        const { id, status, error } = JSON.parse(evt.data)
+        const { id, message, status, percent } = JSON.parse(evt.data)
 
         if (id === oldId) {
-          if (error) {
+          if (status === 'error') {
             this.$buefy.dialog.alert({
-              message: error
+              message
             })
           } else {
-            if (status !== 'done') {
-              f.msg.text = `Processing: ${status}`
+            if (status !== 'complete') {
+              f.msg.text = `Processing: ${message}`
               f.msg.type = 'is-success'
+              f.msg.progress = percent
               this.$forceUpdate()
             } else {
               this.dropFile = null
@@ -120,18 +101,6 @@ export default class Settings extends Vue {
         }
       }
     }
-  }
-
-  resetApiKey () {
-    this.$buefy.dialog.confirm({
-      message: 'Are you sure you want to reset the API key? This cannot be undone.',
-      type: 'is-danger',
-      hasIcon: true,
-      onConfirm: async () => {
-        const api = await this.getApi()
-        this.apiKey = (await api.patch('/api/user/secret')).data.secret
-      }
-    })
   }
 }
 </script>

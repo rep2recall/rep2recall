@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 
 export function generateSecret () {
   return crypto.randomBytes(64).toString('base64')
@@ -7,7 +7,7 @@ export function generateSecret () {
 export function slugify (s: string) {
   return s
     .replace(/-/g, '$')
-    .replace(/ /g, '_')
+    .replace(/[^A-Z0-9_$]/gi, '_')
 }
 
 /**
@@ -150,3 +150,7 @@ function getType (m: any): number {
 
   return 3 // Assume number
 }
+
+export type DeepPartial<T> = T extends Function
+  ? T
+  : (T extends Record<string, any> ? { [P in keyof T]?: DeepPartial<T[P]>; } : T)

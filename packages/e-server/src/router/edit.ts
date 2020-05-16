@@ -1,14 +1,15 @@
 import { FastifyInstance } from 'fastify'
+import $RefParser from '@apidevtools/json-schema-ref-parser'
 
 import { db } from '../config'
-import { removeNull, sorter } from '../db/util'
+import schema from '../schema/schema.json'
 
-const router = (f: FastifyInstance, _: any, next: () => void) => {
-  f.post('/info', {
+const router = async (f: FastifyInstance, _: any, next: () => void) => {
+  f.get('/', {
     schema: {
       tags: ['edit'],
       summary: 'Get info of an item',
-      body: {
+      querystring: {
         type: 'object',
         required: ['key'],
         properties: {
@@ -42,11 +43,11 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
           }
         }
       }
+    },
+    handler: async (req) => {
+      const { key } = req.query
+      return db.get(key) || {}
     }
-  }, async (req) => {
-    const { key } = req.body
-    const r = db.find('', `AND [key] = '${key}' LIMIT 1`)
-    return removeNull(r[0] || {})
   })
 
   f.post('/', {
@@ -69,34 +70,11 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         200: {
           type: 'object',
           properties: {
-            data: {
+            result: {
               type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  key: { type: 'string' },
-                  data: {},
-                  ref: { type: 'array', items: { type: 'string' } },
-                  markdown: { type: 'string' },
-                  tag: { type: 'array', items: { type: 'string' } },
-                  nextReview: { type: 'string', format: 'date-time' },
-                  srsLevel: { type: 'integer' },
-                  stat: {},
-                  lesson: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        key: { type: 'string' },
-                        name: { type: 'string' },
-                        deck: { type: 'string' }
-                      }
-                    }
-                  }
-                }
-              }
+              items: (await $RefParser.dereference(schema as any)).definitions!.QueryItemPartial
             },
-            count: { type: ['integer', 'null'] }
+            count: { type: 'integer' }
           }
         }
       }
@@ -112,28 +90,16 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       q = { $and: [q, cond] }
     }
 
-    const allData = db.find(q)
-
-    return {
-      data: removeNull(allData.sort(sorter(
-        sort.map((s: string) => s[0] === '-' ? {
-          key: s.substr(1),
-          type: -1
-        } : {
-          key: s,
-          type: 1
-        }),
-        true
-      ))).slice(offset, limit ? offset + limit : undefined),
-      count: allData.length
-    }
+    return db.query(q, { offset, limit, sort })
   })
 
   f.put('/', {
     schema: {
       summary: 'Create item',
       tags: ['edit'],
-      body: dbSchema,
+      body: {
+        $ref: 'schema.json#/definitions/InsertItem'
+      },
       response: {
         200: {
           type: 'object',
@@ -144,10 +110,10 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    const keys = db.insert(req.body)
+    const keyMap = db.insert(req.body)
 
     return {
-      key: keys[0]
+      key: Array.from(keyMap)[0][1]
     }
   })
 
@@ -159,7 +125,12 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         type: 'object',
         required: ['entries'],
         properties: {
-          entries: { type: 'array', items: dbSchema }
+          entries: {
+            type: 'array',
+            items: {
+              $ref: 'schema.json#/definitions/InsertItem'
+            }
+          }
         }
       },
       response: {
@@ -187,18 +158,15 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         type: 'object',
         required: ['keys', 'set'],
         properties: {
-          keys: { type: 'array', items: { type: 'string' } },
-          set: dbSchema
+          keys: { type: 'array', items: { type: 'string' }, minLength: 1 },
+          set: { $ref: 'schema.json#/definitions/UpdateItem' }
         }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     const { keys, set } = req.body
     db.update(keys, set)
-
-    return {
-      error: null
-    }
+    reply.status(201).send()
   })
 
   f.delete('/', {
@@ -213,19 +181,23 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     const { keys } = req.body
     db.delete(...keys)
-
-    return {
-      error: null
-    }
+    reply.status(201).send()
   })
 
   f.get('/deck', {
     schema: {
       summary: 'Get decks',
       tags: ['edit'],
+      querystring: {
+        type: 'object',
+        required: ['lesson'],
+        properties: {
+          lesson: { type: 'string' }
+        }
+      },
       response: {
         200: {
           type: 'object',
@@ -234,10 +206,11 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
           }
         }
       }
-    }
-  }, async () => {
-    return {
-      decks: db.allDecks()
+    },
+    handler: async (req) => {
+      return {
+        decks: db.allDeck(req.query.lesson)
+      }
     }
   })
 
@@ -256,7 +229,7 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
     }
   }, async () => {
     return {
-      tags: db.allTags()
+      tags: db.allTag()
     }
   })
 
@@ -273,13 +246,10 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     const { keys, tags } = req.body
-    db.addTags(keys, tags)
-
-    return {
-      error: null
-    }
+    db.addTag(keys, tags)
+    reply.status(201).send()
   })
 
   f.patch('/tag/remove', {
@@ -295,13 +265,10 @@ const router = (f: FastifyInstance, _: any, next: () => void) => {
         }
       }
     }
-  }, async (req) => {
+  }, async (req, reply) => {
     const { keys, tags } = req.body
-    db.removeTags(keys, tags)
-
-    return {
-      error: null
-    }
+    db.removeTag(keys, tags)
+    reply.status(201).send()
   })
 
   next()

@@ -6,10 +6,10 @@ import ws from 'fastify-websocket'
 import fileUpload from 'fastify-file-upload'
 import { nanoid } from 'nanoid'
 import { UploadedFile } from 'express-fileupload'
-import { spawn, Worker } from 'threads'
+import AdmZip from 'adm-zip'
 import pino from 'pino'
 
-import { tmpPath } from '../config'
+import { tmpPath, db } from '../config'
 
 export default (f: FastifyInstance, _: any, next: () => void) => {
   f.register(fileUpload)
@@ -56,13 +56,14 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       tags: ['file'],
       summary: 'Process an archive'
     }
-  }, (conn, req, params = {}) => {
+  }, (conn, _, params = {}) => {
     const logger = pino({
       prettyPrint: true
     })
+    const id = params.id as string
 
     conn.socket.on('message', async (msg: string) => {
-      const { id, type, filename } = JSON.parse(msg)
+      const { type, filename } = JSON.parse(msg)
 
       const isNew = !socketMap.has(id)
       socketMap.set(id, (json: any) => {
@@ -70,31 +71,58 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       })
 
       if (isNew) {
-        const worker = (await spawn(new Worker('../worker/process-upload.js')))
-        logger.info(`Start processing: ${filename}`)
-
-        worker.observable()
-          .subscribe(
-            (status) => {
-              socketMap.get(id)!({ id, status })
-              logger.info(`Processing status: ${filename}: ${status}`)
-            },
-            (err) => {
-              socketMap.get(id)!({ id, error: err.message })
-              logger.error(`Processing error: ${filename}: ${err.message}`)
-            }
-          )
-
         try {
-          await worker.run({ id, type, filename })
+          const sendStatus = ({ message, percent }: { message: string; percent?: number }) => {
+            socketMap.get(id)!({ id, message, percent })
+            logger.info(`Processing status: ${filename}: ${message}${percent ? ` : ${percent.toFixed(2)}%` : ''}`)
+          }
+          const sendError = (err: Error) => {
+            socketMap.get(id)!({ id, status: 'error', message: err.message })
+            logger.error(`Processing error: ${filename}: ${err.message}`)
+            console.error(err)
+          }
+          const sendComplete = () => {
+            socketMap.get(id)!({ id, status: 'complete' })
+            logger.info(`Finished processing: ${filename}`)
+          }
+
+          logger.info(`Start processing: ${filename}`)
+
+          if (type === 'apkg') {
+            const zip = new AdmZip(path.join(tmpPath, id))
+            sendStatus({ message: 'extracting APKG' })
+            zip.extractAllTo(path.join(tmpPath, id + '-folder'))
+
+            db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), {
+              originalFilename: filename
+            })
+              .subscribe(
+                sendStatus,
+                sendError,
+                sendComplete
+              )
+          } else if (type === 'anki2') {
+            db.importAnki2(path.join(tmpPath, id), {
+              originalFilename: filename
+            })
+              .subscribe(
+                sendStatus,
+                sendError,
+                sendComplete
+              )
+          } else {
+            db.import(path.join(tmpPath, id))
+              .subscribe(
+                sendStatus,
+                sendError,
+                sendComplete
+              )
+          }
         } catch (err) {
           socketMap.get(id)!({ id, error: err.message })
           logger.error(`Processing error: ${filename}: ${err.message}`)
           console.error(err)
         }
-
-        socketMap.get(id)!({ id, status: 'done' })
-        logger.info(`Finished processing: ${filename}`)
       }
     })
   })

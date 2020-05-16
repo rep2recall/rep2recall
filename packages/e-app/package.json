@@ -50,7 +50,9 @@
     "http-pouchdb": "^4.2.0",
     "pouchdb-adapter-node-websql": "^7.0.0",
     "pouchdb-find": "^7.2.1",
-    "@patarapolw/qsearch": "^1.2.2"
+    "@patarapolw/qsearch": "^1.2.2",
+    "ajv": "^6.12.2",
+    "emittery": "^0.7.0"
   },
   "devDependencies": {
     "electron": "^8.2.5",
