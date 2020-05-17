@@ -9,7 +9,7 @@ import { DbSqlite } from './db/sqlite'
 
 export const PORT = parseInt(process.env.PORT || '12345')
 
-export const userData = process.env.USER_DATA_PATH || path.join(__dirname, '../data')
+export const userData = process.env.USER_DATA_PATH || path.join(__dirname, '../storage')
 
 export const tmpPath = path.join(userData, 'tmp')
 fs.mkdirSync(tmpPath, { recursive: true })

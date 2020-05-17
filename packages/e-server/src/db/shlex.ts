@@ -92,3 +92,56 @@ export function split (ss: string, options: ISplitOptions = defaultSplitOptions)
 
   return tokenStack.data.map((s) => s.trim()).filter((s) => s)
 }
+
+export interface ISplitOpToken {
+  prefix?: string
+  k?: string
+  op?: string
+  v: string
+}
+
+/**
+ *
+ * @param ss
+ *
+ * ```js
+ * > splitOp('a:b -c:"d e"')
+ * [{"k": "a", "op": ":", "prefix": undefined, "v": "b"}, {"k": "c", "op": ":", "prefix": "-", "v": "d e"}]
+ * ```
+ */
+export function splitOp (ss: string) {
+  const data = split(ss, Object.assign({ keepBrace: true }, defaultSplitOptions))
+  const output: ISplitOpToken[] = []
+
+  data.map((d) => {
+    // eslint-disable-next-line no-useless-escape
+    const m = /^(?<prefix>[\-+])?(?<k>[A-Z_\-]+)(?<op>[:><])(?<v>.+)$/i.exec(d)
+    if (m && m.groups) {
+      output.push({
+        prefix: m.groups.prefix,
+        k: m.groups.k,
+        op: m.groups.op,
+        v: removeBraces(m.groups.v)
+      })
+    } else {
+      output.push({
+        v: removeBraces(d)
+      })
+    }
+  })
+
+  return output
+}
+
+function removeBraces (ss: string) {
+  const m = /^(.)(.+)(.)$/.exec(ss)
+  if (m) {
+    for (const [op, cl] of defaultSplitOptions.brackets) {
+      if (op === m[1] && cl === m[3]) {
+        return m[2]
+      }
+    }
+  }
+
+  return ss
+}

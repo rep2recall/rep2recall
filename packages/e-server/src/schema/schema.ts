@@ -40,7 +40,6 @@ export interface DbStat {
 }
 
 export interface QueryItem {
-  uid: string
   key: Key
   markdown?: string
   data?: DataMap

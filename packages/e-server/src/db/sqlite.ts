@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 import { nanoid } from 'nanoid'
 import dotProp from 'dot-prop-immutable'
 import { Observable } from 'observable-fns'
@@ -11,19 +13,14 @@ import { repeatReview, srsMap, getNextReview } from './quiz'
 import { defaultDbStat } from './defaults'
 import { validate } from '../schema/ajv'
 import { QueryItem, QueryItemPartial, InsertCardQuizItem, InsertLessonDeckItem, InsertItem, OnConflict, UpdateItem, RenderItemMin, DbCard, DbDeck } from '../schema/schema'
-import { DbSync } from './abstract'
+import { QSearch, safeColumnName } from './sql-util'
 
 const ser = new Serialize()
-type CallbackType = () => void
 
-export class DbSqlite extends DbSync {
+export class DbSqlite {
   qSearch = new QSearch({
-    dialect: 'native',
+    anyOf: ['key', 'tag', 'lesson', 'deck'],
     schema: {
-      key: {},
-      tag: {},
-      lesson: {},
-      deck: {},
       nextReview: { type: 'date' },
       srsLevel: { type: 'number' },
       'stat.streak.right': { type: 'number' },
@@ -44,7 +41,7 @@ export class DbSqlite extends DbSync {
         return this.is(a) ? JSON.stringify(a) : null
       },
       toNative (s?: string) {
-        return s ? JSON.parse(s) : null
+        return s ? JSON.parse(s) : undefined
       }
     },
     date: {
@@ -52,7 +49,12 @@ export class DbSqlite extends DbSync {
         return a ? new Date(a).toISOString() : null
       },
       toNative (s?: number) {
-        return s ? new Date(s) : null
+        return s ? new Date(s) : undefined
+      }
+    },
+    set: {
+      toNative (s?: string) {
+        return s ? JSON.parse(s) : undefined
       }
     }
   }
@@ -63,7 +65,7 @@ export class DbSqlite extends DbSync {
     public filename: string,
     isOptimized?: boolean
   ) {
-    super()
+    // super()
     this.sql = sqlite3(filename)
 
     if (isOptimized) {
@@ -179,7 +181,6 @@ export class DbSqlite extends DbSync {
     END;
 
     CREATE INDEX IF NOT EXISTS deck_lessonId_idx ON deck(lessonId);
-    CREATE INDEX IF NOT EXISTS deck_set_cardId_idx ON deck(set_cardId);
 
     CREATE TABLE IF NOT EXISTS media (
       [uid]         TEXT PRIMARY KEY,
@@ -302,33 +303,33 @@ export class DbSqlite extends DbSync {
       value: DbCard
       type: 'card'
     }>((obs) => {
-      const mediaStmt = this.sql.prepare(/*sql*/`
-      SELECT mediaId id FROM card_media WHERE cardId = @cardId
-      `)
-      const refStmt = this.sql.prepare(/*sql*/`
-      SELECT refId id FROM card_ref WHERE cardId = @cardId
-      `)
-      const tagStmt = this.sql.prepare(/*sql*/`
-      SELECT tag FROM card_tag WHERE cardId = @cardId
-      `)
-
       const pushStack = (ids?: string[]) => {
         if (ids && ids.length === 0) {
           return
         }
 
         for (const row of this.sql.prepare(/*sql*/`
-        SELECT * FROM [card]
-        ${ids ? `WHERE [uid] IN (${Array(ids.length).fill('?')})` : ''}
+        SELECT
+          [uid],
+          date_created,
+          date_updated,
+          [key],
+          markdown,
+          dict_data,
+          json_group_array(cm.mediaId)  set_media,
+          json_group_array(cr.refId)    set_ref,
+          json_group_array(ct.tag)      set_tag
+        FROM [card]  c
+        LEFT JOIN card_media cm ON c.uid = cm.cardId
+        LEFT JOIN card_ref   cr ON c.uid = cr.cardId
+        LEFT JOIN card_tag   ct ON c.uid = ct.tag
+        ${ids ? /*sql*/`
+        WHERE c.uid IN (${Array(ids.length).fill('?')})
+        GROUP BY c.uid
+        ` : ''}
         `).iterate(ids)) {
-          const { uid: cardId } = row
-
-          row.media = mediaStmt.all({ cardId }).map((r) => r.id)
-          row.ref = refStmt.all({ cardId }).map((r) => r.id)
-          row.tag = tagStmt.all({ cardId }).map((r) => r.tag)
-
           obs.next({
-            value: validate('schema.json#/definitions/DbCard', row),
+            value: validate('schema.json#/definitions/DbCard', this.normalizeRow(row)),
             type: 'card'
           })
         }
@@ -383,7 +384,22 @@ export class DbSqlite extends DbSync {
               const oldCardUpdated = Math.max(...[date_created, date_updated].map((d) => d ? +new Date(d) : 0))
               const newCardUpdated = Math.max(...[c.created, c.updated].map((d) => d ? +new Date(d) : 0))
               if (newCardUpdated > oldCardUpdated) {
+                const update = {
+                  // uid: c.uid,
+                  key: c.key,
+                  markdown: c.markdown,
+                  dict_data: this.types.dict.toSql(c.data),
+                  date_sync: now
+                }
 
+                this.sql.prepare(/*sql*/`
+                UPDATE [card]
+                SET ${Object.keys(update).map((c) => `${safeColumnName(c)} = @${c}`)}
+                WHERE [uid] = @uid
+                `).run({
+                  ...update,
+                  uid: c.uid
+                })
               }
             }
           }
@@ -449,7 +465,7 @@ export class DbSqlite extends DbSync {
     for (const k of Object.keys(r)) {
       const [k1, k2] = k.split('_')
       if (k2 && r[k]) {
-        if (k1 === 'dict' || k1 === 'date') {
+        if (k1 === 'dict' || k1 === 'date' || k1 === 'set') {
           r[k2] = this.types[k1].toNative(r[k])
           delete r[k]
         }
@@ -469,7 +485,7 @@ export class DbSqlite extends DbSync {
   get (key: string) {
     let r = this.sql.prepare(/*sql*/`
     SELECT
-      c.uid         [uid],
+      c.uid         cardId,
       c.key         [key],
       c.markdown    markdown,
       c.dict_data   dict_data,
@@ -477,29 +493,39 @@ export class DbSqlite extends DbSync {
       d.name        deck,
       q.date_nextReview   date_nextReview,
       q.srsLevel    srsLevel,
-      q.dict_stat   dict_stat
+      q.dict_stat   dict_stat,
+      json_group_array(cm.mediaId)  set_media,
+      json_group_array(cr.refId)    set_ref,
+      json_group_array(ct.tag)      set_tag
     FROM [card] c
     LEFT JOIN deck_card dc ON dc.cardId = c.uid
-    LEFT JOIN deck d       ON dc.deckId = d.uid
-    LEFT JOIN lesson ls    ON d.lessonId = ls.uid
-    LEFT JOIN quiz   q     ON q.cardId = c.uid
+    LEFT JOIN deck      d  ON dc.deckId = d.uid
+    LEFT JOIN lesson    ls ON d.lessonId = ls.uid
+    LEFT JOIN quiz      q  ON q.cardId = c.uid
+    LEFT JOIN card_media cm  ON cm.cardId = c.uid
+    LEFT JOIN card_ref   cr  ON cr.cardId = c.uid
+    LEFT JOIN card_tag   ct  ON ct.cardId = c.uid
     WHERE c.key = @key
+    GROUP BY c.key
     `).get({ key })
 
     if (r) {
       r = this.normalizeRow(r)
+      const { cardId } = r
 
       r.media = this.sql.prepare(/*sql*/`
       SELECT mediaId id FROM card_media WHERE cardId = @cardId
-      `).all({ cardId: r.uid }).map((r0) => r0.id)
+      `).all({ cardId }).map((r0) => r0.id)
 
       r.ref = this.sql.prepare(/*sql*/`
       SELECT refId id FROM card_ref WHERE cardId = @cardId
-      `).all({ cardId: r.uid }).map((r0) => r0.id)
+      `).all({ cardId }).map((r0) => r0.id)
 
       r.tag = this.sql.prepare(/*sql*/`
       SELECT tag FROM card_tag WHERE cardId = @cardId
-      `).all({ cardId: r.uid }).map((r0) => r0.tag)
+      `).all({ cardId }).map((r0) => r0.tag)
+
+      delete r.cardId
 
       return validate<QueryItem>('schema.json#/definitions/QueryItem', r)
     }
@@ -507,62 +533,60 @@ export class DbSqlite extends DbSync {
     return null
   }
 
-  query (q: string | Record<string, any>, opts: {
+  query (q: (string | Record<string, any>) | (string | Record<string, any>)[], opts: {
     offset?: number
     limit?: number
     sort?: string
-    fields?: (keyof QueryItem | 'uid')[]
+    fields?: (keyof QueryItem | 'cardId' | 'quizId' | 'lessonId' | 'deckId')[]
   } = {}) {
     return new Observable<{
-      value?: QueryItemPartial
-      i: number
-      cancelFunction: CallbackType
+      value: QueryItemPartial & Partial<Record<'cardId' | 'quizId' | 'lessonId' | 'deckId', string>>
     }>((obs) => {
-      let { offset = 0, limit, sort, fields } = opts
+      let {
+        offset = 0, limit, sort, fields: initFields = [
+          // 'mediaId',
+          'cardId', 'quizId', 'lessonId', 'deckId',
+          'key', 'markdown', 'data', 'tag', 'ref', 'media',
+          'lesson',
+          'deck',
+          'nextReview', 'srsLevel', 'stat'
+        ]
+      } = opts
 
-      let i = 0
-      let count = 0
-      let isEnded = false
-      const cancelFunction = () => {
-        obs.complete()
-        isEnded = true
-      }
+      const { where = 'TRUE', fields: moreFields } = this.qSearch.parse(
+        ...(Array.isArray(q) ? q : [q])
+      )
+
+      const fields = new Set([
+        ...initFields,
+        ...moreFields
+      ])
 
       const joinNeeded = new Set<string>()
 
-      if (!fields) {
+      if (fields.has('tag')) {
         joinNeeded.add('card_tag')
+      }
+
+      if (fields.has('ref')) {
         joinNeeded.add('card_ref')
+      }
+
+      if (fields.has('media')) {
         joinNeeded.add('card_media')
-      } else {
-        if (fields.includes('tag')) {
-          joinNeeded.add('card_tag')
-        }
+      }
 
-        if (fields.includes('ref')) {
-          joinNeeded.add('card_ref')
-        }
+      if (['lesson'].some((t) => fields.has(t as any))) {
+        joinNeeded.add('lesson')
+        joinNeeded.add('deck')
+      }
 
-        if (fields.includes('media')) {
-          joinNeeded.add('card_media')
-        }
+      if (['deckId', 'deck', 'lessonId'].some((t) => fields.has(t))) {
+        joinNeeded.add('deck')
+      }
 
-        if (fields.includes('lesson')) {
-          joinNeeded.add('lesson')
-        }
-
-        if (fields.includes('deck')) {
-          joinNeeded.add('lesson')
-          joinNeeded.add('deck')
-        }
-
-        if (['nextReview', 'srsLevel', 'stat'].some((t) => fields!.includes(t as any))) {
-          joinNeeded.add('quiz')
-        }
-
-        if (fields.some((t) => t.startsWith('stat.'))) {
-          joinNeeded.add('quiz')
-        }
+      if (['quizId', 'nextReview', 'srsLevel', 'stat'].some((t) => fields.has(t))) {
+        joinNeeded.add('quiz')
       }
 
       let direction = 'asc'
@@ -595,89 +619,73 @@ export class DbSqlite extends DbSync {
         }
       }
 
-      const { where = 'WHERE TRUE', filterFunction } = this.qSearch.parse(q, joinNeeded)
-
-      const cardTagStmt = joinNeeded.has('card_tag') ? this.sql.prepare(/*sql*/`
-      SELECT tag FROM card_tag WHERE cardId = @cardId
-      `) : null
-      const cardMediaStmt = joinNeeded.has('card_media') ? this.sql.prepare(/*sql*/`
-      SELECT mediaId id FROM card_media WHERE cardId = @cardId
-      `) : null
-      const cardRefStmt = joinNeeded.has('card_ref') ? this.sql.prepare(/*sql*/`
-      SELECT refId id FROM card_ref WHERE cardId = @cardId
-      `) : null
-
       for (const row of this.sql.prepare(/*sql*/`
-      SELECT
-        ${(!fields || fields.includes('lesson')) ? 'ls.name    lesson,' : ''}
-        ${(!fields || fields.includes('deck')) ? '  d.name       deck,' : ''}
-        ${(!fields || ['nextReview', 'srsLevel', 'stat'].some((t) => fields?.includes(t as any))) ? `
-        q.date_nextReview   date_nextReview,
-        q.srsLevel    srsLevel,
-        q.dict_stat   dict_stat,` : ''}
-        c.uid         [uid],
-        c.key         [key],
-        c.markdown    markdown,
-        c.dict_data   dict_data
-        -- c.set_tag     set_tag,
-        -- c.set_ref     set_ref,
-        -- c.set_media   set_media,
-      FROM [card] c
-      ${joinNeeded.has('deck') ? /*sql*/`
-      LEFT JOIN deck_card dc  ON dc.cardId = c.uid
-      LEFT JOIN deck d        ON dc.deckId = d.uid
-      ` : ''}
-      ${joinNeeded.has('lesson') ? /*sql*/`
-      LEFT JOIN lesson ls  ON d.lessonId = ls.uid
-      ` : ''}
-      ${joinNeeded.has('quiz') ? /*sql*/`
-      LEFT JOIN quiz   q   ON q.cardId = c.uid
-      ` : ''}
-      ${where}
-      ${sort ? /*sql*/`
-      ORDER BY ${sort} ${direction} NULLS LAST
-      ` : 'ORDER BY c.date_created DESC'}
+      SELECT ${[
+        ...Array.from(fields).filter((f) => [
+          'tag', 'ref', 'media'
+        ].includes(f)).map(safeColumnName),
+        fields.has('tag') ? 'json_group_array(tag) set_tag' : null,
+        fields.has('ref') ? 'json_group_array(ref) set_ref' : null,
+        fields.has('media') ? 'json_group_array(media) set_media' : null
+      ].filter((el) => el)} FROM (
+        SELECT
+          ${joinNeeded.has('lesson') ? /*sql*/`
+          ls.name       lesson,
+          ` : ''}
+          ${joinNeeded.has('deck') ? /*sql*/`
+          d.name        deck,
+          d.lessonId    lessonId,
+          d.uid         deckId,
+          ` : ''}
+          ${joinNeeded.has('quiz') ? /*sql*/`
+          q.date_nextReview   date_nextReview,
+          q.srsLevel    srsLevel,
+          q.dict_stat   dict_stat,
+          q.uid         quizId,
+          ` : ''}
+          ${joinNeeded.has('card_tag') ? /*sql*/`
+          ct.tag        tag,
+          ` : ''}
+          ${joinNeeded.has('card_ref') ? /*sql*/`
+          cr.refId      ref,
+          ` : ''}
+          ${joinNeeded.has('card_media') ? /*sql*/`
+          cm.mediaId    mediaId,
+          ` : ''}
+          c.uid         cardId,
+          c.key         [key],
+          c.markdown    markdown,
+          c.dict_data   dict_data
+        FROM [card] c
+        ${joinNeeded.has('deck') ? /*sql*/`
+        LEFT JOIN deck_card dc  ON dc.cardId = c.uid
+        LEFT JOIN deck d        ON dc.deckId = d.uid
+        ` : ''}
+        ${joinNeeded.has('lesson') ? /*sql*/`
+        LEFT JOIN lesson ls  ON d.lessonId = ls.uid
+        ` : ''}
+        ${joinNeeded.has('quiz') ? /*sql*/`
+        LEFT JOIN quiz   q   ON q.cardId = c.uid
+        ` : ''}
+        ${joinNeeded.has('card_tag') ? /*sql*/`
+        LEFT JOIN card_tag ct ON ct.cardId = ct.tag
+        ` : ''}
+        ${joinNeeded.has('card_ref') ? /*sql*/`
+        LEFT JOIN card_ref cr ON cr.cardId = cr.refId
+        ` : ''}
+        ${joinNeeded.has('card_media') ? /*sql*/`
+        LEFT JOIN card_media cr ON cr.cardId = cr.mediaId
+        ` : ''}
+        WHERE ${where}
+        ${sort ? /*sql*/`
+        ORDER BY ${sort} ${direction} NULLS LAST
+        ` : 'ORDER BY c.date_created DESC'}
+      ) GROUP BY cardId
+      ${limit ? `LIMIT ${limit}` : ''}
+      OFFSET ${offset}
       `).iterate()) {
-        if (isEnded) {
-          return
-        }
-
-        if (cardMediaStmt) {
-          row.media = cardMediaStmt.all({ cardId: row.uid }).map((r) => r.id)
-        }
-
-        if (cardRefStmt) {
-          row.ref = cardRefStmt.all({ cardId: row.uid }).map((r) => r.id)
-        }
-
-        if (cardTagStmt) {
-          row.tag = cardTagStmt.all({ cardId: row.uid }).map((r) => r.tag)
-        }
-
-        let value: QueryItemPartial | undefined
-
-        if (filterFunction(row)) {
-          if (i >= offset && (limit ? count < limit : true)) {
-            value = this.normalizeRow(row)
-
-            if (fields) {
-              const tmp = value
-              value = {}
-              for (const f of fields) {
-                value = dotProp.set(value, f, dotProp.get(tmp, f))
-              }
-            }
-
-            count++
-          }
-
-          i++
-        }
-
         obs.next({
-          i,
-          value,
-          cancelFunction
+          value: this.normalizeRow(row)
         })
       }
 
@@ -696,39 +704,19 @@ export class DbSqlite extends DbSync {
       }
 
       this.query(q, {
-        fields: ['uid', 'ref', 'media', 'deck', 'lesson']
+        fields: ['cardId', 'ref', 'media', 'deckId', 'lessonId', 'quizId']
       }).subscribe(
         ({ value }) => {
           if (value) {
-            const { uid, ref, media, deck, lesson } = value
+            const { cardId, ref, media, deckId, lessonId, quizId } = value
 
-            if (uid) {
-              emit(uid)
-            }
             if (ref) {
               ref.map((r) => emit(r))
             }
             if (media) {
               media.map((r) => emit(r))
             }
-            this.sql.prepare(/*sql*/`
-            SELECT q.uid quizId
-            FROM [card] c
-            JOIN quiz q ON q.cardId = c.uid
-            WHERE cardId = @cardId
-            `).all({ cardId: uid }).map(({ quizId }) => {
-              emit(quizId)
-            })
-
-            this.sql.prepare(/*sql*/`
-            SELECT d.uid deckId, ls.uid lessonId
-            FROM deck d
-            JOIN lesson ls ON d.lessonId = ls.uid
-            WHERE ls.name = @lesson AND d.name = @deck
-            `).all({ lesson, deck }).map(({ deckId, lessonId }) => {
-              emit(deckId)
-              emit(lessonId)
-            })
+            [cardId, deckId, lessonId, quizId].map((id) => id ? emit(id) : null)
           }
         },
         obs.error,
@@ -743,6 +731,7 @@ export class DbSqlite extends DbSync {
 
     this.sql.transaction(() => {
       this.sql.pragma('read_uncommitted=on;')
+      this.sql.pragma('foreign_keys=off;')
 
       entries.map((el) => {
         const uid = nanoid()
@@ -817,6 +806,7 @@ export class DbSqlite extends DbSync {
       })
 
       this.sql.pragma('read_uncommitted=off;')
+      this.sql.pragma('foreign_keys=on;')
     })()
 
     return idsMap
@@ -1371,9 +1361,8 @@ export class DbSqlite extends DbSync {
         limit: 1,
         fields: ['key', 'data', 'ref', 'media', 'markdown']
       }).subscribe(
-        ({ value: r, cancelFunction }) => {
+        ({ value: r }) => {
           if (r) {
-            cancelFunction()
             resolve(validate('schema.json#/definitions/RenderItemMin', {
               key: r.key!,
               ...r
@@ -1482,10 +1471,13 @@ export class DbSqlite extends DbSync {
     }
   }
 
-  insertMedia (file: UploadedFile) {
+  insertMedia (file: UploadedFile, key?: string) {
+    key = key || crypto.createHash('sha256').update(file.data).digest('base64')
+
     const uid = nanoid()
     const newMedia = {
       uid,
+      key,
       name: file.name,
       mimetype: file.mimetype,
       data: file.data
@@ -1496,7 +1488,7 @@ export class DbSqlite extends DbSync {
     VALUES (${Object.keys(newMedia).map((k) => `@${k}`)})
     `).run(newMedia)
 
-    return uid
+    return key
   }
 
   getMedia (uid: string) {
@@ -1566,170 +1558,4 @@ export class DbSqlite extends DbSync {
       }
     })()
   }
-}
-
-/**
- * https://www.sqlite.org/lang_keywords.html
- * @param s identifier
- */
-export function safeColumnName (s: string) {
-  const keywords = `
-    ABORT
-    ACTION
-    ADD
-    AFTER
-    ALL
-    ALTER
-    ALWAYS
-    ANALYZE
-    AND
-    AS
-    ASC
-    ATTACH
-    AUTOINCREMENT
-    BEFORE
-    BEGIN
-    BETWEEN
-    BY
-    CASCADE
-    CASE
-    CAST
-    CHECK
-    COLLATE
-    COLUMN
-    COMMIT
-    CONFLICT
-    CONSTRAINT
-    CREATE
-    CROSS
-    CURRENT
-    CURRENT_DATE
-    CURRENT_TIME
-    CURRENT_TIMESTAMP
-    DATABASE
-    DEFAULT
-    DEFERRABLE
-    DEFERRED
-    DELETE
-    DESC
-    DETACH
-    DISTINCT
-    DO
-    DROP
-    EACH
-    ELSE
-    END
-    ESCAPE
-    EXCEPT
-    EXCLUDE
-    EXCLUSIVE
-    EXISTS
-    EXPLAIN
-    FAIL
-    FILTER
-    FIRST
-    FOLLOWING
-    FOR
-    FOREIGN
-    FROM
-    FULL
-    GENERATED
-    GLOB
-    GROUP
-    GROUPS
-    HAVING
-    IF
-    IGNORE
-    IMMEDIATE
-    IN
-    INDEX
-    INDEXED
-    INITIALLY
-    INNER
-    INSERT
-    INSTEAD
-    INTERSECT
-    INTO
-    IS
-    ISNULL
-    JOIN
-    KEY
-    LAST
-    LEFT
-    LIKE
-    LIMIT
-    MATCH
-    NATURAL
-    NO
-    NOT
-    NOTHING
-    NOTNULL
-    NULL
-    NULLS
-    OF
-    OFFSET
-    ON
-    OR
-    ORDER
-    OTHERS
-    OUTER
-    OVER
-    PARTITION
-    PLAN
-    PRAGMA
-    PRECEDING
-    PRIMARY
-    QUERY
-    RAISE
-    RANGE
-    RECURSIVE
-    REFERENCES
-    REGEXP
-    REINDEX
-    RELEASE
-    RENAME
-    REPLACE
-    RESTRICT
-    RIGHT
-    ROLLBACK
-    ROW
-    ROWS
-    SAVEPOINT
-    SELECT
-    SET
-    TABLE
-    TEMP
-    TEMPORARY
-    THEN
-    TIES
-    TO
-    TRANSACTION
-    TRIGGER
-    UNBOUNDED
-    UNION
-    UNIQUE
-    UPDATE
-    USING
-    VACUUM
-    VALUES
-    VIEW
-    VIRTUAL
-    WHEN
-    WHERE
-    WINDOW
-    WITH
-    WITHOUT`
-    .split('\n')
-    .map((el) => el.trim())
-    .filter((el) => el)
-
-  /**
-   * https://stackoverflow.com/questions/31788990/sqlite-what-are-the-restricted-characters-for-identifiers
-   */
-  const validIdToken = 'A-Z0-9_$:'
-  const kwRegex = new RegExp(`(^|[^${validIdToken}\\)])(${keywords.join('|')})($|[^${validIdToken}\\()])`, 'gi')
-
-  return s.replace(kwRegex, (_, p1, p2, p3) => {
-    return `${p1}"${p2.replace(/"/g, '["]')}"${p3}`
-  })
 }

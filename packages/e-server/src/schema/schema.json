@@ -50,8 +50,353 @@
             ],
             "type": "object"
         },
-        "Datamap": {
+        "DataMap": {
             "additionalProperties": false,
+            "type": "object"
+        },
+        "DateSerializable": {
+            "additionalProperties": true,
+            "description": "Enables basic storage and retrieval of dates and times.",
+            "format": "date-time",
+            "type": "string"
+        },
+        "DbCard": {
+            "additionalProperties": false,
+            "properties": {
+                "created": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "data": {
+                    "$ref": "#/definitions/Record<string,any>"
+                },
+                "key": {
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "type": "string"
+                },
+                "markdown": {
+                    "type": "string"
+                },
+                "media": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "ref": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "sync": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "tag": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updated": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "created",
+                "key",
+                "media",
+                "ref",
+                "tag",
+                "uid"
+            ],
+            "type": "object"
+        },
+        "DbDeck": {
+            "additionalProperties": false,
+            "properties": {
+                "card": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "created": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "lessonId": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sync": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updated": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "card",
+                "created",
+                "lessonId",
+                "name",
+                "uid"
+            ],
+            "type": "object"
+        },
+        "DbLesson": {
+            "additionalProperties": false,
+            "properties": {
+                "created": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "description": {
+                    "type": "string"
+                },
+                "key": {
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sync": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updated": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "created",
+                "key",
+                "name",
+                "uid"
+            ],
+            "type": "object"
+        },
+        "DbMedia": {
+            "additionalProperties": false,
+            "properties": {
+                "created": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "data": {
+                    "description": "Raw data is stored in instances of the Buffer class.\nA Buffer is similar to an array of integers but corresponds to a raw memory allocation outside the V8 heap.  A Buffer cannot be resized.\nValid string encodings: 'ascii'|'utf8'|'utf16le'|'ucs2'(alias of 'utf16le')|'base64'|'binary'(deprecated)|'hex'",
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Record<string,any>"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sync": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updated": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "created",
+                "name",
+                "uid"
+            ],
+            "type": "object"
+        },
+        "DbQuiz": {
+            "additionalProperties": false,
+            "properties": {
+                "cardId": {
+                    "type": "string"
+                },
+                "created": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "nextReview": {
+                    "description": "Timestamp, based on new Date().toISOString()",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "srsLevel": {
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "stat": {
+                    "$ref": "#/definitions/DbStat"
+                },
+                "sync": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updated": {
+                    "anyOf": [
+                        {
+                            "description": "Enables basic storage and retrieval of dates and times.",
+                            "format": "date-time",
+                            "type": "string"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "created",
+                "nextReview",
+                "srsLevel",
+                "stat",
+                "uid"
+            ],
             "type": "object"
         },
         "DbStat": {
@@ -335,14 +680,10 @@
                         "type": "string"
                     },
                     "type": "array"
-                },
-                "uid": {
-                    "type": "string"
                 }
             },
             "required": [
-                "key",
-                "uid"
+                "key"
             ],
             "type": "object"
         },
@@ -394,9 +735,6 @@
                         "type": "string"
                     },
                     "type": "array"
-                },
-                "uid": {
-                    "type": "string"
                 }
             },
             "type": "object"
@@ -412,6 +750,7 @@
                     "$ref": "#/definitions/Record<string,any>"
                 },
                 "key": {
+                    "pattern": "^[A-Za-z0-9_-]+$",
                     "type": "string"
                 },
                 "markdown": {

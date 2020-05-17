@@ -111,12 +111,13 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
                 sendComplete
               )
           } else {
-            db.import(path.join(tmpPath, id))
-              .subscribe(
-                sendStatus,
-                sendError,
-                sendComplete
-              )
+            throw new Error('Not implemented yet.')
+            // db.import(path.join(tmpPath, id))
+            //   .subscribe(
+            //     sendStatus,
+            //     sendError,
+            //     sendComplete
+            //   )
           }
         } catch (err) {
           socketMap.get(id)!({ id, error: err.message })

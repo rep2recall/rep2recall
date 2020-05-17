@@ -61,11 +61,7 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
     }
   }, async (req) => {
     const { q, deck, lesson } = req.body
-    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
-
-    const $and = [
-      cond
-    ]
+    const $and = [] as any[]
 
     $and.push({
       $or: [
@@ -86,10 +82,24 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
       lesson
     })
 
-    return {
-      keys: shuffle(db.query({ $and }, {
+    const keys = new Set<string>()
+
+    await new Promise((resolve, reject) => {
+      db.query([q, { $and }], {
         fields: ['key']
-      }).result.map((c) => c.key))
+      }).subscribe(
+        ({ value: { key } }) => {
+          if (key) {
+            keys.add(key)
+          }
+        },
+        reject,
+        resolve
+      )
+    })
+
+    return {
+      keys: shuffle(Array.from(keys))
     }
   })
 
@@ -122,18 +132,21 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
     }
   }, async (req) => {
     const { q, lesson } = req.body
-    const cond = typeof q === 'string' ? db.qSearch.parse(q).cond : q
 
-    const rs = db.query({
-      $and: [
-        cond,
-        {
-          lesson: lesson
-        }
-      ]
-    }, {
-      fields: ['deck', 'stat', 'srsLevel', 'nextReview']
-    }).result
+    const rs: any[] = []
+
+    await new Promise((resolve, reject) => {
+      db.query([
+        q,
+        { lesson }
+      ], {
+        fields: ['deck', 'stat', 'srsLevel', 'nextReview']
+      }).subscribe(
+        ({ value }) => rs.push(value),
+        reject,
+        resolve
+      )
+    })
 
     const deckStat: Record<string, {
       due: number

@@ -59,7 +59,6 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
         required: ['q', 'offset', 'limit', 'sort'],
         properties: {
           q: { type: ['string', 'object'] },
-          cond: { type: 'object' },
           offset: { type: 'integer' },
           limit: { type: ['integer', 'null'] },
           sort: { type: 'array', items: { type: 'string' } },
@@ -80,17 +79,34 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
       }
     }
   }, async (req) => {
-    let { q, cond, offset = 0, limit, sort } = req.body
+    const { q, offset = 0, limit, sort } = req.body
 
-    if (typeof q === 'string') {
-      q = db.qSearch.parse(q).cond
+    const result: any[] = []
+    let count: number = 0
+
+    await Promise.all([
+      new Promise((resolve, reject) => {
+        db.query(q, { offset, limit, sort })
+          .subscribe(
+            ({ value }) => result.push(value),
+            reject,
+            resolve
+          )
+      }),
+      new Promise((resolve, reject) => {
+        db.query(q, { fields: ['cardId'] })
+          .subscribe(
+            () => count++,
+            reject,
+            resolve
+          )
+      })
+    ])
+
+    return {
+      result,
+      count
     }
-
-    if (cond) {
-      q = { $and: [q, cond] }
-    }
-
-    return db.query(q, { offset, limit, sort })
   })
 
   f.put('/', {
@@ -146,7 +162,7 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
     const keys = db.insert(...req.body.entries)
 
     return {
-      keys
+      keys: Array.from(keys.keys())
     }
   })
 
