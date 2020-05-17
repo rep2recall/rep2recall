@@ -15,10 +15,10 @@ export type NonNegInt = number
  */
 export type Timestamp = string
 /**
- * @format date-time
- * @TJS-type string
+ * @properties.__className = Date
+ * @additionalProperties true
  */
-export type TimestampOrDate = string | Date
+export type DateSerializable = Date
 /**
  * @pattern ^[A-Za-z0-9_-]+$
  */
@@ -102,9 +102,9 @@ export interface RenderItemMin {
 
 export interface DbCard {
   uid: string
-  created: TimestampOrDate
-  updated?: TimestampOrDate
-  sync?: TimestampOrDate
+  created: Timestamp | DateSerializable
+  updated?: Timestamp | DateSerializable
+  sync?: Timestamp | DateSerializable
   key: Key
   markdown?: string
   data?: DataMap
@@ -115,9 +115,9 @@ export interface DbCard {
 
 export interface DbDeck {
   uid: string
-  created: TimestampOrDate
-  updated?: TimestampOrDate
-  sync?: TimestampOrDate
+  created: Timestamp | DateSerializable
+  updated?: Timestamp | DateSerializable
+  sync?: Timestamp | DateSerializable
   name: string
   lessonId: string
   card: Key[]
@@ -125,9 +125,9 @@ export interface DbDeck {
 
 export interface DbMedia {
   uid: string
-  created: TimestampOrDate
-  updated?: TimestampOrDate
-  sync?: TimestampOrDate
+  created: Timestamp | DateSerializable
+  updated?: Timestamp | DateSerializable
+  sync?: Timestamp | DateSerializable
   name: string
   mimetype?: string
   data?: Buffer
@@ -136,9 +136,9 @@ export interface DbMedia {
 
 export interface DbQuiz {
   uid: string
-  created: TimestampOrDate
-  updated?: TimestampOrDate
-  sync?: TimestampOrDate
+  created: Timestamp | DateSerializable
+  updated?: Timestamp | DateSerializable
+  sync?: Timestamp | DateSerializable
   cardId?: string
   srsLevel: NonNegInt
   nextReview: Timestamp
@@ -147,9 +147,9 @@ export interface DbQuiz {
 
 export interface DbLesson {
   uid: string
-  created: TimestampOrDate
-  updated?: TimestampOrDate
-  sync?: TimestampOrDate
+  created: Timestamp | DateSerializable
+  updated?: Timestamp | DateSerializable
+  sync?: Timestamp | DateSerializable
   key: Key
   name: string
   description?: string

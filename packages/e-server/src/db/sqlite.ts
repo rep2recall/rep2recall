@@ -4,73 +4,19 @@ import { Observable } from 'observable-fns'
 import { Serialize } from 'any-serialize'
 import { UploadedFile } from 'express-fileupload'
 import sqlite3 from 'better-sqlite3'
+import MulticastSubject from 'observable-fns/dist/subject'
 
 import { removeNull, slugify, chunks, deepMerge } from '../util'
 import { repeatReview, srsMap, getNextReview } from './quiz'
 import { defaultDbStat } from './defaults'
 import { validate } from '../schema/ajv'
-import { QueryItem, QueryItemPartial, InsertCardQuizItem, InsertLessonDeckItem, InsertItem, OnConflict, UpdateItem, RenderItemMin } from '../schema/schema'
+import { QueryItem, QueryItemPartial, InsertCardQuizItem, InsertLessonDeckItem, InsertItem, OnConflict, UpdateItem, RenderItemMin, DbCard, DbDeck } from '../schema/schema'
+import { DbSync } from './abstract'
 
 const ser = new Serialize()
 type CallbackType = () => void
 
-export class DbSqlite {
-  static replicate (from: DbSqlite, to: DbSqlite, uids?: string[]) {
-    return new Observable<{
-      message: string
-    }>((obs) => {
-      (async () => {
-        const getDateSync = (r: any) => Math.max(r.date_created, r.date_sync || 0)
-        to.sql.pragma('foreign_keys=off;')
-        to.sql.transaction(() => {
-          const syncTable = (tableName: string) => {
-            for (const r1 of from.sql.prepare(/*sql*/`
-            SELECT * FROM ${safeColumnName(tableName)}
-            `).iterate()) {
-              const uid = r1.uid
-
-              if (uids && !uids.includes(uid)) {
-                continue
-              }
-
-              const r2 = to.sql.prepare(/*sql*/`
-              SELECT date_created, date_sync FROM ${safeColumnName(tableName)} WHERE [uid] = @uid
-              `).get({ uid })
-
-              const updateSync = () => {
-                r1.date_sync = new Date().toISOString()
-
-                to.sql.prepare(/*sql*/`
-                REPLACE INTO ${safeColumnName(tableName)} (${Object.keys(r1).map(safeColumnName)})
-                VALUES (${Object.keys(r1).map((c) => `@${c}`)})
-                `).run(r1)
-              }
-
-              if (r2) {
-                if (getDateSync(r1) > getDateSync(r2)) {
-                  updateSync()
-                }
-              } else {
-                updateSync()
-              }
-            }
-          }
-
-          for (const tableName of ['quiz', 'lesson']) {
-            obs.next({
-              message: `Uploading table: ${tableName}`
-            })
-            syncTable(tableName)
-          }
-        })
-
-        obs.complete()
-      })().finally(() => {
-        to.sql.pragma('foreign_keys=on;')
-      })
-    })
-  }
-
+export class DbSqlite extends DbSync {
   qSearch = new QSearch({
     dialect: 'native',
     schema: {
@@ -117,6 +63,7 @@ export class DbSqlite {
     public filename: string,
     isOptimized?: boolean
   ) {
+    super()
     this.sql = sqlite3(filename)
 
     if (isOptimized) {
@@ -139,6 +86,7 @@ export class DbSqlite {
     CREATE TABLE IF NOT EXISTS [card] (
       [uid]         TEXT PRIMARY KEY,
       date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_updated  TEXT,
       date_sync     TEXT,
       [key]         TEXT NOT NULL UNIQUE,
       markdown      TEXT,
@@ -148,9 +96,22 @@ export class DbSqlite {
       -- set_tag       TEXT
     );
 
+    CREATE TRIGGER IF NOT EXISTS card_on_update
+      AFTER UPDATE ON [card]
+      WHEN
+        OLD.date_created <> NEW.date_created OR
+        OLD.date_updated <> NEW.date_updated OR
+        OLD.date_sync <> NEW.date_sync
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.uid;
+    END;
+
     CREATE TABLE IF NOT EXISTS quiz (
       [uid]           TEXT PRIMARY KEY,
       date_created    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_updated    TEXT,
       date_sync       TEXT,
       cardId          TEXT NOT NULL,
       srsLevel        INTEGER NOT NULL DEFAULT 0,
@@ -158,20 +119,46 @@ export class DbSqlite {
       dict_stat       TEXT NOT NULL DEFAULT '${JSON.stringify(defaultDbStat)}'
     );
 
+    CREATE TRIGGER IF NOT EXISTS quiz_on_update
+      AFTER UPDATE ON quiz
+      WHEN
+        OLD.date_created <> NEW.date_created OR
+        OLD.date_updated <> NEW.date_updated OR
+        OLD.date_sync <> NEW.date_sync
+    BEGIN
+      UPDATE quiz
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.uid;
+    END;
+
     CREATE INDEX IF NOT EXISTS quiz_cardId_idx ON quiz(cardId);
 
     CREATE TABLE IF NOT EXISTS lesson (
       [uid]         TEXT PRIMARY KEY,
       date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_updated  TEXT,
       date_sync     TEXT,
       [key]         TEXT NOT NULL UNIQUE,
       [name]        TEXT NOT NULL,
       [description] TEXT
     );
 
+    CREATE TRIGGER IF NOT EXISTS lesson_on_update
+      AFTER UPDATE ON lesson
+      WHEN
+        OLD.date_created <> NEW.date_created OR
+        OLD.date_updated <> NEW.date_updated OR
+        OLD.date_sync <> NEW.date_sync
+    BEGIN
+      UPDATE lesson
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.uid;
+    END;
+
     CREATE TABLE IF NOT EXISTS deck (
       [uid]         TEXT PRIMARY KEY,
       date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_updated  TEXT,
       date_sync     TEXT,
       [name]        TEXT NOT NULL,
       lessonId      TEXT NOT NULL,
@@ -179,18 +166,44 @@ export class DbSqlite {
       UNIQUE ([name], lessonId)
     );
 
+    CREATE TRIGGER IF NOT EXISTS deck_on_update
+      AFTER UPDATE ON deck
+      WHEN
+        OLD.date_created <> NEW.date_created OR
+        OLD.date_updated <> NEW.date_updated OR
+        OLD.date_sync <> NEW.date_sync
+    BEGIN
+      UPDATE deck
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.uid;
+    END;
+
     CREATE INDEX IF NOT EXISTS deck_lessonId_idx ON deck(lessonId);
     CREATE INDEX IF NOT EXISTS deck_set_cardId_idx ON deck(set_cardId);
 
     CREATE TABLE IF NOT EXISTS media (
-      [uid]         TEXT PRIMARY KEY, -- Also is unique key
+      [uid]         TEXT PRIMARY KEY,
       date_created  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      date_updated  TEXT,
       date_sync     TEXT,
+      [key]         TEXT NOT NULL UNIQUE,
       [name]        TEXT NOT NULL,
       mimetype      TEXT,
       [data]        BLOB,
       dict_meta     TEXT
     );
+
+    CREATE TRIGGER IF NOT EXISTS media_on_update
+      AFTER UPDATE ON media
+      WHEN
+        OLD.date_created <> NEW.date_created OR
+        OLD.date_updated <> NEW.date_updated OR
+        OLD.date_sync <> NEW.date_sync
+    BEGIN
+      UPDATE media
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.uid;
+    END;
 
     -- Relationship (sets, i.e. o2m) --
 
@@ -200,11 +213,43 @@ export class DbSqlite {
       PRIMARY KEY (cardId, mediaId)
     );
 
+    CREATE TRIGGER IF NOT EXISTS card_media_on_insert
+      AFTER INSERT ON card_media
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.cardId;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS card_media_on_delete
+      AFTER DELETE ON card_media
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = OLD.cardId;
+    END;
+
     CREATE TABLE IF NOT EXISTS card_ref (
       cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
       refId         TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
       PRIMARY KEY (cardId, refId)
     );
+
+    CREATE TRIGGER IF NOT EXISTS card_ref_on_insert
+      AFTER INSERT ON card_ref
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.cardId;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS card_ref_on_delete
+      AFTER DELETE ON card_ref
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = OLD.cardId;
+    END;
 
     CREATE TABLE IF NOT EXISTS card_tag (
       cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
@@ -212,16 +257,51 @@ export class DbSqlite {
       PRIMARY KEY (cardId, tag)
     );
 
+    CREATE TRIGGER IF NOT EXISTS card_tag_on_insert
+      AFTER INSERT ON card_tag
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = NEW.cardId;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS card_tag_on_delete
+      AFTER DELETE ON card_tag
+    BEGIN
+      UPDATE [card]
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = OLD.cardId;
+    END;
+
     CREATE TABLE IF NOT EXISTS deck_card (
       deckId        TEXT NOT NULL REFERENCES deck([uid]) ON DELETE CASCADE,
       cardId        TEXT NOT NULL REFERENCES [card]([uid]) ON DELETE CASCADE,
       PRIMARY KEY (deckId, cardId)
     );
+
+    CREATE TRIGGER IF NOT EXISTS deck_card_on_insert
+      AFTER INSERT ON deck_card
+    BEGIN
+      UPDATE deck
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE deck = NEW.deckId;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS deck_card_on_delete
+      AFTER DELETE ON deck_card
+    BEGIN
+      UPDATE deck
+      SET date_updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      WHERE [uid] = OLD.deckId;
+    END;
     `)
   }
 
-  iterateCard () {
-    return new Observable((obs) => {
+  rCardExport (ids?: Observable<string>) {
+    return new Observable<{
+      value: DbCard
+      type: 'card'
+    }>((obs) => {
       const mediaStmt = this.sql.prepare(/*sql*/`
       SELECT mediaId id FROM card_media WHERE cardId = @cardId
       `)
@@ -232,38 +312,134 @@ export class DbSqlite {
       SELECT tag FROM card_tag WHERE cardId = @cardId
       `)
 
-      for (const row of this.sql.prepare(/*sql*/`
-      SELECT * FROM [card]
-      `).iterate()) {
-        const { uid: cardId } = row
+      const pushStack = (ids?: string[]) => {
+        if (ids && ids.length === 0) {
+          return
+        }
 
-        row.set_media = mediaStmt.all({ cardId }).map((r) => r.id)
-        row.set_ref = refStmt.all({ cardId }).map((r) => r.id)
-        row.set_tag = tagStmt.all({ cardId }).map((r) => r.tag)
+        for (const row of this.sql.prepare(/*sql*/`
+        SELECT * FROM [card]
+        ${ids ? `WHERE [uid] IN (${Array(ids.length).fill('?')})` : ''}
+        `).iterate(ids)) {
+          const { uid: cardId } = row
 
-        obs.next(row)
+          row.media = mediaStmt.all({ cardId }).map((r) => r.id)
+          row.ref = refStmt.all({ cardId }).map((r) => r.id)
+          row.tag = tagStmt.all({ cardId }).map((r) => r.tag)
+
+          obs.next({
+            value: validate('schema.json#/definitions/DbCard', row),
+            type: 'card'
+          })
+        }
       }
 
-      obs.complete()
+      if (ids) {
+        let currentStack: string[] = []
+
+        ids.subscribe(
+          (id) => {
+            if (currentStack.length < 900) {
+              currentStack.push(id)
+            } else {
+              pushStack(currentStack)
+              currentStack = []
+            }
+          },
+          obs.error,
+          () => {
+            pushStack(currentStack)
+            obs.complete()
+          }
+        )
+      } else {
+        pushStack()
+        obs.complete()
+      }
     })
   }
 
-  iterateDeck () {
-    return new Observable((obs) => {
+  rCardImport (items: MulticastSubject<{ value: DbCard }>) {
+    const pushedIds = new Set<string>()
+    const getDateStmt = this.sql.prepare(/*sql*/`
+    SELECT date_created, date_updated FROM [card]
+    WHERE [uid] = @cardId
+    `)
+    const now = new Date().toISOString()
+
+    return new Observable<{
+      type: 'card'
+      progress: number
+      meta?: any
+    }>((obs) => {
+      items.subscribe(
+        ({ value: c }) => {
+          if (!pushedIds.has(c.uid)) {
+            pushedIds.add(c.uid)
+
+            const oldC = getDateStmt.get({ cardId: c.uid })
+            if (oldC) {
+              const { date_created, date_updated } = oldC
+              const oldCardUpdated = Math.max(...[date_created, date_updated].map((d) => d ? +new Date(d) : 0))
+              const newCardUpdated = Math.max(...[c.created, c.updated].map((d) => d ? +new Date(d) : 0))
+              if (newCardUpdated > oldCardUpdated) {
+
+              }
+            }
+          }
+        },
+        obs.error,
+        obs.complete
+      )
+    })
+  }
+
+  rDeckExport (ids?: Observable<string>) {
+    return new Observable<{
+      value: DbDeck
+      type: 'deck'
+    }>((obs) => {
       const cardStmt = this.sql.prepare(/*sql*/`
       SELECT cardId id FROM deck_card WHERE deckId = @deckId
       `)
 
-      for (const row of this.sql.prepare(/*sql*/`
-      SELECT * FROM deck
-      `).iterate()) {
-        const { uid: deckId } = row
-        row.set_card = cardStmt.all({ deckId }).map((r) => r.id)
+      const pushStack = (ids?: string[]) => {
+        for (const row of this.sql.prepare(/*sql*/`
+        SELECT * FROM deck
+        ${ids ? `WHERE [uid] IN (${Array(ids.length).fill('?')})` : ''}
+        `).iterate(ids)) {
+          const { uid: deckId } = row
+          row.card = cardStmt.all({ deckId }).map((r) => r.id)
 
-        obs.next(row)
+          obs.next({
+            value: validate('schema.json#/definitions/DbDeck', row),
+            type: 'deck'
+          })
+        }
       }
 
-      obs.complete()
+      if (ids) {
+        let currentStack: string[] = []
+
+        ids.subscribe(
+          (id) => {
+            if (currentStack.length < 900) {
+              currentStack.push(id)
+            } else {
+              pushStack(currentStack)
+              currentStack = []
+            }
+          },
+          obs.error,
+          () => {
+            pushStack(currentStack)
+            obs.complete()
+          }
+        )
+      } else {
+        pushStack()
+        obs.complete()
+      }
     })
   }
 
@@ -338,7 +514,7 @@ export class DbSqlite {
     fields?: (keyof QueryItem | 'uid')[]
   } = {}) {
     return new Observable<{
-      result?: QueryItemPartial
+      value?: QueryItemPartial
       i: number
       cancelFunction: CallbackType
     }>((obs) => {
@@ -478,17 +654,17 @@ export class DbSqlite {
           row.tag = cardTagStmt.all({ cardId: row.uid }).map((r) => r.tag)
         }
 
-        let result: QueryItemPartial | undefined
+        let value: QueryItemPartial | undefined
 
         if (filterFunction(row)) {
           if (i >= offset && (limit ? count < limit : true)) {
-            result = this.normalizeRow(row)
+            value = this.normalizeRow(row)
 
             if (fields) {
-              const tmp = result
-              result = {}
+              const tmp = value
+              value = {}
               for (const f of fields) {
-                result = dotProp.set(result, f, dotProp.get(tmp, f))
+                value = dotProp.set(value, f, dotProp.get(tmp, f))
               }
             }
 
@@ -500,12 +676,64 @@ export class DbSqlite {
 
         obs.next({
           i,
-          result,
+          value,
           cancelFunction
         })
       }
 
       obs.complete()
+    })
+  }
+
+  queryForIds (q: string | Record<string, any>) {
+    return new Observable<string>((obs) => {
+      const uids = new Set<string>()
+      const emit = (uid: string) => {
+        if (!uids.has(uid)) {
+          uids.add(uid)
+          obs.next(uid)
+        }
+      }
+
+      this.query(q, {
+        fields: ['uid', 'ref', 'media', 'deck', 'lesson']
+      }).subscribe(
+        ({ value }) => {
+          if (value) {
+            const { uid, ref, media, deck, lesson } = value
+
+            if (uid) {
+              emit(uid)
+            }
+            if (ref) {
+              ref.map((r) => emit(r))
+            }
+            if (media) {
+              media.map((r) => emit(r))
+            }
+            this.sql.prepare(/*sql*/`
+            SELECT q.uid quizId
+            FROM [card] c
+            JOIN quiz q ON q.cardId = c.uid
+            WHERE cardId = @cardId
+            `).all({ cardId: uid }).map(({ quizId }) => {
+              emit(quizId)
+            })
+
+            this.sql.prepare(/*sql*/`
+            SELECT d.uid deckId, ls.uid lessonId
+            FROM deck d
+            JOIN lesson ls ON d.lessonId = ls.uid
+            WHERE ls.name = @lesson AND d.name = @deck
+            `).all({ lesson, deck }).map(({ deckId, lessonId }) => {
+              emit(deckId)
+              emit(lessonId)
+            })
+          }
+        },
+        obs.error,
+        obs.complete
+      )
     })
   }
 
@@ -665,90 +893,6 @@ export class DbSqlite {
     })()
 
     return idsMap
-  }
-
-  import (filename: string) {
-    return new Observable<{
-      message: string
-    }>((obs) => {
-      obs.next({
-        message: `Opening: ${filename}`
-      })
-      const srcDb = new DbSqlite(filename)
-      DbSqlite.replicate(srcDb, this)
-        .subscribe(
-          obs.next,
-          obs.error,
-          obs.complete
-        )
-    })
-  }
-
-  export (
-    q: string | Record<string, any>, filename: string
-  ) {
-    return new Observable<{
-      message: string
-      percent?: number
-    }>((obs) => {
-      const uids = new Set<string>()
-
-      obs.next({
-        message: 'Querying'
-      })
-      this.query(q, {
-        fields: ['uid', 'ref', 'media', 'deck', 'lesson']
-      }).subscribe(
-        ({ result }) => {
-          if (result) {
-            const { uid, ref, media, deck, lesson } = result
-
-            if (uid) {
-              uids.add(uid)
-            }
-            if (ref) {
-              ref.map((r) => uids.add(r))
-            }
-            if (media) {
-              media.map((r) => uids.add(r))
-            }
-            this.sql.prepare(/*sql*/`
-            SELECT q.uid quizId
-            FROM [card] c
-            JOIN quiz q ON q.cardId = c.uid
-            WHERE cardId = @cardId
-            `).all({ cardId: uid }).map(({ quizId }) => {
-              uids.add(quizId)
-            })
-
-            this.sql.prepare(/*sql*/`
-            SELECT d.uid deckId, ls.uid lessonId
-            FROM deck d
-            JOIN lesson ls ON d.lessonId = ls.uid
-            WHERE ls.name = @lesson AND d.name = @deck
-            `).all({ lesson, deck }).map(({ deckId, lessonId }) => {
-              uids.add(deckId)
-              uids.add(lessonId)
-            })
-          }
-        },
-        obs.error,
-        () => {
-          obs.next({
-            message: 'Creating destination database'
-          })
-
-          const dstDb = new DbSqlite(filename)
-
-          DbSqlite.replicate(this, dstDb, Array.from(uids))
-            .subscribe(
-              obs.next,
-              obs.error,
-              obs.complete
-            )
-        }
-      )
-    })
   }
 
   importAnki2 (filename: string, meta: {
@@ -1227,7 +1371,7 @@ export class DbSqlite {
         limit: 1,
         fields: ['key', 'data', 'ref', 'media', 'markdown']
       }).subscribe(
-        ({ result: r, cancelFunction }) => {
+        ({ value: r, cancelFunction }) => {
           if (r) {
             cancelFunction()
             resolve(validate('schema.json#/definitions/RenderItemMin', {
