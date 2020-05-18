@@ -104,7 +104,7 @@ export default class Query extends Vue {
   allTags: string[] | null = null
   filteredTags: string[] = []
   tagList: string[] = []
-  sort: string[] = []
+  sort: string = ''
 
   isLoading = false
   count = 0
@@ -168,8 +168,6 @@ export default class Query extends Vue {
       count: true
     })
 
-    console.log(r.data)
-
     await Promise.all((r.data.result as any[])
       .map((el) => this.onCtxChange(deepMerge([el.key], el.ref))))
 
@@ -197,7 +195,7 @@ export default class Query extends Vue {
   }
 
   onSort (key: string, type: 'desc' | 'asc') {
-    this.sort = [(type === 'desc' ? '-' : '') + key]
+    this.sort = (type === 'desc' ? '-' : '') + key
     this.load()
   }
 

@@ -180,7 +180,7 @@ export class SQLParams {
       k = '$' + ++this.counter
     }
 
-    this.data[k] = v
+    this.data[k.substr(1)] = v
     return k
   }
 }
@@ -214,7 +214,23 @@ export class QSearch {
     }
   }
 
-  _parseQ (q: string) {
+  private _addField (k: string) {
+    if (this.opts.schema[k]) {
+      const { type } = this.opts.schema[k]
+      if (type !== 'number') {
+        k = `${this.opts.schema[k].type}_${k}`
+      }
+    }
+
+    this.fields.add(k)
+    if (k === 'key') {
+      k = 'c.key'
+    }
+
+    return safeColumnName(k)
+  }
+
+  private _parseQ (q: string) {
     const $or = [] as string[]
     const $and = [] as string[]
 
@@ -240,7 +256,7 @@ export class QSearch {
             } else {
               const vMillisec = (() => {
                 const [, p1, p2] = /^([+-]?\d+(?:\.\d+)?)([yMwdhm])$/i.exec(v) || []
-                const v0 = new Date().toISOString()
+                const v0 = +new Date()
                 if (p2 === 'y') {
                   return v0 + parseFloat(p1) * 365 * 24 * 60 * 60 * 1000 // 365d 24h 60m 60s 1000ms
                 } else if (p2 === 'M') {
@@ -265,27 +281,27 @@ export class QSearch {
         }
 
         if (op === '+') {
-          return `${this.fields.add(k)} = ${this.params.add(v)}`
+          return `${this._addField(k)} = ${this.params.add(v)}`
         } else if (op === '-') {
           if (typeof v === 'string' && !isDate) {
-            return `${this.fields.add(k)} NOT LIKE '%'||${this.params.add(v)}||'%'`
+            return `${this._addField(k)} NOT LIKE '%'||${this.params.add(v)}||'%'`
           } else if (opK === '>' && (typeof v === 'number' || isDate)) {
-            return `${this.fields.add(k)} <= ${this.params.add(v)}`
+            return `${this._addField(k)} <= ${this.params.add(v)}`
           } else if (opK === '<' && (typeof v === 'number' || isDate)) {
-            return `${this.fields.add(k)} >= ${this.params.add(v)}`
+            return `${this._addField(k)} >= ${this.params.add(v)}`
           } else {
-            return `${this.fields.add(k)} != ${this.params.add(v)}`
+            return `${this._addField(k)} != ${this.params.add(v)}`
           }
         } else {
           if (typeof v === 'string' && !isDate) {
-            return `${this.fields.add(k)} LIKE '%'||${this.params.add(v)}||'%'`
+            return `${this._addField(k)} LIKE '%'||${this.params.add(v)}||'%'`
           } else if (opK === '>' && (typeof v === 'number' || isDate)) {
-            return `${this.fields.add(k)} > ${this.params.add(v)}`
+            return `${this._addField(k)} > ${this.params.add(v)}`
           } else if (opK === '<' && (typeof v === 'number' || isDate)) {
-            return `${this.fields.add(k)} < ${this.params.add(v)}`
+            return `${this._addField(k)} < ${this.params.add(v)}`
           }
 
-          return `${this.fields.add(k)} = ${this.params.add(v)}`
+          return `${this._addField(k)} = ${this.params.add(v)}`
         }
       }
 
@@ -294,16 +310,16 @@ export class QSearch {
       if (v === 'NULL') {
         if (op === '-') {
           $and.push(
-            `${this.fields.add(k)} IS NOT NULL`
+            `${this._addField(k)} IS NOT NULL`
           )
           return
         } else if (op === '?') {
           $or.push(
-            `${this.fields.add(k)} IS NULL`
+            `${this._addField(k)} IS NULL`
           )
         } else {
           $and.push(
-            `${this.fields.add(k)} IS NULL`
+            `${this._addField(k)} IS NULL`
           )
         }
         return
@@ -333,7 +349,7 @@ export class QSearch {
     return $or.filter((el) => el).map((el) => `(${el})`).join(' OR ') || 'TRUE'
   }
 
-  _parseCond (q: Record<string, any>) {
+  private _parseCond (q: Record<string, any>) {
     const parseCond = (q: any) => {
       const subClause: string[] = []
 
@@ -358,14 +374,14 @@ export class QSearch {
       const cList: string[] = []
 
       const doDefault = (k: string, v: any) => {
-        cList.push(`${this.fields.add(k)} = ${this.params.add(v)}`)
+        cList.push(`${this._addField(k)} = ${this.params.add(v)}`)
       }
 
       for (let [k, v] of Object.entries(cond)) {
         let isPushed = false
         if (k.includes('.')) {
           const kn = k.split('.')
-          k = `json_extract(${this.fields.add(kn[0])}, '$.${kn.slice(1).join('.')}')`
+          k = `json_extract(${this._addField(kn[0])}, '$.${kn.slice(1).join('.')}')`
         }
 
         if (v instanceof Date) {
@@ -375,9 +391,9 @@ export class QSearch {
         if (v) {
           if (Array.isArray(v)) {
             if (v.length > 1) {
-              cList.push(`${this.fields.add(k)} IN (${v.map((v0) => `${this.params.add(v0)}`).join(',')})`)
+              cList.push(`${this._addField(k)} IN (${v.map((v0) => `${this.params.add(v0)}`).join(',')})`)
             } else if (v.length === 1) {
-              cList.push(`${this.fields.add(k)} = ${this.params.add(v[0])}`)
+              cList.push(`${this._addField(k)} = ${this.params.add(v[0])}`)
             }
           } else if (!!v && typeof v === 'object' && !Array.isArray(v)) {
             const op = Object.keys(v!)[0]
@@ -390,17 +406,17 @@ export class QSearch {
               switch (op) {
                 case '$in':
                   if (v1.length > 1) {
-                    cList.push(`${this.fields.add(k)} IN (${v1.map((v0) => this.params.add(v0)).join(',')})`)
+                    cList.push(`${this._addField(k)} IN (${v1.map((v0) => this.params.add(v0)).join(',')})`)
                   } else if (v1.length === 1) {
-                    cList.push(`${this.fields.add(k)} = ${this.params.add(v1[0])}`)
+                    cList.push(`${this._addField(k)} = ${this.params.add(v1[0])}`)
                   }
                   isPushed = true
                   break
                 case '$nin':
                   if (v1.length > 1) {
-                    cList.push(`${this.fields.add(k)} NOT IN (${v1.map((v0) => this.params.add(v0)).join(',')})`)
+                    cList.push(`${this._addField(k)} NOT IN (${v1.map((v0) => this.params.add(v0)).join(',')})`)
                   } else {
-                    cList.push(`${this.fields.add(k)} != ${this.params.add(v1[0])}`)
+                    cList.push(`${this._addField(k)} != ${this.params.add(v1[0])}`)
                   }
                   isPushed = true
                   break
@@ -421,34 +437,34 @@ export class QSearch {
 
             switch (op) {
               case '$like':
-                cList.push(`${this.fields.add(k)} LIKE ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} LIKE ${this.params.add(v1)}`)
                 break
               case '$nlike':
-                cList.push(`${this.fields.add(k)} NOT LIKE ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} NOT LIKE ${this.params.add(v1)}`)
                 break
               case '$substr':
-                cList.push(`${this.fields.add(k)} LIKE '%'||${this.params.add(v1)}||'%'`)
+                cList.push(`${this._addField(k)} LIKE '%'||${this.params.add(v1)}||'%'`)
                 break
               case '$nsubstr':
-                cList.push(`${this.fields.add(k)} NOT LIKE '%'||${this.params.add(v1)}||'%'`)
+                cList.push(`${this._addField(k)} NOT LIKE '%'||${this.params.add(v1)}||'%'`)
                 break
               case '$exists':
-                cList.push(`${this.fields.add(k)} IS ${v1 ? 'NOT NULL' : 'NULL'}`)
+                cList.push(`${this._addField(k)} IS ${v1 ? 'NOT NULL' : 'NULL'}`)
                 break
               case '$gt':
-                cList.push(`${this.fields.add(k)} > ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} > ${this.params.add(v1)}`)
                 break
               case '$gte':
-                cList.push(`${this.fields.add(k)} >= ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} >= ${this.params.add(v1)}`)
                 break
               case '$lt':
-                cList.push(`${this.fields.add(k)} < ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} < ${this.params.add(v1)}`)
                 break
               case '$lte':
-                cList.push(`${this.fields.add(k)} <= ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} <= ${this.params.add(v1)}`)
                 break
               case '$ne':
-                cList.push(`${this.fields.add(k)} != ${this.params.add(v1)}`)
+                cList.push(`${this._addField(k)} != ${this.params.add(v1)}`)
                 break
               default:
                 doDefault(k, v)

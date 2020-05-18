@@ -6,7 +6,6 @@ export function generateSecret () {
 
 export function slugify (s: string) {
   return s
-    .replace(/-/g, '$')
     .replace(/[^A-Z0-9_$]/gi, '_')
 }
 

@@ -130,7 +130,7 @@ export default class Quiz extends Vue {
     if (this.activeDeck) {
       const api = await this.getApi()
       const keys: string[] = (await api.post('/api/quiz/', {
-        q: this.q,
+        q: this.q + ' nextReview<NOW ?nextReview:NULL',
         lesson: this.lessonName,
         deck: this.activeDeck
       })).data.keys
@@ -144,12 +144,12 @@ export default class Quiz extends Vue {
       if (!(keys.length > 0)) {
         const [hour, day] = await Promise.all([
           api.post('/api/quiz/', {
-            q: `${this.q} nextReview<+1h`,
+            q: `${this.q} nextReview<+1h ?nextReview:NULL`,
             lesson: this.lessonName,
             deck: this.activeDeck
           }),
           api.post('/api/quiz/', {
-            q: `${this.q} nextReview<+1d`,
+            q: `${this.q} nextReview<+1d ?nextReview:NULL`,
             lesson: this.lessonName,
             deck: this.activeDeck
           })

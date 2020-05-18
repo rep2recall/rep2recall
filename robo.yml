@@ -22,9 +22,10 @@ server:
       'cd packages/web && npm run dev'
 desktop:
   command: |
-    concurrently \
-      'cd packages/e-server && npm run dev' \
-      'cd packages/e-web && npm run dev'
+    pm2 start scripts/ecosystem.server.yaml
+    pm2 logs
+pm2-stop:
+  command: pm2 stop all
 desktop-build:
   command: |
     cd packages/e-web

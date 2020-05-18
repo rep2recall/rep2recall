@@ -231,14 +231,12 @@ export default class Edit extends Vue {
         }
       }))
 
-      console.log(r)
-
       if (r.data) {
         const {
           tag,
           key, lesson, data, deck,
           nextReview, srsLevel, stat,
-          markdown
+          markdown = ''
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)

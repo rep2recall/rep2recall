@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify'
-import escapeRegExp from 'escape-string-regexp'
 import $RefParser from '@apidevtools/json-schema-ref-parser'
 
 import { db } from '../config'
@@ -66,15 +65,7 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
     $and.push({
       $or: [
         { deck },
-        { deck: { $regex: new RegExp(`^${escapeRegExp(deck)}/`) } }
-      ]
-    })
-
-    $and.push({
-      $or: [
-        { nextReview: { $exists: false } },
-        { nextReview: null },
-        { nextReview: { $lte: new Date() } }
+        { deck: { $like: `${deck}/%` } }
       ]
     })
 

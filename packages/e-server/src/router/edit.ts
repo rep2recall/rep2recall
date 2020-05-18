@@ -17,36 +17,14 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
         }
       },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            key: { type: 'string' },
-            data: {},
-            ref: { type: 'array', items: { type: 'string' } },
-            markdown: { type: 'string' },
-            tag: { type: 'array', items: { type: 'string' } },
-            nextReview: { type: 'string', format: 'date-time' },
-            srsLevel: { type: 'integer' },
-            stat: {},
-            lesson: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  key: { type: 'string' },
-                  name: { type: 'string' },
-                  deck: { type: 'string' }
-                }
-              }
-            },
-            deck: { type: 'string' }
-          }
-        }
+        200: (await $RefParser.dereference(schema as any)).definitions!.QueryItem
       }
     },
-    handler: async (req) => {
+    handler: async (req, reply) => {
       const { key } = req.query
-      return db.get(key) || {}
+      const c = db.get(key)
+
+      return c || reply.status(404).send()
     }
   })
 
@@ -61,8 +39,7 @@ const router = async (f: FastifyInstance, _: any, next: () => void) => {
           q: { type: ['string', 'object'] },
           offset: { type: 'integer' },
           limit: { type: ['integer', 'null'] },
-          sort: { type: 'array', items: { type: 'string' } },
-          count: { type: 'boolean' }
+          sort: { type: 'string' }
         }
       },
       response: {
