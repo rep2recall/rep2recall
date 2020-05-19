@@ -24,27 +24,16 @@ environment:
 install:
   - ps: Install-Product node 12 x64
   - ps: $env:Path = "C:\Program Files\Git\bin;$env:Path"
-  # - curl -sf https://gobinaries.com/tj/robo | PREFIX=. sh
+  - npm i -g cross-env
+  - curl -sf https://gobinaries.com/tj/robo | cross-env PREFIX=. sh
 
 build_script:
   - cd packages\e-web && npm i && cd ..\..
+  - cd packages\e-app && npm i && cd ..\..
   - cd packages\e-server
   - npm i && npm run dist
   - cd ..\..
-  - cd packages\e-app && npm i && cd ..\..
-
-  # - robo desktop-build
-  - cd packages\e-web
-  - npm run build -- --dest ..\e-app\web
-  - cd ..\..
-
-  - cd packages\e-server
-  - npm run build -- --outDir ..\e-app\server
-  - cd ..\..
-  
-  - cd packages\e-app
-  - npm run build
-  - cd ..\e-server
+  - robo desktop-build
 
 deploy:
   - provider: GitHub

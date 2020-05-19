@@ -16,7 +16,7 @@
     "dist": "pkg . --out-path dist",
     "dist:mac": "npm run dist -- -t node12-macos-x64 -o dist/rep2recall-local-macos-x64",
     "postinstall": "node scripts/postinstall.js",
-    "build-schema": "npx cross-env typescript-json-schema --noExtraProps --required -o src/schema/schema.json src/schema/schema.ts '*'"
+    "build-schema": "cross-env typescript-json-schema --noExtraProps --required -o src/schema/schema.json src/schema/schema.ts '*'"
   },
   "keywords": [
     "rep2recall",
