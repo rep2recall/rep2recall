@@ -27,6 +27,9 @@
     "electron": "^8.2.5",
     "electron-builder": "^22.6.0"
   },
+  "peerDependencies": {
+    "electron-context-menu": "^2.0.1"
+  },
   "build": {
     "appId": "dev.polvcode.rep2recall",
     "productName": "Rep2Recall Desktop",

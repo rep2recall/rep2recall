@@ -34,7 +34,16 @@ build_script:
   - cd packages\e-server
   - npm i && npm run dist
   - cd ..\..
-  - robo desktop-build
+  - |
+    cross-env-shell "\
+    cd packages/e-web &&\
+    npm run build -- --dest ../e-app/web &&\
+    cd - &&\
+    cd packages/e-server &&\
+    npm run build -- --outDir ../e-app/server &&\
+    cd - &&\
+    cd packages/e-app &&\
+    npm run build"
 
 deploy:
   - provider: GitHub
