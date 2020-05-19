@@ -24,12 +24,26 @@ environment:
 install:
   - ps: Install-Product node 12 x64
   - ps: $env:Path = "C:\Program Files\Git\bin;$env:Path"
+  - npm i -g cross-env
+  - curl -sf https://gobinaries.com/tj/robo | cross-env PREFIX=. sh
 
 build_script:
-  - cd packages\e-app
-  - bash install-and-build.sh
-  - cd ..\e-server
-  - bash -c "npm run dist -- -t node12-win-x64 -o dist/rep2recall-local-server-win-x64"
+  - cd packages\e-web && npm i && cd ..\..
+  - cd packages\e-server && npm i && cd ..\..
+  - cd packages\e-app && npm i && cd ..\..
+  - cd packages\e-server
+  - npm i && npm run dist
+  - cd ..\..
+  - >
+    cross-env-shell "
+    cd packages/e-web &&
+    npm run build -- --dest ../e-app/web &&
+    cd ../.. &&
+    cd packages/e-server &&
+    npm run build -- --outDir ../e-app/server &&
+    cd ../.. &&
+    cd packages/e-app &&
+    npm run build"
 
 deploy:
   - provider: GitHub

@@ -23,7 +23,7 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
         200: {
           type: 'object',
           properties: {
-            filename: { type: 'string' }
+            key: { type: 'string' }
           }
         }
       }
@@ -32,7 +32,7 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
     const { file, key } = req.body
 
     return {
-      filename: db.insertMedia(file, key)
+      key: db.insertMedia(file, key)
     }
   })
 

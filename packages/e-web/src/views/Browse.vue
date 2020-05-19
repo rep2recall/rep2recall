@@ -104,7 +104,7 @@ export default class Query extends Vue {
   allTags: string[] | null = null
   filteredTags: string[] = []
   tagList: string[] = []
-  sort: string[] = []
+  sort: string = ''
 
   isLoading = false
   count = 0
@@ -114,7 +114,7 @@ export default class Query extends Vue {
 
   headers = [
     { label: 'Key', field: 'key', width: 150, sortable: true },
-    { label: 'Deck', field: 'lesson', width: 200, sortable: true },
+    { label: 'Lesson / Deck', field: 'lesson', width: 200, sortable: true },
     { label: 'Data', field: 'data', width: 300 },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
@@ -168,15 +168,18 @@ export default class Query extends Vue {
       count: true
     })
 
-    await Promise.all((r.data.data as any[])
+    await Promise.all((r.data.result as any[])
       .map((el) => this.onCtxChange(deepMerge([el.key], el.ref))))
 
     this.count = r.data.count
 
-    this.$set(this, 'items', r.data.data.map((el: any) => {
+    this.$set(this, 'items', r.data.result.map((el: any) => {
       return {
         ...el,
-        lesson: (el.lesson || []).filter((ls: any) => ls.deck),
+        lesson: el.lesson ? [{
+          name: el.lesson,
+          deck: el.deck
+        }] : [],
         tag: stringSorter(el.tag || [])
       }
     }))
@@ -192,7 +195,7 @@ export default class Query extends Vue {
   }
 
   onSort (key: string, type: 'desc' | 'asc') {
-    this.sort = [(type === 'desc' ? '-' : '') + key]
+    this.sort = (type === 'desc' ? '-' : '') + key
     this.load()
   }
 
@@ -272,7 +275,11 @@ export default class Query extends Vue {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
           const api = await this.getApi(true)
-          const r = await api.post('/api/edit/info', { key })
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
         } else {

@@ -17,7 +17,7 @@
       router-link.nav-link(to="/community" :class="{ active: $route.path === '/community' }")
         fontawesome(icon="users")
         span Community
-      a.nav-link(href="https://github.com/patarapolw/rep2recall" rel="noopener")
+      a.nav-link(href="https://github.com/patarapolw/rep2recall" rel="noopener" target="_blank")
         fontawesome(:icon="['fab', 'github']")
         span About
     div(style="flex-grow: 1;")
