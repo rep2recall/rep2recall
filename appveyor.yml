@@ -28,10 +28,11 @@ install:
 
 build_script:
   - cd packages\e-web && npm i && cd ..\..
-  - cd packages\e-app && npm i && cd ..\..
   - cd packages\e-server
   - npm i && npm run dist -- -t 'node12-win-x64' -o dist/rep2recall-local-server-win-x64
   - cd ..\..
+  - cd packages\e-app && npm i && cd ..\..
+
   # - robo desktop-build
   - cd packages\e-web
   - npm run build -- --dest ..\e-app\web
