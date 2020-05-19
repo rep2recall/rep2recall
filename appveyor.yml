@@ -8,7 +8,7 @@ platform:
   - x64
 
 cache:
-  - packages\e-app\node_modules
+  # - packages\e-app\node_modules
   - packages\e-server\node_modules
   - packages\e-web\node_modules
   - '%USERPROFILE%\.electron'
