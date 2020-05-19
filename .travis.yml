@@ -20,6 +20,7 @@ cache:
 script:
   - curl -sf https://gobinaries.com/tj/robo | sh
   - cd packages/e-web && npm i && cd -
+  - cd packages/e-server && npm i && cd -
   - cd packages/e-app && npm i && cd -
   - cd packages/e-server
   - npm i && npm run dist
