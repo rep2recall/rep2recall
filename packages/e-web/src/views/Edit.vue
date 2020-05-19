@@ -225,16 +225,18 @@ export default class Edit extends Vue {
 
       const api = await this.getApi()
 
-      const r = (await api.post('/api/edit/info', { key: this.key }))
-
-      console.log(r)
+      const r = (await api.get('/api/edit/', {
+        params: {
+          key: this.key
+        }
+      }))
 
       if (r.data) {
         const {
           tag,
           key, lesson, data, deck,
           nextReview, srsLevel, stat,
-          markdown
+          markdown = ''
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
@@ -393,7 +395,11 @@ export default class Edit extends Vue {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
           const api = await this.getApi(true)
-          const r = await api.post('/api/edit/info', { key })
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
         } else {

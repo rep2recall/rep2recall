@@ -1,5 +1,4 @@
 import path from 'path'
-import { Worker } from 'worker_threads'
 
 import { FastifyInstance } from 'fastify'
 import ws from 'fastify-websocket'
@@ -7,8 +6,10 @@ import ws from 'fastify-websocket'
 import fileUpload from 'fastify-file-upload'
 import { nanoid } from 'nanoid'
 import { UploadedFile } from 'express-fileupload'
+import AdmZip from 'adm-zip'
+import pino from 'pino'
 
-import { tmpPath } from '../config'
+import { tmpPath, db } from '../config'
 
 export default (f: FastifyInstance, _: any, next: () => void) => {
   f.register(fileUpload)
@@ -49,15 +50,20 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
   const socketMap = new Map<string, (msg: any) => void>()
 
   f.register(ws)
-  f.get('/process', {
+  f.get('/:id', {
     websocket: true,
     schema: {
       tags: ['file'],
       summary: 'Process an archive'
     }
-  }, (conn) => {
-    conn.socket.on('message', (msg: string) => {
-      const { id, type, filename } = JSON.parse(msg)
+  }, (conn, _, params = {}) => {
+    const logger = pino({
+      prettyPrint: true
+    })
+    const id = params.id as string
+
+    conn.socket.on('message', async (msg: string) => {
+      const { type, filename } = JSON.parse(msg)
 
       const isNew = !socketMap.has(id)
       socketMap.set(id, (json: any) => {
@@ -65,30 +71,59 @@ export default (f: FastifyInstance, _: any, next: () => void) => {
       })
 
       if (isNew) {
-        const spawn = () => {
-          const worker = new Worker(path.join(__dirname, '../worker/process-upload.js'))
+        try {
+          const sendStatus = ({ message, percent }: { message: string; percent?: number }) => {
+            socketMap.get(id)!({ id, message, percent })
+            logger.info(`Processing status: ${filename}: ${message}${percent ? ` : ${percent.toFixed(2)}%` : ''}`)
+          }
+          const sendError = (err: Error) => {
+            socketMap.get(id)!({ id, status: 'error', message: err.message })
+            logger.error(`Processing error: ${filename}: ${err.message}`)
+            console.error(err)
+          }
+          const sendComplete = () => {
+            socketMap.get(id)!({ id, status: 'complete' })
+            logger.info(`Finished processing: ${filename}`)
+          }
 
-          worker
-            .on('online', () => {
-              worker.postMessage({ id, type, filename })
+          logger.info(`Start processing: ${filename}`)
+
+          if (type === 'apkg') {
+            const zip = new AdmZip(path.join(tmpPath, id))
+            sendStatus({ message: 'extracting APKG' })
+            zip.extractAllTo(path.join(tmpPath, id + '-folder'))
+
+            db.importAnki2(path.join(tmpPath, id + '-folder', 'collection.anki2'), {
+              originalFilename: filename
             })
-            .on('message', (status = 'done') => {
-            socketMap.get(id)!({ id, status })
+              .subscribe(
+                sendStatus,
+                sendError,
+                sendComplete
+              )
+          } else if (type === 'anki2') {
+            db.importAnki2(path.join(tmpPath, id), {
+              originalFilename: filename
             })
-            .on('error', (err) => {
-              console.error(`Error: ${filename}, ${err.message}`)
-            })
-            .on('exit', (code) => {
-              if (code === 0) {
-                console.log(`Worker: ${filename} exited with code ${code}`)
-                socketMap.get(id)!({ id, status: 'done' })
-              } else {
-                console.error(`Worker: ${filename} exited with code ${code}`)
-              }
-            })
+              .subscribe(
+                sendStatus,
+                sendError,
+                sendComplete
+              )
+          } else {
+            throw new Error('Not implemented yet.')
+            // db.import(path.join(tmpPath, id))
+            //   .subscribe(
+            //     sendStatus,
+            //     sendError,
+            //     sendComplete
+            //   )
+          }
+        } catch (err) {
+          socketMap.get(id)!({ id, error: err.message })
+          logger.error(`Processing error: ${filename}: ${err.message}`)
+          console.error(err)
         }
-
-        spawn()
       }
     })
   })

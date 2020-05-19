@@ -1,13 +1,11 @@
 const path = require('path')
 const { fork } = require('child_process')
 const { URL } = require('url')
-const fs = require('fs')
 
 const { app, protocol, BrowserWindow, session, shell } = require('electron')
 const contextMenu = require('electron-context-menu')
 const ON_DEATH = require('death')
 
-const isDevelopment = process.env.NODE_ENV !== 'production'
 app.allowRendererProcessReuse = true
 
 contextMenu()
@@ -60,8 +58,13 @@ function createWindow () {
   win.maximize()
 
   win.webContents.on('will-navigate', (evt, url) => {
-    // @ts-ignore
-    if (url !== evt.sender.getURL()) {
+    if (new URL(url).hostname !== 'localhost') {
+      evt.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+  win.webContents.on('new-window', (evt, url) => {
+    if (new URL(url).hostname !== 'localhost') {
       evt.preventDefault()
       shell.openExternal(url)
     }

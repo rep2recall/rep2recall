@@ -1,13 +1,12 @@
-import { nanoid } from 'nanoid'
+import * as crypto from 'crypto'
 
-export function safeId () {
-  return nanoid()
+export function generateSecret () {
+  return crypto.randomBytes(64).toString('base64')
 }
 
 export function slugify (s: string) {
   return s
-    .replace(/-/g, '$')
-    .replace(/ /g, '_')
+    .replace(/[^A-Z0-9_$]/gi, '_')
 }
 
 /**
@@ -40,10 +39,12 @@ export async function mapAsync<T, R = T> (
   }))
 }
 
-export function * chunks<T> (arr: T[], n: number) {
-  for (let i = 0; i < arr.length; i += n) {
-    yield arr.slice(i, i + n)
+export function chunks<T> (arr: T[], chunkSize: number) {
+  var R = []
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    R.push(arr.slice(i, i + chunkSize))
   }
+  return R
 }
 
 export function deepMerge (dst: any, src: any) {
@@ -58,15 +59,24 @@ export function deepMerge (dst: any, src: any) {
     }
   }
 
-  return typeof dst === 'undefined' ? src : dst
+  if (typeof dst === 'undefined') {
+    return src
+  } else if (typeof dst === 'object' && !dst) {
+    return undefined
+  }
+
+  return dst
 }
 
-export const sorter = (ords: {
-  key: string
-  type: 1 | -1
-}[], nullsLast?: boolean) => (a: any, b: any) => {
+export const sorter = (keys: string[], nullsLast?: boolean) => (a: any, b: any) => {
   if (a && b) {
-    for (const { key, type } of ords) {
+    for (let key of keys) {
+      let direction = -1
+      if (key[0] === '-') {
+        direction = 1
+        key = key.substr(1)
+      }
+
       const m = a[key]
       const n = b[key]
 
@@ -84,7 +94,7 @@ export const sorter = (ords: {
           continue
         }
 
-        return r * type
+        return r * direction
       } else {
         if (nullsLast) {
           if (isUndefinedOrNull(m)) {
@@ -94,7 +104,7 @@ export const sorter = (ords: {
           }
         }
 
-        return (tA - tB) * type
+        return (tA - tB) * direction
       }
     }
 
@@ -139,3 +149,7 @@ function getType (m: any): number {
 
   return 3 // Assume number
 }
+
+export type DeepPartial<T> = T extends Function
+  ? T
+  : (T extends Record<string, any> ? { [P in keyof T]?: DeepPartial<T[P]>; } : T)

@@ -130,7 +130,7 @@ export default class Quiz extends Vue {
     if (this.activeDeck) {
       const api = await this.getApi()
       const keys: string[] = (await api.post('/api/quiz/', {
-        q: this.q,
+        q: this.q + ' nextReview<NOW ?nextReview:NULL',
         lesson: this.lessonName,
         deck: this.activeDeck
       })).data.keys
@@ -144,12 +144,12 @@ export default class Quiz extends Vue {
       if (!(keys.length > 0)) {
         const [hour, day] = await Promise.all([
           api.post('/api/quiz/', {
-            q: `${this.q} nextReview<+1h`,
+            q: `${this.q} nextReview<+1h ?nextReview:NULL`,
             lesson: this.lessonName,
             deck: this.activeDeck
           }),
           api.post('/api/quiz/', {
-            q: `${this.q} nextReview<+1d`,
+            q: `${this.q} nextReview<+1d ?nextReview:NULL`,
             lesson: this.lessonName,
             deck: this.activeDeck
           })
@@ -194,7 +194,11 @@ export default class Quiz extends Vue {
     if (this.key) {
       if (!this.currentQuizMarkdown) {
         const api = await this.getApi()
-        const r = await api.post('/api/edit/info', { key: this.key })
+        const r = await api.get('/api/edit/', {
+          params: {
+            key: this.key
+          }
+        })
 
         const matter = new Matter()
         const { header, content } = matter.parse(r.data.markdown || '')
@@ -221,6 +225,10 @@ export default class Quiz extends Vue {
 
       const el1 = el.cloneNode(true) as HTMLScriptElement
       el.replaceWith(el1)
+    })
+
+    d.querySelectorAll('a').forEach((el) => {
+      el.target = '_blank'
     })
   }
 
@@ -295,7 +303,11 @@ export default class Quiz extends Vue {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
           const api = await this.getApi(true)
-          const r = await api.post('/api/edit/info', { key })
+          const r = await api.get('/api/edit/', {
+            params: {
+              key
+            }
+          })
           this.ctx[key] = r.data
           this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
         } else {

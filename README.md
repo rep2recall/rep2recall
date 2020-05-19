@@ -40,7 +40,8 @@ So, Emojis are supported. Settings are roughly similar to <https://patarapolw.gi
 Requirements are
 
 - MongoDB
-- Firebase (both on UI-side and server-side)
+- Firebase (both on UI-side and server-side, i.e. firebase-admin)
+- [Robo](https://github.com/tj/robo) for `robo.yml`-task-runner
 
 ### Required environmental variables
 
