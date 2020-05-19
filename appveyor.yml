@@ -27,19 +27,19 @@ install:
   # - curl -sf https://gobinaries.com/tj/robo | PREFIX=. sh
 
 build_script:
-  - cd packages\e-web && npm i && cd -
-  - cd packages\e-app && npm i && cd -
+  - cd packages\e-web && npm i && cd ..\..
+  - cd packages\e-app && npm i && cd ..\..
   - cd packages\e-server
   - npm i && npm run dist -- -t 'node12-win-x64' -o dist/rep2recall-local-server-win-x64
-  - cd -
+  - cd ..\..
   # - robo desktop-build
   - cd packages\e-web
   - npm run build -- --dest ..\e-app\web
-  - cd -
+  - cd ..\..
 
   - cd packages\e-server
   - npm run build -- --outDir ..\e-app\server
-  - cd -
+  - cd ..\..
   
   - cd packages\e-app
   - npm run build
