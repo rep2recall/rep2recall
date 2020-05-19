@@ -34,15 +34,15 @@ build_script:
   - cd packages\e-server
   - npm i && npm run dist
   - cd ..\..
-  - |
-    cross-env-shell "\
-    cd packages/e-web &&\
-    npm run build -- --dest ../e-app/web &&\
-    cd - &&\
-    cd packages/e-server &&\
-    npm run build -- --outDir ../e-app/server &&\
-    cd - &&\
-    cd packages/e-app &&\
+  - >
+    cross-env-shell "
+    cd packages/e-web &&
+    npm run build -- --dest ../e-app/web &&
+    cd - &&
+    cd packages/e-server &&
+    npm run build -- --outDir ../e-app/server &&
+    cd - &&
+    cd packages/e-app &&
     npm run build"
 
 deploy:
