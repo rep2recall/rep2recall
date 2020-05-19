@@ -45,7 +45,7 @@ desktop-pkg:
     cd -
     
     cd packages/e-server
-    npm run pkg
+    npx pkg --out-path dist .
 
 ##########
 # Settings
