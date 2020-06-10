@@ -16,7 +16,7 @@ setGlobalOptions({ options: { allowMixed: Severity.ALLOW } })
 
 class DbUser {
   @prop({ required: true, unique: true }) email!: string
-  @prop({ default: () => crypto.randomBytes(64).toString('base64') }) secret!: string
+  @prop({ default: () => crypto.randomBytes(64).toString('base64') }) secret?: string
 
   newSecret () {
     this.secret = crypto.randomBytes(64).toString('base64')
@@ -57,7 +57,7 @@ export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { colle
 
 class DbDeck {
   @prop({ required: true }) name!: string
-  @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds!: string[]
+  @prop({ default: () => [], index: true, ref: 'DbCard' }) cardIds?: string[]
   @prop({ ref: 'DbLesson' }) lessonId?: string
 
   static async upsert (entry: {

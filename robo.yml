@@ -3,54 +3,27 @@
 docker-build:
   command: |
     docker build \
-      -t {{.docker.tag.gcr}} \
+      -t {{.docker.tag}} \
       --build-arg VUE_APP_FIREBASE_CONFIG --build-arg VUE_APP_BASE_URL \
       .
 docker-start:
   command: |
     docker run \
       -p 8080:8080 \
-      -e MONGO_URI -e SECRET -e FIREBASE_SDK -e DEFAULT_USER -e VUE_APP_BASE_URL \
-      {{.docker.tag.gcr}} 
+      -e MONGO_URI -e SECRET -e FIREBASE_SDK -e VUE_APP_BASE_URL \
+      {{.docker.tag}} 
 docker-deploy:
   command: |
-    docker push {{.docker.tag.gcr}}
-server:
+    docker push {{.docker.tag}}
+dev:
   command: |
     concurrently \
       'cd packages/server && npm run dev' \
       'cd packages/web && npm run dev'
-desktop:
-  command: |
-    pm2 start scripts/ecosystem.server.yaml
-    pm2 logs
-pm2-stop:
-  command: pm2 stop all
-desktop-build:
-  command: |
-    cd packages/e-web
-    npm run build -- --dest ../e-app/web
-    cd -
-
-    cd packages/e-server
-    npm run build -- --outDir ../e-app/server
-    cd -
-    
-    cd packages/e-app
-    npm run build
-desktop-pkg:
-  command: |
-    cd packages/e-web
-    npm run build -- --dest ../e-server/web
-    cd -
-    
-    cd packages/e-server
-    npx pkg --out-path dist .
 
 ##########
 # Settings
 
 variables:
   docker:
-    tag:
-      gcr: gcr.io/$PROJECT_ID/rep2recall
+    tag: gcr.io/$PROJECT_ID/rep2recall
