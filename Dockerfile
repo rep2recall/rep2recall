@@ -1,21 +1,25 @@
-FROM node:10-alpine AS web
+FROM node:12-alpine AS web
 RUN mkdir -p /web
 WORKDIR /web
-COPY packages/web/package.json packages/web/package-lock.json /web/
-RUN npm i
+COPY packages/web/package.json packages/web/yarn.lock /web/
+RUN yarn
 COPY packages/web /web
 ARG VUE_APP_FIREBASE_CONFIG
 ARG VUE_APP_BASE_URL
-RUN npm run build
+RUN yarn build
 
-FROM node:10-alpine
+FROM node:12-alpine AS server
 RUN mkdir -p /server
 WORKDIR /server
-COPY packages/server/package.json /server/
-RUN npm i
+COPY packages/server/package.json packages/server/yarn.lock /server/
+RUN yarn
 COPY packages/server /server
-RUN npm run build
-RUN npm prune --production; exit 0
-COPY --from=web /web/dist /server/public
+RUN yarn build
+RUN yarn install --production --ignore-scripts --prefer-offline
+
+FROM astefanutti/scratch-node:12
+WORKDIR /app
+COPY --from=server /server/node_modules /server/dist /app/
+COPY --from=web /web/dist /app/public
 EXPOSE 8080
-CMD [ "npm", "start" ]
+ENTRYPOINT [ "node", "dist/index.js" ]

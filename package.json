@@ -2,7 +2,7 @@
   "name": "rep2recall",
   "private": true,
   "scripts": {
-    "dev": "robo server",
+    "dev": "robo dev",
     "build": "robo docker-build",
     "start": "robo docker-start"
   },
@@ -10,6 +10,7 @@
     "@typescript-eslint/eslint-plugin": "^2.17.0",
     "@typescript-eslint/parser": "^2.17.0",
     "concurrently": "^5.2.0",
+    "cz-conventional-changelog": "3.2.0",
     "eslint": ">=6.2.2",
     "eslint-config-standard": "^14.1.0",
     "eslint-plugin-import": "^2.20.0",
@@ -18,5 +19,15 @@
     "eslint-plugin-standard": ">=4.0.0",
     "eslint-plugin-vue": "^6.1.2",
     "typescript": "^3.8.3"
+  },
+  "engines": {
+    "node": "12.x",
+    "npm": "please-use-yarn",
+    "yarn": "1.x"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   }
 }

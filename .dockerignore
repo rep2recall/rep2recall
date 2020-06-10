@@ -1,6 +1,16 @@
-**/node_modules
-packages/e-*
-packages/k-*
-packages/server/public
-packages/**/dist
-.env
+# Ignore everything
+**
+
+# Allow files and directories
+!/packages/server/src
+!/packages/server/package.json
+!/packages/server/tsconfig.json
+!/packages/server/yarn.lock
+
+!/packages/web/public
+!/packages/web/src
+!/packages/web/babel.config.js
+!/packages/web/package.json
+!/packages/web/tsconfig.json
+!/packages/web/vue.config.js
+!/packages/web/yarn.lock

@@ -1,9 +1,0 @@
-apps:
-  - name: e-server
-    script: npx
-    args: ts-node-dev src/index.ts
-    cwd: packages/e-server
-  - name: e-web
-    script: npx
-    args: vue-cli-service serve
-    cwd: packages/e-web
