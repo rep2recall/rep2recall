@@ -1,3 +1,0 @@
-{
-  "extends": "./packages/e-web/tsconfig.json"
-}

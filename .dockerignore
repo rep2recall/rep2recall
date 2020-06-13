@@ -2,15 +2,26 @@
 **
 
 # Allow files and directories
-!/packages/server/src
-!/packages/server/package.json
-!/packages/server/tsconfig.json
-!/packages/server/yarn.lock
+!/frontend/assets
+!/frontend/build/.gitignore
+!/frontend/components
+!/frontend/content
+!/frontend/layouts
+!/frontend/middleware
+!/frontend/pages
+!/frontend/plugins
+!/frontend/serverMiddleware
+!/frontend/static
+!/frontend/store
+!/frontend/utils
+!/frontend/.eslintrc.js
+!/frontend/*.d.ts
+!/frontend/nuxt.config.js
+!/frontend/package.json
+!/frontend/tsconfig.json
+!/frontend/yarn.lock
 
-!/packages/web/public
-!/packages/web/src
-!/packages/web/babel.config.js
-!/packages/web/package.json
-!/packages/web/tsconfig.json
-!/packages/web/vue.config.js
-!/packages/web/yarn.lock
+!/server/src
+!/server/package.json
+!/server/tsconfig.json
+!/server/yarn.lock
