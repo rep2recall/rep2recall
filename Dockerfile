@@ -15,10 +15,6 @@ RUN yarn
 COPY submodules/server .
 RUN yarn build
 RUN yarn install --production --ignore-scripts --prefer-offline
-
-FROM astefanutti/scratch-node:12
-WORKDIR /app
-COPY --from=server /app/node_modules /app/dist ./
 COPY --from=frontend /app/dist public
 EXPOSE 8080
 ENTRYPOINT [ "node", "dist/index.js" ]
