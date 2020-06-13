@@ -5,6 +5,9 @@ application:
   publicly_accessible: true
 routers:
 - name: main
+  custom_domains:
+  - branch: qovery-dev
+    domain: dev.rep2recall.net
   routes:
   - application_name: rep2recall
     paths:
