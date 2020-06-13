@@ -1,0 +1,6 @@
+[submodule "server"]
+	path = server
+	url = https://gitlab.com/rep2recall/rep2recall-web-server.git
+[submodule "frontend"]
+	path = frontend
+	url = https://gitlab.com/rep2recall/rep2recall-web-frontend.git
