@@ -2,28 +2,5 @@
 **
 
 # Allow files and directories
-!/frontend/assets
-!/frontend/build/.gitignore
-!/frontend/components
-!/frontend/content
-!/frontend/layouts
-!/frontend/middleware
-!/frontend/pages
-!/frontend/plugins
-!/frontend/serverMiddleware
-!/frontend/static
-!/frontend/store
-!/frontend/utils
-!/frontend/.eslintrc.js
-!/frontend/*.d.ts
-!/frontend/nuxt.config.js
-!/frontend/package.json
-!/frontend/tsconfig.json
-!/frontend/yarn.lock
-
-!/server/src
-!/server/package.json
-!/server/tsconfig.json
-!/server/yarn.lock
-
+!/submodules
 !/.qovery.yml
