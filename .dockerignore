@@ -25,3 +25,5 @@
 !/server/package.json
 !/server/tsconfig.json
 !/server/yarn.lock
+
+!/.qovery.yml
