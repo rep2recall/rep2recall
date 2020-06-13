@@ -42,7 +42,6 @@ Requirements are
 ### Required environmental variables
 
 ```sh
-# Run time variables
 MONGO_URI=       # Get this from MongoDB Atlas
 SECRET=          # Generate this yourself
 FIREBASE_SDK=    # Get this from Firebase Admin SDK, and JSONify it
