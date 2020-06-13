@@ -16,12 +16,11 @@ docker-deploy:
   command: |
     docker push {{.docker.tag}}
 init:
-  command: npx meta git update
+  command: git submodule update
+update:
+  command: git submodule update --remote --merge
 dev:
-  command: |
-    concurrently \
-      'cd server && yarn dev' \
-      'cd frontend && yarn dev'
+  command: qovery run
 
 ##########
 # Settings
