@@ -49,7 +49,7 @@ FIREBASE_CONFIG=   # Get this from Firebase Client, and JSONify it
 BASE_URL=          # Where you want to deploy
 ```
 
-For the development machine, you can create `.env` first, then `source .`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
+For the development machine, you can create `.env` first, then `source .env`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
 
 ## Offline versions
 
