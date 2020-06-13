@@ -1,6 +1,0 @@
-{
-  "projects": {
-    "server": "git@gitlab.com:rep2recall/rep2recall-web-server.git",
-    "frontend": "git@gitlab.com:rep2recall/rep2recall-web-frontend.git"
-  }
-}
