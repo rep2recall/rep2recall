@@ -19,8 +19,15 @@ init:
   command: git submodule update
 update:
   command: git submodule update --remote --merge
-dev:
+start:
   command: qovery run
+meta-init:
+  command: npx meta git update
+dev:
+  command: |
+    concurrently \
+      'cd meta/server && yarn dev' \
+      'cd meta/frontend && yarn dev'
 
 ##########
 # Settings
