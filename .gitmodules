@@ -1,6 +1,6 @@
-[submodule "submodules/server"]
-	path = submodules/server
-	url = https://gitlab.com/rep2recall/rep2recall-web-server.git
-[submodule "submodules/frontend"]
-	path = submodules/frontend
-	url = https://gitlab.com/rep2recall/rep2recall-web-frontend.git
+[submodule "submodules/web-server"]
+	path = submodules/web-server
+	url = git@github.com:rep2recall/web-server.git
+[submodule "submodules/web-frontend"]
+	path = submodules/web-frontend
+	url = git@github.com:rep2recall/web-frontend.git

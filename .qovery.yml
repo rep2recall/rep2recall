@@ -6,8 +6,10 @@ application:
 routers:
 - name: main
   custom_domains:
-  - branch: qovery-dev
-    domain: dev.rep2recall.net
+  - branch: qovery
+    domain: www.rep2recall.net
+  - branch: old
+    domain: old.rep2recall.net
   routes:
   - application_name: rep2recall
     paths:

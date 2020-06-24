@@ -4,3 +4,5 @@
 # Allow files and directories
 !/submodules
 !/.qovery.yml
+
+**/node_modules
