@@ -34,4 +34,4 @@ dev:
 
 variables:
   docker:
-    tag: patarapolw/rep2recall
+    tag: ${DOCKER_TAG:-rep2recall}
