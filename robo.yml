@@ -21,17 +21,24 @@ update:
   command: git submodule update --remote --merge
 start:
   command: qovery run
-meta-init:
-  command: npx meta git update
 dev:
   command: |
     concurrently \
       'cd meta/server && yarn dev' \
       'cd meta/frontend && yarn dev'
+heroku-token:
+  command: |
+    heroku auth:token
+heroku-docker-login:
+  command: |
+    docker login --username=_ --password=${HEROKU_TOKEN} registry.heroku.com
+heroku-release:
+  command: |
+    heroku container:release web
 
 ##########
 # Settings
 
 variables:
   docker:
-    tag: patarapolw/rep2recall
+    tag: ${DOCKER_TAG:-rep2recall}
