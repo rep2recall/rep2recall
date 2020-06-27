@@ -1,6 +1,0 @@
-[submodule "submodules/web-server"]
-	path = submodules/web-server
-	url = https://github.com/rep2recall/web-server.git
-[submodule "submodules/web-frontend"]
-	path = submodules/web-frontend
-	url = https://github.com/rep2recall/web-frontend.git
