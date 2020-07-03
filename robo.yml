@@ -2,9 +2,15 @@
 
 docker-build:
   command: |
+    docker build \
+      -t {{.docker.tag}} \
+      --build-arg FIREBASE_CONFIG --build-arg BASE_URL \
+      .
+docker-build-local:
+  command: |
     cd submodules/web-frontend && yarn build && cd -
     cd submodules/web-server && yarn build && cd -
-    docker build -t {{.docker.tag}} .
+    docker build -f Dockerfile.local -t {{.docker.tag}} .
 docker-start:
   command: |
     docker run \
