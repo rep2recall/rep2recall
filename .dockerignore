@@ -2,7 +2,12 @@
 **
 
 # Allow files and directories
-!/submodules
+# !/submodules
 !/.qovery.yml
+
+!/submodules/web-frontend/dist
+!/submodules/web-server/dist
+!/submodules/web-server/package.json
+!/submodules/web-server/yarn.lock
 
 **/node_modules

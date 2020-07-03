@@ -1,19 +1,14 @@
-FROM node:12-alpine AS frontend
-WORKDIR /app
-COPY submodules/web-frontend/package.json submodules/web-frontend/yarn.lock ./
-RUN yarn install --frozen-lockfile
-COPY submodules/web-frontend .
-ARG FIREBASE_CONFIG
-ARG BASE_URL
-RUN yarn build
-
-FROM node:12-alpine AS server
+FROM node:12-alpine AS builder
+RUN apk add jq
 WORKDIR /app
 COPY submodules/web-server/package.json submodules/web-server/yarn.lock ./
-RUN yarn
-COPY submodules/web-server .
-RUN yarn build
-RUN yarn install --production --ignore-scripts --prefer-offline --frozen-lockfile
-COPY --from=frontend /app/dist public
+RUN echo $(cat package.json | jq 'del(.devDependencies)') > package.json
+RUN yarn --frozen-lockfile
+
+FROM astefanutti/scratch-node:12
+WORKDIR /app
+COPY --from=builder /app/node_modules node_modules
+COPY submodules/web-server/dist dist
+COPY submodules/web-frontend/dist public
 EXPOSE 8080
-ENTRYPOINT [ "node", "dist/index.js" ]
+ENTRYPOINT ["node", "dist/index.js"]
