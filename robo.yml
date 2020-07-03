@@ -15,13 +15,11 @@ docker-start:
 docker-deploy:
   command: |
     docker push {{.docker.tag}}
-start:
-  command: qovery run
 dev:
   command: |
     concurrently \
-      'cd packages/server && yarn dev' \
-      'cd packages/frontend && yarn dev'
+      'cd submodules/web-server && yarn dev' \
+      'cd submodules/web-frontend && yarn dev'
 heroku-token:
   command: |
     heroku auth:token
