@@ -2,6 +2,8 @@
 
 Repeat until recall, with widening intervals.
 
+<https://www.rep2recall.net>
+
 [![Gfycat screenshot](https://thumbs.gfycat.com/ChillyHospitableBison-size_restricted.gif)](https://gfycat.com/chillyhospitablebison)
 
 This is a remake of <https://github.com/patarapolw/rep2recall-web>.

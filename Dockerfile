@@ -8,14 +8,12 @@ ARG BASE_URL
 RUN yarn build
 
 FROM node:12-alpine AS server
-RUN apk add jq
 WORKDIR /app
 COPY packages/web-server/package.json packages/web-server/yarn.lock ./
 RUN yarn --frozen-lockfile
 COPY packages/web-server .
 RUN yarn build
-RUN echo $(cat package.json | jq 'del(.devDependencies)') > package.json
-RUN yarn --frozen-lockfile
+RUN yarn --production --frozen-lockfile
 
 FROM astefanutti/scratch-node:12
 WORKDIR /app
