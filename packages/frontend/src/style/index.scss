@@ -1,6 +1,17 @@
+@use "@material/drawer";
+@use "@material/list";
+
+@include drawer.core-styles;
+@include list.core-styles;
+
+$hamburger-layer-color: #fff;
+
+@import '~hamburgers/_sass/hamburgers/hamburgers.scss';
+
 html, body {
-	height: 100%;
-	width: 100%;
+	height: 100vh;
+	width: 100vw;
+	overflow: hidden;
 	padding: 0;
 	margin: 0;
 	background: #FAFAFA;
@@ -17,4 +28,8 @@ html, body {
 
 #app {
 	height: 100%;
+}
+
+.flex-grow {
+	flex-grow: 1;
 }

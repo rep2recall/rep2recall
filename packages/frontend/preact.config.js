@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { resolve } from "path";
+import path from "path";
 
 export default {
     /**
@@ -25,9 +25,9 @@ export default {
         });
 
         // Use any `index` file, not just index.js
-        config.resolve.alias["preact-cli-entrypoint"] = resolve(
+        config.resolve.alias["preact-cli-entrypoint"] = path.resolve(
             // eslint-disable-next-line no-undef
-            process.cwd(),
+            __dirname,
             "src",
             "index"
         );

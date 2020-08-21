@@ -1,0 +1,16 @@
+.app {
+    display: grid;
+    grid-template-columns: auto;
+    height: 100%;
+    
+}
+
+.app.active {
+    grid-template-columns: max-content auto;
+    height: 100vh;
+}
+
+.main {
+    display: inline-grid;
+    grid-template-rows: max-content auto;
+}
