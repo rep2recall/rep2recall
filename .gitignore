@@ -34,3 +34,4 @@ Temporary Items
 .env
 .env.*
 /meta/
+.npmrc

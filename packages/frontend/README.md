@@ -1,20 +1,19 @@
 # rep2recall
 
-## Build Setup
+## CLI Commands
+*   `npm install`: Installs dependencies
 
-```bash
-# install dependencies
-$ yarn install
+*   `npm run dev`: Run a development, HMR server
 
-# serve with hot reload at localhost:3000
-$ yarn dev
+*   `npm run serve`: Run a production-like server
 
-# build for production and launch server
-$ yarn build
-$ yarn start
+*   `npm run build`: Production-ready build
 
-# generate static project
-$ yarn generate
-```
+*   `npm run lint`: Pass TypeScript files using TSLint
 
-For detailed explanation on how things work, check out [Nuxt.js docs](https://nuxtjs.org).
+*   `npm run test`: Run Jest and Enzyme with
+    [`enzyme-adapter-preact-pure`](https://github.com/preactjs/enzyme-adapter-preact-pure) for
+    your tests
+
+
+For detailed explanation on how things work, checkout the [CLI Readme](https://github.com/developit/preact-cli/blob/master/README.md).
