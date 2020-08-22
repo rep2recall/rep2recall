@@ -1,4 +1,9 @@
 dependencies:
+  '@fortawesome/fontawesome-svg-core': 1.2.30
+  '@fortawesome/free-brands-svg-icons': 5.14.0
+  '@fortawesome/free-regular-svg-icons': 5.14.0
+  '@fortawesome/free-solid-svg-icons': 5.14.0
+  '@fortawesome/react-fontawesome': 0.1.11_5fd28985a220cda149fda67f0cfb6994
   '@material/button': 7.0.0
   '@material/drawer': 7.0.0
   '@material/icon-button': 7.0.0
@@ -7,6 +12,7 @@ dependencies:
   hamburgers: 1.1.3
   material-design-icons: 3.0.1
   preact: 10.4.7
+  preact-compat: 3.19.0_preact@10.4.7
   preact-jsx-chai: 3.0.0_preact@10.4.7
   preact-markup: 2.0.0_preact@10.4.7
   preact-render-to-string: 5.1.10_preact@10.4.7
@@ -1091,6 +1097,54 @@ packages:
     hasBin: true
     resolution:
       integrity: sha512-v9kIhKwjeZThiWrLmj0y17CWoyddASLj9O2yvbZkbvw/N3rWOYy9zkV66ursAoVr0mV15bL8g0c4QZUE6cdDoQ==
+  /@fortawesome/fontawesome-common-types/0.2.30:
+    dev: false
+    engines:
+      node: '>=6'
+    resolution:
+      integrity: sha512-TsRwpTuKwFNiPhk1UfKgw7zNPeV5RhNp2Uw3pws+9gDAkPGKrtjR1y2lI3SYn7+YzyfuNknflpBA1LRKjt7hMg==
+  /@fortawesome/fontawesome-svg-core/1.2.30:
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 0.2.30
+    dev: false
+    engines:
+      node: '>=6'
+    resolution:
+      integrity: sha512-E3sAXATKCSVnT17HYmZjjbcmwihrNOCkoU7dVMlasrcwiJAHxSKeZ+4WN5O+ElgO/FaYgJmASl8p9N7/B/RttA==
+  /@fortawesome/free-brands-svg-icons/5.14.0:
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 0.2.30
+    dev: false
+    engines:
+      node: '>=6'
+    resolution:
+      integrity: sha512-WsqPFTvJFI7MYkcy0jeFE2zY+blC4OrnB9MJOcn1NxRXT/sSfEEhrI7CwzIkiYajLiVDBKWeErYOvpsMeodmCQ==
+  /@fortawesome/free-regular-svg-icons/5.14.0:
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 0.2.30
+    dev: false
+    engines:
+      node: '>=6'
+    resolution:
+      integrity: sha512-6LCFvjGSMPoUQbn3NVlgiG4CY5iIY8fOm+to/D6QS/GvdqhDt+xZklQeERdCvVRbnFa1ITc1rJHPRXqkX5wztQ==
+  /@fortawesome/free-solid-svg-icons/5.14.0:
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 0.2.30
+    dev: false
+    engines:
+      node: '>=6'
+    resolution:
+      integrity: sha512-M933RDM8cecaKMWDSk3FRYdnzWGW7kBBlGNGfvqLVwcwhUPNj9gcw+xZMrqBdRqxnSXdl3zWzTCNNGEtFUq67Q==
+  /@fortawesome/react-fontawesome/0.1.11_5fd28985a220cda149fda67f0cfb6994:
+    dependencies:
+      '@fortawesome/fontawesome-svg-core': 1.2.30
+      prop-types: 15.7.2
+    dev: false
+    peerDependencies:
+      '@fortawesome/fontawesome-svg-core': ^1.2.20
+      react: 16.x
+    resolution:
+      integrity: sha512-sClfojasRifQKI0OPqTy8Ln8iIhnxR/Pv/hukBhWnBz9kQRmqi6JSH3nghlhAY7SUeIIM7B5/D2G8WjX0iepVg==
   /@hapi/address/2.1.4:
     deprecated: This version has been deprecated and is no longer supported or maintained
     dev: true
@@ -5710,6 +5764,12 @@ packages:
       node: '>= 4'
     resolution:
       integrity: sha512-cyFDKrqc/YdcWFniJhzI42+AzS+gNwmUzOSFcRCQYwySuBBBy/KjuxWLZ/FHEH6Moq1NizMOBWyTcv8O4OZIMg==
+  /immutability-helper/2.9.1:
+    dependencies:
+      invariant: 2.2.4
+    dev: false
+    resolution:
+      integrity: sha512-r/RmRG8xO06s/k+PIaif2r5rGc3j4Yhc01jSBfwPCXDLYZwp/yxralI37Df1mwmuzcCsen/E/ITKcTEvc1PQmQ==
   /import-cwd/2.1.0:
     dependencies:
       import-from: 2.1.0
@@ -5835,7 +5895,6 @@ packages:
   /invariant/2.2.4:
     dependencies:
       loose-envify: 1.4.0
-    dev: true
     resolution:
       integrity: sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==
   /ip-regex/2.1.0:
@@ -6798,7 +6857,6 @@ packages:
     resolution:
       integrity: sha512-q+az+ZXFOTxTlD6BRIMcZC+a33O9lsryV4Wo9gU4D/AI+Y6KKgVRCmyzpc4H2gWv0rn45lACukmMS2uSB7e1LA==
   /js-tokens/4.0.0:
-    dev: true
     resolution:
       integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==
   /js-yaml/3.14.0:
@@ -7265,7 +7323,6 @@ packages:
   /loose-envify/1.4.0:
     dependencies:
       js-tokens: 4.0.0
-    dev: true
     hasBin: true
     resolution:
       integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==
@@ -7896,7 +7953,6 @@ packages:
     resolution:
       integrity: sha512-fexhUFFPTGV8ybAtSIGbV6gOkSv8UtRbDBnAyLQw4QPKkgNlsH2ByPGtMUqdWkos6YCRmAqViwgZrJc/mRDzZQ==
   /object-assign/4.1.1:
-    dev: true
     engines:
       node: '>=0.10.0'
     resolution:
@@ -8905,6 +8961,28 @@ packages:
       preact-render-to-string: '*'
     resolution:
       integrity: sha512-C5fvHo/P9MScpUYp2cwu9w/UBQsVwnOugIbcikY6MS+nEiNX9nE4xpnEghUuZxC+Mr8R2z1WiMAWKQQA4/D78A==
+  /preact-compat/3.19.0_preact@10.4.7:
+    dependencies:
+      immutability-helper: 2.9.1
+      preact: 10.4.7
+      preact-context: 1.1.4_preact@10.4.7
+      preact-render-to-string: 3.8.2_preact@10.4.7
+      preact-transition-group: 1.1.1_preact@10.4.7
+      prop-types: 15.7.2
+      standalone-react-addons-pure-render-mixin: 0.1.1
+    dev: false
+    peerDependencies:
+      preact: <10
+    resolution:
+      integrity: sha512-f83A4hIhH8Uzhb9GbIcGk8SM19ffWlwP9mDaYwQdRnMdekZwcCA7eIAbeV4EMQaV9C0Yuy8iKgBAtyTKPZQt/Q==
+  /preact-context/1.1.4_preact@10.4.7:
+    dependencies:
+      preact: 10.4.7
+    dev: false
+    peerDependencies:
+      preact: ^8.2.7
+    resolution:
+      integrity: sha512-gcCjPJ65R0MiW9hDu8W/3WAmyTElIvwLyEO6oLQiM6/TbLKLxCpBCWV8GJjx52TTEyUr60HLDcmoCXZlslelzQ==
   /preact-jsx-chai/3.0.0_preact@10.4.7:
     dependencies:
       preact-render-to-string: 5.1.10_preact@10.4.7
@@ -8921,6 +8999,15 @@ packages:
       preact: 10.x
     resolution:
       integrity: sha512-1yPS+IuqJI6k9CoOLDj5x68W9rYp6cY4UqRNCXKt2QSRFcWhGrAZhv3fyz8i8urMu2zLuOrMJIxV4lhpVHHF/w==
+  /preact-render-to-string/3.8.2_preact@10.4.7:
+    dependencies:
+      preact: 10.4.7
+      pretty-format: 3.8.0
+    dev: false
+    peerDependencies:
+      preact: '*'
+    resolution:
+      integrity: sha512-przuZPajiurStGgxMoJP0EJeC4xj5CgHv+M7GfF3YxAdhGgEWAkhOSE0xympAFN20uMayntBZpttIZqqLl77fw==
   /preact-render-to-string/4.1.0_preact@10.4.7:
     dependencies:
       preact: 10.4.7
@@ -8947,6 +9034,14 @@ packages:
       preact: '>=10'
     resolution:
       integrity: sha512-KEN2VN1DxUlTwzW5IFkF13YIA2OdQ2OvgJTkQREF+AA2NrHRLaGbB68EjS4IeZOa1shvQ1FvEm3bSLta4sXBhg==
+  /preact-transition-group/1.1.1_preact@10.4.7:
+    dependencies:
+      preact: 10.4.7
+    dev: false
+    peerDependencies:
+      preact: '*'
+    resolution:
+      integrity: sha1-8KSTJ+pRXs406ivoZMSn0p5dbhA=
   /preact/10.4.7:
     dev: false
     resolution:
@@ -9082,7 +9177,6 @@ packages:
       loose-envify: 1.4.0
       object-assign: 4.1.1
       react-is: 16.13.1
-    dev: true
     resolution:
       integrity: sha512-8QQikdH7//R2vurIJSutZ1smHYTcLpRWEOlHnzcWHmBYrOGUysKwSsrC89BCiFj3CbrfJ/nXFdJepOVrY1GCHQ==
   /proxy-addr/2.0.6:
@@ -9277,7 +9371,6 @@ packages:
     resolution:
       integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==
   /react-is/16.13.1:
-    dev: true
     resolution:
       integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
   /react-refresh/0.8.3:
@@ -10329,6 +10422,10 @@ packages:
       node: '>=10'
     resolution:
       integrity: sha512-0H7QK2ECz3fyZMzQ8rH0j2ykpfbnd20BFtfg/SqVC2+sCTtcw0aDTGB7dk+de4U4uUeuz6nOtJcrkFFLG1B0Rg==
+  /standalone-react-addons-pure-render-mixin/0.1.1:
+    dev: false
+    resolution:
+      integrity: sha1-PHQJ9MecQN6axyxhbPZ5qZTzdVE=
   /static-extend/0.1.2:
     dependencies:
       define-property: 0.2.5
@@ -11936,6 +12033,11 @@ packages:
     resolution:
       integrity: sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==
 specifiers:
+  '@fortawesome/fontawesome-svg-core': ^1.2.30
+  '@fortawesome/free-brands-svg-icons': ^5.14.0
+  '@fortawesome/free-regular-svg-icons': ^5.14.0
+  '@fortawesome/free-solid-svg-icons': ^5.14.0
+  '@fortawesome/react-fontawesome': ^0.1.11
   '@material/button': ^7.0.0
   '@material/drawer': ^7.0.0
   '@material/icon-button': ^7.0.0
@@ -11963,6 +12065,7 @@ specifiers:
   material-design-icons: ^3.0.1
   preact: ^10.4.7
   preact-cli: ^3.0.1
+  preact-compat: ^3.19.0
   preact-jsx-chai: ^3.0.0
   preact-markup: ^2.0.0
   preact-render-to-string: ^5.1.10

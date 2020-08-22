@@ -1,3 +1,5 @@
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { MDCRipple } from "@material/ripple";
 import { createRef, FunctionalComponent, h } from "preact";
 import { useEffect } from "preact/hooks";
@@ -43,8 +45,16 @@ const Header: FunctionalComponent<IProps> = ({
                     placeholder="Search items"
                     name="q"
                 />
-                <button ref={btnRef} class="mdc-icon-button material-icons">
-                    search
+                <button
+                    ref={btnRef}
+                    class="mdc-icon-button"
+                    aria-label="search"
+                >
+                    <FontAwesomeIcon
+                        className="mdc-icon-button__icon"
+                        size="sm"
+                        icon={faSearch}
+                    />
                 </button>
             </form>
         </header>

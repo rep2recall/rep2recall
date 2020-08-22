@@ -31,5 +31,10 @@ export default {
             "src",
             "index"
         );
+
+        Object.assign(config.resolve.alias, {
+            react: "preact-compat",
+            "react-dom": "preact-compat",
+        });
     },
 };
