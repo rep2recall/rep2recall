@@ -1,6 +1,7 @@
 import { MDCList } from "@material/list";
 import { createRef, FunctionalComponent, h } from "preact";
 import { Route, Router, RouterOnChangeArgs } from "preact-router";
+import { Link } from "preact-router/match";
 import { useEffect, useState } from "preact/hooks";
 import Home from "../routes/home";
 import NotFoundPage from "../routes/notfound";
@@ -45,42 +46,50 @@ const App: FunctionalComponent = () => {
                 >
                     <div class="mdc-drawer__content">
                         <nav class="mdc-list">
-                            <a
-                                class="mdc-list-item mdc-list-item--activated"
-                                href="#"
-                                aria-current="page"
+                            <Link
+                                class="mdc-list-item"
+                                activeClassName="mdc-list-item--activated"
+                                href="/"
                             >
                                 <span class="mdc-list-item__ripple"></span>
                                 <i
                                     class="material-icons mdc-list-item__graphic"
                                     aria-hidden="true"
                                 >
-                                    inbox
+                                    question_answer
                                 </i>
-                                <span class="mdc-list-item__text">Inbox</span>
-                            </a>
-                            <a class="mdc-list-item" href="#">
+                                <span class="mdc-list-item__text">Quiz</span>
+                            </Link>
+                            <Link
+                                class="mdc-list-item"
+                                activeClassName="mdc-list-item--activated"
+                                href="/browse"
+                            >
                                 <span class="mdc-list-item__ripple"></span>
                                 <i
                                     class="material-icons mdc-list-item__graphic"
                                     aria-hidden="true"
                                 >
-                                    send
+                                    view_list
+                                </i>
+                                <span class="mdc-list-item__text">Browse</span>
+                            </Link>
+                            <Link
+                                class="mdc-list-item"
+                                activeClassName="mdc-list-item--activated"
+                                href="/settings"
+                            >
+                                <span class="mdc-list-item__ripple"></span>
+                                <i
+                                    class="material-icons mdc-list-item__graphic"
+                                    aria-hidden="true"
+                                >
+                                    settings
                                 </i>
                                 <span class="mdc-list-item__text">
-                                    Outgoing
+                                    Settings
                                 </span>
-                            </a>
-                            <a class="mdc-list-item" href="#">
-                                <span class="mdc-list-item__ripple"></span>
-                                <i
-                                    class="material-icons mdc-list-item__graphic"
-                                    aria-hidden="true"
-                                >
-                                    drafts
-                                </i>
-                                <span class="mdc-list-item__text">Drafts</span>
-                            </a>
+                            </Link>
                         </nav>
                     </div>
                 </aside>

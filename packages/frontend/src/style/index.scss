@@ -1,8 +1,12 @@
 @use "@material/drawer";
 @use "@material/list";
+@use "@material/button";
+@use "@material/icon-button";
 
 @include drawer.core-styles;
 @include list.core-styles;
+@include button.core-styles;
+@include icon-button.core-styles;
 
 $hamburger-layer-color: #fff;
 

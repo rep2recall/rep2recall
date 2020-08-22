@@ -1,6 +1,9 @@
 dependencies:
+  '@material/button': 7.0.0
   '@material/drawer': 7.0.0
+  '@material/icon-button': 7.0.0
   '@material/list': 7.0.0
+  '@material/ripple': 7.0.0
   hamburgers: 1.1.3
   material-design-icons: 3.0.1
   preact: 10.4.7
@@ -1343,6 +1346,20 @@ packages:
     dev: false
     resolution:
       integrity: sha512-FGWvJ14EvUCOC3hV9L26hqtGro6wVs3mKVIlQfYZYLcCZ/XRF7z5sfs/3eTbB2QVd3mC4jRdYlnnxfe/ptcYOA==
+  /@material/button/7.0.0:
+    dependencies:
+      '@material/density': 7.0.0
+      '@material/elevation': 7.0.0
+      '@material/feature-targeting': 7.0.0
+      '@material/ripple': 7.0.0
+      '@material/rtl': 7.0.0
+      '@material/shape': 7.0.0
+      '@material/theme': 7.0.0
+      '@material/touch-target': 7.0.0
+      '@material/typography': 7.0.0
+    dev: false
+    resolution:
+      integrity: sha512-Y6dGxtXBEXa2Bnkj66nyXQo4yc2OTXH00NCGinf+rP24pASxIV27pHwW64zjoTAdJYhZbyrx+wyk8fN9tk2yag==
   /@material/density/7.0.0:
     dev: false
     resolution:
@@ -1384,6 +1401,18 @@ packages:
     dev: false
     resolution:
       integrity: sha512-png4Ep/eW53qU0lt7ELq9B/LR+ro3jQiMkRWpKaNBBijTgRDA6LAo9mlpbMcXvovcgu8TjLce+kpL9M0HWgbWg==
+  /@material/icon-button/7.0.0:
+    dependencies:
+      '@material/base': 7.0.0
+      '@material/density': 7.0.0
+      '@material/feature-targeting': 7.0.0
+      '@material/ripple': 7.0.0
+      '@material/rtl': 7.0.0
+      '@material/theme': 7.0.0
+      tslib: 1.13.0
+    dev: false
+    resolution:
+      integrity: sha512-ppU7yie70KM3czpBXMwYN+Ape6mF8FYQtv1iAYW/fLYQQV/iszB9o+s4CovONltLkavMj9/FQWGyyssSmKGAzg==
   /@material/list/7.0.0:
     dependencies:
       '@material/base': 7.0.0
@@ -1430,6 +1459,13 @@ packages:
     dev: false
     resolution:
       integrity: sha512-tuwsTG5b1SdkQHnGOCsr/2Vl/smeIWuKtr9YdeHjqiLphEAzamd9tDCzSEXaO18wLvc7xour/cbWdD6LW+q2cw==
+  /@material/touch-target/7.0.0:
+    dependencies:
+      '@material/base': 7.0.0
+      '@material/feature-targeting': 7.0.0
+    dev: false
+    resolution:
+      integrity: sha512-9XBtFLMvoUk4ZvNSyVgHjF416DhenLGQ6TWJnqiqQjqIv3i+YK60tYBUl8mqR0j0Bs9VCZCa/FyZ/fx1NPO15g==
   /@material/typography/7.0.0:
     dependencies:
       '@material/feature-targeting': 7.0.0
@@ -11900,8 +11936,11 @@ packages:
     resolution:
       integrity: sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==
 specifiers:
+  '@material/button': ^7.0.0
   '@material/drawer': ^7.0.0
+  '@material/icon-button': ^7.0.0
   '@material/list': ^7.0.0
+  '@material/ripple': ^7.0.0
   '@teamsupercell/typings-for-css-modules-loader': ^2.3.0
   '@types/enzyme': ^3.10.5
   '@types/jest': ^26.0.10
