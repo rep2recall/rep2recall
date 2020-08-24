@@ -29,12 +29,7 @@ export default {
             // eslint-disable-next-line no-undef
             __dirname,
             "src",
-            "index"
+            "index",
         );
-
-        Object.assign(config.resolve.alias, {
-            react: "preact-compat",
-            "react-dom": "preact-compat",
-        });
     },
 };

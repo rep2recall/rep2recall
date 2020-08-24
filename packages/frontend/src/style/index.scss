@@ -34,6 +34,67 @@ html, body {
 	height: 100%;
 }
 
+button:disabled {
+	filter: opacity(0.5);
+
+	> * {
+		cursor: not-allowed;
+		pointer-events: initial;
+	}
+
+	&::before {
+		background-color: #fff0;
+	}
+
+	&::after {
+		background-color: #fff0;
+	}
+}
+
 .flex-grow {
 	flex-grow: 1;
+}
+
+.hover\:show {
+	color: lightgray;
+
+	&:hover {
+		color: inherit;
+	}
+}
+
+.treeview {
+	margin: 0;
+	padding: 0;
+	padding-top: 1em;
+	list-style-type: none;
+	
+	ul {
+		list-style-type: none;
+	}
+
+	.treeview-row {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		justify-content: center;
+	}
+
+	.caret {
+		display: block;
+		width: 2em;
+	}
+	
+	.treeview-text {
+		display: block;
+		flex-grow: 1;
+		height: 3em;
+		padding: 1em;
+		cursor: pointer;
+
+		&:hover {
+			background-color: rgba(64, 64, 64, 0.05);
+			border-radius: 0.25rem;
+		}
+	}
 }

@@ -20,7 +20,7 @@ const Header: FunctionalComponent<IProps> = ({
             const iconButtonRipple = new MDCRipple(btnRef.current);
             iconButtonRipple.unbounded = true;
         }
-    }, [btnRef]);
+    }, [btnRef.current]);
 
     return (
         <header class={style.header}>

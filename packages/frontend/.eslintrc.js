@@ -24,6 +24,7 @@ module.exports = {
     },
     rules: {
         "react/no-unknown-property": ["error", { ignore: ["class"] }],
+        "react-hooks/exhaustive-deps": 0
     },
     settings: {
         react: {

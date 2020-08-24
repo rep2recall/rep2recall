@@ -14,3 +14,12 @@
     display: inline-grid;
     grid-template-rows: max-content auto;
 }
+
+.quiz-preset-link {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+    pointer-events: unset !important;
+}
