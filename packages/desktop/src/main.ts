@@ -9,12 +9,15 @@ import './plugins/buefy'
 
 Vue.config.productionTip = false
 
-initNeutralino().then((neu) => initDatabase(neu)).then(() => {
-  new Vue({
-    router,
-    store,
-    render: h => h(App)
-  }).$mount('#app')
+new Vue({
+  router,
+  store,
+  render: h => h(App)
+}).$mount('#app')
+
+initNeutralino().then((neu) => {
+  store.commit('SET_READY', true)
+  return initDatabase(neu)
 }).catch(console.error)
 
 // window.onbeforeunload = (e: Event) => {
