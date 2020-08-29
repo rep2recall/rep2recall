@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,6 +10,20 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"runtime"
+	// #if defined(__APPLE__)
+	// #cgo LDFLAGS: -framework CoreGraphics
+	// #include <CoreGraphics/CGDisplayConfiguration.h>
+	// int display_width() {
+	// 	return CGDisplayPixelsWide(CGMainDisplayID());
+	// }
+	// int display_height() {
+	// 	return CGDisplayPixelsHigh(CGMainDisplayID());
+	// }
+	// #endif
+	"C"
+
+	"github.com/webview/webview"
 )
 
 func main() {
@@ -67,40 +80,64 @@ func main() {
 		throwHTTP(&w, fmt.Errorf("unsupported method"), http.StatusNotFound)
 	})
 
+	width := 1024
+	height := 768
+
+	if runtime.GOOS == "darwin" {
+		width = int(C.display_width())
+		height = int(C.display_height())
+	}
+
+	w := webview.New(webview.Settings{
+		Title: "Rep2recall",
+		Debug: false,
+		Width: width,
+		Height: height,
+		Resizable: true,
+	})
+
+	if runtime.GOOS != "darwin" {
+		w.SetFullscreen(true)
+	}
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
-		log.Println("Listening at:", "http://"+listener.Addr().String())
+		<-signals
+		onExit()
+		w.Exit()
+	}()
+
+	url := "http://" + listener.Addr().String()
+
+	go func() {
+		log.Println("Listening at:", url)
 		if err := http.Serve(listener, nil); err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
 
-	// Cleaning up should be done in 10 seconds
-	onExit(10 * time.Second)
+	w.Dispatch(func() {
+		for {
+			time.Sleep(1 * time.Second)
+			_, err := http.Head(url)
+			if err == nil {
+				break
+			}
+		}
+		w.Eval(fmt.Sprintf("location.href = '%s'", url))
+	})
+
+	log.Println("Opening webview")
+	w.Run()
+	onExit()
 }
 
-func onExit(timeout time.Duration) {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-
-	<-signals
-
-	log.Println("Cleaning up...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	// onExit proper
-	func() {
-		time.Sleep(2 * time.Second)
-	}()
-
-	if _, ok := ctx.Deadline(); ok {
-		log.Println("Clean-up finished. Closing...")
-		// secs := (time.Until(deadline) + time.Second/2) / time.Second
-		// log.Printf("Clean-up finished %ds before deadline\n", secs)
-	} else {
-		log.Fatal(fmt.Sprintf("Clean-up timeout. Not finished within %ds.", timeout/time.Second))
-	}
+func onExit() {
+	log.Println("Running onExit")
+	time.Sleep(2 * time.Second)
+	log.Println("Closing...")
 }
 
 func throwHTTP(w *http.ResponseWriter, e error, code int) {
