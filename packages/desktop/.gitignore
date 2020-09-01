@@ -23,3 +23,6 @@ pnpm-debug.log*
 *.sw?
 
 /release/
+/webview-server
+/webview-server-*
+/config.json
