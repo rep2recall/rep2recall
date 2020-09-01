@@ -1,24 +1,9 @@
-# desktop
+# @rep2recall/desktop
 
-## Project setup
-```
-pnpm install
-```
+The project uses `pnpm`. To build, run `pnpm i && pnpm build`.
 
-### Compiles and hot-reloads for development
-```
-pnpm run serve
-```
+## Running in desktop mode
 
-### Compiles and minifies for production
-```
-pnpm run build
-```
-
-### Lints and fixes files
-```
-pnpm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+- Grab an executable from <https://github.com/patarapolw/webview-server/releases>
+- Name it as `/release/webview-server`
+- Double-click the executable

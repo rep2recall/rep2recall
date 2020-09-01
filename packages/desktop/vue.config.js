@@ -4,10 +4,12 @@ const path = require('path')
 
 const bodyParser = require('body-parser')
 
-const NEU_DIR = 'release'
+const BINARY_DIR = 'release'
+const ASSETS_DIR = '.'
 
 module.exports = {
-  assetsDir: 'assets/',
+  outputDir: path.join(BINARY_DIR, 'www'),
+  assetsDir: ASSETS_DIR,
   devServer: {
     /**
      *
@@ -21,7 +23,7 @@ module.exports = {
 
       app.get('/api/db', (req, res) => {
         const { filename } = req.query
-        const p = path.resolve(__dirname, NEU_DIR, filename)
+        const p = path.resolve(__dirname, BINARY_DIR, filename)
 
         if (fs.existsSync(p)) {
           res.json({
@@ -33,7 +35,7 @@ module.exports = {
 
       app.put('/api/db', (req, res) => {
         const { filename } = req.query
-        const p = path.resolve(__dirname, NEU_DIR, filename)
+        const p = path.resolve(__dirname, BINARY_DIR, filename)
 
         const { content } = req.body
 
@@ -44,7 +46,7 @@ module.exports = {
 
       app.delete('/api/db', (req, res) => {
         const { filename } = req.query
-        const p = path.resolve(__dirname, NEU_DIR, filename)
+        const p = path.resolve(__dirname, BINARY_DIR, filename)
 
         fs.unlinkSync(p)
 
