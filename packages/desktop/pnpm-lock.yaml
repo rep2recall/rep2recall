@@ -28,6 +28,7 @@ devDependencies:
   eslint-plugin-standard: 4.0.1_eslint@6.8.0
   eslint-plugin-vue: 6.2.2_eslint@6.8.0
   express: 4.17.1
+  morgan: 1.10.0
   sass: 1.26.10
   sass-loader: 8.0.2_sass@1.26.10
   ts-node: 9.0.0_typescript@3.9.7
@@ -2250,6 +2251,14 @@ packages:
     dev: true
     resolution:
       integrity: sha512-mLQ4i2QO1ytvGWFWmcngKO//JXAQueZvwEKtjgQFM4jIK0kU+ytMfplL8j+n5mspOfjHwoAg+9yhb7BwAHm36g==
+  /basic-auth/2.0.1:
+    dependencies:
+      safe-buffer: 5.1.2
+    dev: true
+    engines:
+      node: '>= 0.8'
+    resolution:
+      integrity: sha512-NF+epuEdnUYVlGuhaxbbq+dvJttwLnGY+YixlXlME5KpQ5W3CnXA5cVTneY3SPbPDRkcjMbifrwmFYcClgOZeg==
   /batch/0.6.1:
     dev: true
     resolution:
@@ -3539,6 +3548,12 @@ packages:
       node: '>= 0.6'
     resolution:
       integrity: sha1-m81S4UwJd2PnSbJ0xDRu0uVgtak=
+  /depd/2.0.0:
+    dev: true
+    engines:
+      node: '>= 0.8'
+    resolution:
+      integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==
   /des.js/1.0.1:
     dependencies:
       inherits: 2.0.4
@@ -6300,6 +6315,18 @@ packages:
     hasBin: true
     resolution:
       integrity: sha512-NKmAlESf6jMGym1++R0Ra7wvhV+wFW63FaSOFPwRahvea0gMUcGUhVeAg/0BC0wiv9ih5NYPB1Wn1UEI1/L+xQ==
+  /morgan/1.10.0:
+    dependencies:
+      basic-auth: 2.0.1
+      debug: 2.6.9
+      depd: 2.0.0
+      on-finished: 2.3.0
+      on-headers: 1.0.2
+    dev: true
+    engines:
+      node: '>= 0.8.0'
+    resolution:
+      integrity: sha512-AbegBVI4sh6El+1gNwvD5YIck7nSA36weD7xvIxG4in80j/UoK8AEGaWnnz8v1GxonMCltmlNs5ZKbGvl9b1XQ==
   /move-concurrently/1.0.1:
     dependencies:
       aproba: 1.2.0
@@ -9787,6 +9814,7 @@ specifiers:
   eslint-plugin-vue: ^6.2.2
   express: ^4.17.1
   lokijs: ^1.5.11
+  morgan: ^1.10.0
   sass: ^1.26.5
   sass-loader: ^8.0.2
   ts-node: ^9.0.0

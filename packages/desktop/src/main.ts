@@ -1,4 +1,5 @@
 import Vue from 'vue'
+import { LoadingProgrammatic } from 'buefy'
 
 import App from './App.vue'
 import router from './router'
@@ -9,23 +10,22 @@ import './plugins/buefy'
 
 Vue.config.productionTip = false
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let app: Vue | null = null
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const loading = LoadingProgrammatic.open({})
+
 initDatabase().then(() => {
-  store.commit('SET_READY', true)
-  new Vue({
+  loading.close()
+
+  const col = loki.getCollection('hello') || loki.addCollection('hello')
+  col.insertOne({ hello: col.count() })
+
+  alert(col.count())
+
+  app = new Vue({
     router,
     store,
     render: h => h(App)
   }).$mount('#app')
 }).catch(console.error)
-
-window.onbeforeunload = (e: Event) => {
-  if (loki) {
-    e.preventDefault()
-    e.returnValue = true
-
-    loki.close(() => {
-      window.onbeforeunload = null
-      window.close()
-    })
-  }
-}

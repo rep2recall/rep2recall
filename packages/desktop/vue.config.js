@@ -1,8 +1,10 @@
+// @ts-check
+
 /* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs')
 const path = require('path')
 
-const bodyParser = require('body-parser')
+const morgan = require('morgan')
 
 const BINARY_DIR = 'release'
 const ASSETS_DIR = '.'
@@ -18,38 +20,37 @@ module.exports = {
      * @param {*} compiler
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    after (app, server, compiler) {
-      app.use(bodyParser.json())
+    before (app, server, compiler) {
+      app.use('/api', morgan('tiny'))
 
-      app.get('/api/db', (req, res) => {
+      app.get('/api/file', (req, res) => {
+        /** @type {*} */
         const { filename } = req.query
         const p = path.resolve(__dirname, BINARY_DIR, filename)
 
         if (fs.existsSync(p)) {
-          res.json({
-            content: fs.readFileSync(p, 'utf8')
-          })
+          fs.createReadStream(p).pipe(res)
+          return
         }
+
         res.sendStatus(404)
       })
 
-      app.put('/api/db', (req, res) => {
+      app.put('/api/file', (req, res) => {
+        /** @type {*} */
         const { filename } = req.query
         const p = path.resolve(__dirname, BINARY_DIR, filename)
 
-        const { content } = req.body
-
-        fs.writeFileSync(p, content)
-
+        req.pipe(fs.createWriteStream(p))
         res.sendStatus(201)
       })
 
-      app.delete('/api/db', (req, res) => {
+      app.delete('/api/file', (req, res) => {
+        /** @type {*} */
         const { filename } = req.query
         const p = path.resolve(__dirname, BINARY_DIR, filename)
 
         fs.unlinkSync(p)
-
         res.sendStatus(201)
       })
     }

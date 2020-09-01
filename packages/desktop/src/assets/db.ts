@@ -42,3 +42,14 @@ export async function initDatabase () {
     })
   })
 }
+
+window.onbeforeunload = (e: Event) => {
+  if (loki) {
+    if (loki.autosaveDirty()) {
+      loki.saveDatabase()
+
+      e.preventDefault()
+      e.returnValue = false
+    }
+  }
+}

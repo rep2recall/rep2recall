@@ -1,11 +1,10 @@
 <template>
   <div id="app">
-    <b-loading v-if="!$store.state.isReady" active />
-    <div v-if="$store.state.isReady" id="nav">
+    <div id="nav">
       <router-link to="/">Home</router-link> |
       <router-link to="/about">About</router-link>
     </div>
-    <router-view v-if="$store.state.isReady" />
+    <router-view />
   </div>
 </template>
 
