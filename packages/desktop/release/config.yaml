@@ -1,7 +1,0 @@
-www: ./www
-
-# Set to a custom number to use a predictable port.
-# port: 24000
-
-# Create your own token to enable calling from REST API
-# token: mysecrettoken
