@@ -13,5 +13,5 @@ export class Note {
   attrs = new Collection<NoteAttr>(this)
 
   @ManyToMany({ entity: () => User, mappedBy: 'notes' })
-  users = new Collection(User)
+  users = new Collection<User>(this)
 }

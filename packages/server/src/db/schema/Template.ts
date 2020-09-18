@@ -29,7 +29,7 @@ export class Template implements ITemplate {
   back?: string
 
   @ManyToMany({ entity: () => User, mappedBy: 'templates' })
-  users = new Collection(User)
+  users = new Collection<User>(this)
 
   constructor (d: ITemplate) {
     Object.assign(this, d)

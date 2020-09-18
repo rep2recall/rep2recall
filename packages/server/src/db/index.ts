@@ -39,7 +39,7 @@ export async function initDatabase (dbString: string): Promise<MikroORM> {
       // console.log(await gen.getCreateSchemaSQL())
       await gen
         .execute(
-          fs.readFileSync(path.resolve(__dirname, './schema/sqlite.sql'), 'utf8')
+          fs.readFileSync(path.resolve(__dirname, 'schema/sqlite.sql'), 'utf8')
             .replace(/\n/g, ' ')
             .replace(/;/g, ';\n')
         )
