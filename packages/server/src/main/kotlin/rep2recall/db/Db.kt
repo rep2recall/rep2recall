@@ -29,17 +29,25 @@ object Db {
             val dbPath = Paths.get(root.toString(), dbString)
 
             Database.connect(
-                    url = "jdbc:sqlite:${dbPath.toUri().path}",
-                    driver = "org.sqlite.JDBC",
+                    url = "jdbc:h2:${dbPath.toUri().path}",
+                    driver = "org.h2.Driver",
+//                    url = "jdbc:sqlite:${dbPath.toUri().path}",
+//                    driver = "org.sqlite.JDBC",
                     user = "",
                     password = ""
             )
         }
 
         transaction(db) {
+            val tables = arrayOf(
+                    NoteTable, NoteAttrTable, QuizTable, TemplateTable, UserTable
+            )
+
             if (db.dialect.allTablesNames().isEmpty()) {
-                SchemaUtils.create(NoteTable, NoteAttrTable)
-                NoteAttr.init()
+                SchemaUtils.create(*tables)
+                tables.map {
+                    it.init()
+                }
             }
         }
 

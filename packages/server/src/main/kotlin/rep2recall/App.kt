@@ -6,32 +6,36 @@ import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import rep2recall.db.Db
 import rep2recall.db.Note
-import rep2recall.db.NoteAttr
-import java.net.URI
-import java.nio.file.Paths
+import rep2recall.db.User
 
 fun main() {
 //    val app = Javalin.create().start(System.getenv("PORT")?.toInt() ?: 8080)
 //    app.get("/") { ctx -> ctx.result("Hello World") }
-    Db.init("test.db")
+    Db.init("test.h2.db")
 
     transaction {
         addLogger(StdOutSqlLogger)
 
-        val n = Note.new {  }
-        NoteAttr.new {
-            key = "x"
-            value = "b"
-            note = n.id
-        }
-        NoteAttr.new {
-            key = "y"
-            value = "a"
-            note = n.id
-        }
+        val u = User.create("patarapolw@gmail.com")
+
+        Note.create(
+                user = u,
+                attrs = sortedMapOf(
+                        "x" to "b",
+                        "y" to "a"
+                )
+        )
+
+        Note.create(
+                user = u,
+                attrs = sortedMapOf(
+                        "x" to "b",
+                        "y" to "a"
+                )
+        )
     }
 
     transaction {
-        println(Note.all())
+        println(Note.all().map { it.serialize() })
     }
 }
