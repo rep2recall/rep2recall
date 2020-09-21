@@ -6,7 +6,6 @@ import io.javalin.http.Context
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import rep2recall.db.*
-import java.util.regex.Pattern
 
 object NoteController {
     val handler = EndpointGroup {
@@ -29,34 +28,28 @@ object NoteController {
 
     private data class QueryRequest(
             val q: String,
-            val offset: Int = 0,
+            val offset: Long = 0,
             val limit: Int = 5
-//            val sort: List<String> = listOf("-id")
     )
 
     private fun query(ctx: Context) {
         val body = ctx.bodyValidator(QueryRequest::class.java).get()
 
-        val ids = NoteTable.innerJoin(NoteAttrTable).select {
-            (QueryUtil.parse(body.q, listOf(":", "=", "~")) { p ->
-                val q: Op<Boolean> = when(p.op) {
-                    "=" -> NoteAttrTable.value eq p.value
-                    "~" -> NoteAttrTable.value regexp p.value
-                    else -> NoteAttrTable.value regexp Pattern.quote(p.value)
-                }
+        fun getQuery() = NoteTable.innerJoin(NoteAttrTable).select {
+            QueryUtil.parse(body.q, listOf(":", "=", "~")) { p ->
+                QueryUtil.comp(p)
+            } and (NoteTable.userId eq ctx.sessionAttribute<String>("userId")!!)
+        }.groupBy(NoteTable.id)
 
-                p.key?.let {
-                   (NoteAttrTable.key eq p.key) and q
-                } ?: q
-            } ?: Op.TRUE) and (NoteTable.userId eq ctx.sessionAttribute<String>("userId")!!)
-        }
-                .groupBy(NoteTable.id)
+        val count = getQuery().count()
+        val ids = getQuery()
                 .orderBy(NoteTable.id, SortOrder.DESC)
-                .limit(body.limit, body.offset.toLong())
+                .limit(body.limit, body.offset)
                 .map { it[NoteTable.id].value }
 
-        ctx.status(201).json(mapOf(
-                "result" to ids
+        ctx.json(mapOf(
+                "result" to ids,
+                "count" to count
         ))
     }
 
