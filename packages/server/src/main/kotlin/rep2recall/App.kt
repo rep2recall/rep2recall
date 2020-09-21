@@ -1,41 +1,27 @@
 package rep2recall
 
 import io.javalin.Javalin
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
-import org.jetbrains.exposed.sql.transactions.transaction
-import rep2recall.db.Db
-import rep2recall.db.Note
-import rep2recall.db.User
+import io.javalin.apibuilder.ApiBuilder.path
+import rep2recall.api.Api
 
 fun main() {
-//    val app = Javalin.create().start(System.getenv("PORT")?.toInt() ?: 8080)
-//    app.get("/") { ctx -> ctx.result("Hello World") }
-    Db.init("test.h2.db")
+    val app = Javalin.create {
+        if (Api.db.isJar) {
+            it.addStaticFiles("/public")
+        } else {
+            it.enableCorsForAllOrigins()
+        }
 
-    transaction {
-        addLogger(StdOutSqlLogger)
+        it.sessionHandler {
+            Api.sessionHandler
+        }
+    }.start(System.getenv("PORT")?.toInt() ?: 8080)
 
-        val u = User.create("patarapolw@gmail.com")
-
-        Note.create(
-                user = u,
-                attrs = sortedMapOf(
-                        "x" to "b",
-                        "y" to "a"
-                )
-        )
-
-        Note.create(
-                user = u,
-                attrs = sortedMapOf(
-                        "x" to "b",
-                        "y" to "a"
-                )
-        )
+    app.routes {
+        path("api", Api.router)
     }
 
-    transaction {
-        println(Note.all().map { it.serialize() })
+    if (!Api.db.isJar) {
+        app.get("/") { ctx -> ctx.result("Ready") }
     }
 }

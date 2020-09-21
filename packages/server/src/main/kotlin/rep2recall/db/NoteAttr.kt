@@ -4,7 +4,7 @@ import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 
-object NoteAttrTable: IdInitTable<Int>() {
+object NoteAttrTable: IdInitTable<Int>("note_attr") {
     override val id = integer("id").autoIncrement().entityId()
     override val primaryKey by lazy { super.primaryKey ?: PrimaryKey(id) }
 
@@ -36,6 +36,7 @@ class NoteAttr(id: EntityID<Int>): IntEntity(id) {
     var value by NoteAttrTable.value
 
     var noteId by NoteAttrTable.noteId
+    @Suppress("unused")
     val note by Note referencedOn NoteAttrTable.noteId
 
     data class Ser(

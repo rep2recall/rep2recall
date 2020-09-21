@@ -7,7 +7,7 @@ import org.jetbrains.exposed.dao.id.EntityID
 import java.security.SecureRandom
 import java.util.*
 
-object UserTable: IdInitTable<String>() {
+object UserTable: IdInitTable<String>("user") {
     override val id = varchar("id", 26).entityId()
 
     val email = varchar("email", 100).uniqueIndex()
@@ -37,6 +37,7 @@ class User(id: EntityID<String>): Entity<String>(id) {
             }
         }
 
+        @Suppress("MemberVisibilityCanBePrivate")
         fun newApiKey(): String {
             val rand = SecureRandom()
             val ba = ByteArray(32)
@@ -49,10 +50,14 @@ class User(id: EntityID<String>): Entity<String>(id) {
     var name by UserTable.name
     var apiKey by UserTable.apiKey
 
+    @Suppress("MemberVisibilityCanBePrivate")
     val notes by Note referrersOn NoteTable.userId
+    @Suppress("MemberVisibilityCanBePrivate")
     val templates by Template referrersOn TemplateTable.userId
+    @Suppress("MemberVisibilityCanBePrivate")
     val quizzes by Quiz referrersOn QuizTable.userId
 
+    @Suppress("unused")
     fun purge() {
         notes.map { it.delete() }
         templates.map { it.delete() }
@@ -67,6 +72,7 @@ class User(id: EntityID<String>): Entity<String>(id) {
             val apiKey: String
     )
 
+    @Suppress("unused")
     fun serialize() = Ser(
             id = id.value,
             email = email,

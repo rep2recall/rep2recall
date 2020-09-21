@@ -5,7 +5,7 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 
-object TemplateTable: IdInitTable<String>() {
+object TemplateTable: IdInitTable<String>("template") {
     override val id = varchar("id", 26).entityId()
 
     val name = varchar("name", 100).index()
@@ -14,6 +14,10 @@ object TemplateTable: IdInitTable<String>() {
     val back = varchar("back", 1000).nullable()
 
     val userId = reference("user_id", UserTable)
+
+    override fun init() {
+        uniqueIndex(name, userId)
+    }
 }
 
 class Template(id: EntityID<String>): Entity<String>(id) {
@@ -45,6 +49,7 @@ class Template(id: EntityID<String>): Entity<String>(id) {
     var back by TemplateTable.back
 
     var userId by TemplateTable.userId
+    @Suppress("unused")
     val user by User referencedOn TemplateTable.userId
 
     data class Ser(
@@ -56,6 +61,7 @@ class Template(id: EntityID<String>): Entity<String>(id) {
             val userId: String
     )
 
+    @Suppress("unused")
     fun serialize() = Ser(
             id = id.value,
             name = name,

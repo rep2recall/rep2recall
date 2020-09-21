@@ -4,9 +4,8 @@ import com.github.guepardoapps.kulid.ULID
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
-import java.util.*
 
-object NoteTable: IdInitTable<String>() {
+object NoteTable: IdInitTable<String>("note") {
     override val id = varchar("id", 26).entityId()
 
     val userId = reference("user_id", UserTable)
@@ -20,21 +19,24 @@ class Note(id: EntityID<String>): Entity<String>(id) {
         fun create(
                 id: String? = null,
                 user: User,
-                attrs: SortedMap<String, String>
-        ) {
-            val n = new {
+                attrs: List<NoteAttr.Ser>
+        ): Note {
+            val n = new(id) {
                 userId = user.id
             }
-            attrs.toList().map {
-                NoteAttr.create(key = it.first, value = it.second, note = n)
+            attrs.map {
+                NoteAttr.create(key = it.key, value = it.value, note = n)
             }
+
+            return n
         }
     }
 
     val attrs by NoteAttr referrersOn NoteAttrTable.noteId
 
     var userId by NoteTable.userId
-    val user by User referencedOn NoteTable.userId
+    @Suppress("unused")
+    val user: User by User referencedOn NoteTable.userId
 
     data class Ser(
             val id: String,
@@ -42,6 +44,7 @@ class Note(id: EntityID<String>): Entity<String>(id) {
             val userId: String
     )
 
+    @Suppress("unused")
     fun serialize() = Ser(
             id = id.value,
             attrs = attrs.map { it.serialize() },

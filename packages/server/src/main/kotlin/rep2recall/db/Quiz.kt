@@ -8,7 +8,7 @@ import org.jetbrains.exposed.sql.jodatime.datetime
 import org.joda.time.DateTime
 import org.joda.time.Duration
 
-object QuizTable: IdInitTable<String>() {
+object QuizTable: IdInitTable<String>("quiz") {
     override val id = varchar("id", 26).entityId()
 
     val userId = reference("user_id", UserTable)
@@ -90,12 +90,15 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
     }
 
     var userId by QuizTable.userId
+    @Suppress("unused")
     val user by User referencedOn QuizTable.userId
 
     var noteId by QuizTable.noteId
+    @Suppress("unused")
     val note by Note referencedOn QuizTable.noteId
 
     var templateId by QuizTable.templateId
+    @Suppress("unused")
     val template by Template referencedOn QuizTable.templateId
 
     var deck: List<String> by QuizTable.deck.transform(
@@ -115,8 +118,11 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
     var lastRight by QuizTable.lastRight
     var lastWrong by QuizTable.lastWrong
 
+    @Suppress("unused")
     fun markRight() = updateSrsLevel(1)
+    @Suppress("unused")
     fun markWrong() = updateSrsLevel(-1)
+    @Suppress("unused")
     fun markRepeat() = updateSrsLevel(0)
 
     private fun updateSrsLevel(dSrsLevel: Int) {
@@ -153,11 +159,11 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
             srsLevel = 0
         }
 
-        if (dSrsLevel > 0) {
-            nextReview = DateTime.now()
+        nextReview = if (dSrsLevel > 0) {
+            DateTime.now()
                     .plus(srsMap.elementAtOrElse(srsLevel!!) { Duration.standardHours(4) })
         } else {
-            nextReview = DateTime.now()
+            DateTime.now()
                     .plus(Duration.standardHours(1))
         }
     }
