@@ -37,7 +37,6 @@ class User(id: EntityID<String>): Entity<String>(id) {
             }
         }
 
-        @Suppress("MemberVisibilityCanBePrivate")
         fun newApiKey(): String {
             val rand = SecureRandom()
             val ba = ByteArray(32)

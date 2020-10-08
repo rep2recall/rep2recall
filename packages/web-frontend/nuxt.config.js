@@ -13,40 +13,40 @@ export default {
       {
         hid: 'description',
         name: 'description',
-        content: 'Repeat until recall, with widening intervals.'
-      }
+        content: 'Repeat until recall, with widening intervals.',
+      },
     ],
     link: [
       {
         rel: 'apple-touch-icon',
         sizes: '180x180',
-        href: '/apple-touch-icon.png'
+        href: '/apple-touch-icon.png',
       },
       {
         rel: 'icon',
         type: 'image/png',
         sizes: '32x32',
-        href: '/favicon-32x32.png'
+        href: '/favicon-32x32.png',
       },
       {
         rel: 'icon',
         type: 'image/png',
         sizes: '16x16',
-        href: '/favicon-16x16.png'
+        href: '/favicon-16x16.png',
       },
       {
         rel: 'manifest',
-        href: '/site.webmanifest'
-      }
+        href: '/site.webmanifest',
+      },
     ],
     script: [
       {
         async: true,
         defer: true,
         'data-domain': 'rep2recall.net',
-        src: 'https://plausible.io/js/plausible.js'
-      }
-    ]
+        src: 'https://plausible.io/js/plausible.js',
+      },
+    ],
   },
   /*
    ** Customize the progress-bar color
@@ -63,7 +63,7 @@ export default {
     '~/plugins/codemirror.client.js',
     '~/plugins/context.client.js',
     '~/plugins/filter.js',
-    '~/plugins/firebase-auth.client.ts'
+    '~/plugins/firebase-auth.client.ts',
   ],
   /*
    ** Nuxt.js dev-modules
@@ -74,9 +74,9 @@ export default {
       '@nuxtjs/dotenv',
       {
         systemvars: true,
-        only: ['BASE_URL']
-      }
-    ]
+        only: ['BASE_URL'],
+      },
+    ],
   ],
   /*
    ** Nuxt.js modules
@@ -87,15 +87,15 @@ export default {
       'nuxt-buefy',
       {
         defaultIconPack: 'fas',
-        defaultIconComponent: 'fontawesome'
-      }
+        defaultIconComponent: 'fontawesome',
+      },
     ],
     // Doc: https://axios.nuxtjs.org/usage
     [
       '@nuxtjs/axios',
       {
-        proxy: true
-      }
+        proxy: true,
+      },
     ],
     [
       '@nuxtjs/fontawesome',
@@ -118,12 +118,12 @@ export default {
             'faAngleUp',
             'faArrowDown',
             'faArrowUp',
-            'faExclamationCircle'
+            'faExclamationCircle',
           ],
           regular: ['faEdit'],
-          brands: ['faGithub', 'faGoogle']
-        }
-      }
+          brands: ['faGithub', 'faGoogle'],
+        },
+      },
     ],
     [
       'nuxt-mq',
@@ -133,23 +133,27 @@ export default {
         breakpoints: {
           sm: 500,
           md: 800,
-          lg: Infinity
-        }
-      }
+          lg: Infinity,
+        },
+      },
     ],
-    [
-      '@nuxtjs/firebase',
-      {
-        config: JSON.parse(process.env.FIREBASE_CONFIG),
-        services: {
-          auth: true,
-          storage: true
-        }
-      }
-    ]
+    ...(process.env.FIREBASE_CONFIG
+      ? [
+          [
+            '@nuxtjs/firebase',
+            {
+              config: JSON.parse(process.env.FIREBASE_CONFIG),
+              services: {
+                auth: true,
+                storage: true,
+              },
+            },
+          ],
+        ]
+      : []),
   ],
   proxy: {
-    '/api/': 'http://localhost:8080'
+    '/api/': 'http://localhost:24000',
   },
   /*
    ** Build configuration
@@ -168,16 +172,16 @@ export default {
         use: {
           loader: 'raw-loader',
           options: {
-            esModule: false
-          }
-        }
+            esModule: false,
+          },
+        },
       })
-    }
+    },
   },
   env: {
-    BASE_URL: process.env.BASE_URL
+    BASE_URL: process.env.BASE_URL,
   },
   generate: {
-    crawler: false
-  }
+    crawler: false,
+  },
 }

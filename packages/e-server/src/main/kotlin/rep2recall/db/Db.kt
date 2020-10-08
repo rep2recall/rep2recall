@@ -5,8 +5,6 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
 import java.io.File
-import java.net.URI
-import java.nio.file.Path
 import java.nio.file.Paths
 import java.sql.ResultSet
 
@@ -20,14 +18,18 @@ class Db(
         File(System.getProperty("user.dir"))
     }
 
-    val db: Database
-    val driver: String
-    val connectionUrl: String
-    private val username: String
-    private val password: String
-    private val dbPath: Path?
+    private val username = ""
+    private val password = ""
+    private val dbPath = Paths.get(root.toString(), dbString)
 
-    val isLocal get() = dbPath != null
+    val driver = "org.h2.Driver"
+    val connectionUrl = "jdbc:h2:${dbPath.toUri().path}"
+    val db = Database.connect(
+        url = connectionUrl,
+        driver = driver,
+        user = username,
+        password = password
+    )
 
     fun <T:Any>exec(
             stmt: String,
@@ -44,30 +46,6 @@ class Db(
     }
 
     init {
-        if (dbString.contains("://")) {
-            val uri = URI(dbString)
-            val user = uri.userInfo.split(':', limit = 2)
-
-            dbPath = null
-            connectionUrl = "jdbc:postgresql://${uri.host}:${uri.port}${uri.path}"
-            driver = "org.postgresql.Driver"
-            username = user[0]
-            password = user[1]
-        } else {
-            dbPath = Paths.get(root.toString(), dbString)
-            connectionUrl = "jdbc:h2:${dbPath.toUri().path}"
-            driver = "org.h2.Driver"
-            username = ""
-            password = ""
-        }
-
-        db = Database.connect(
-                url = connectionUrl,
-                driver = driver,
-                user = username,
-                password = password
-        )
-
         transaction(db) {
             val tables = arrayOf(
                     NoteTable, NoteAttrTable, QuizTable, TemplateTable, UserTable

@@ -74,6 +74,7 @@ object Api {
 
         path("note", NoteController.handler)
         path("quiz", QuizController.handler)
+        path("user", UserController.handler)
     }
 
     val sessionHandler = SessionHandler().apply {

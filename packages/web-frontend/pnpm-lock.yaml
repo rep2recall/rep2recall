@@ -36,7 +36,8 @@ devDependencies:
   '@fortawesome/free-brands-svg-icons': 5.14.0
   '@fortawesome/free-regular-svg-icons': 5.14.0
   '@fortawesome/free-solid-svg-icons': 5.14.0
-  '@nuxt/typescript-build': 2.0.2
+  '@nuxt/types': 2.14.6
+  '@nuxt/typescript-build': 2.0.2_@nuxt+types@2.14.6
   '@nuxtjs/dotenv': 1.4.1
   '@nuxtjs/eslint-config-typescript': 3.0.0_eslint@7.7.0+typescript@3.9.7
   '@nuxtjs/eslint-module': 2.0.0_eslint@7.7.0
@@ -291,6 +292,13 @@ packages:
     hasBin: true
     resolution:
       integrity: sha512-MggwidiH+E9j5Sh8pbrX5sJvMcsqS5o+7iB42M9/k0CD63MjYbdP4nhSh7uB5wnv2/RVzTZFTxzF/kIa5mrCqA==
+  /@babel/parser/7.11.5:
+    dev: true
+    engines:
+      node: '>=6.0.0'
+    hasBin: true
+    resolution:
+      integrity: sha512-X9rD8qqm695vgmeaQ4fvz/o3+Wk4ZzQvSHkDBgpYKxpD4qTAUm88ZKtHkVqIOsYFFbIQ6wQYhC6q7pjqVK0E0Q==
   /@babel/plugin-proposal-async-generator-functions/7.10.5_@babel+core@7.11.4:
     dependencies:
       '@babel/core': 7.11.4
@@ -1012,6 +1020,14 @@ packages:
       to-fast-properties: 2.0.0
     resolution:
       integrity: sha512-O53yME4ZZI0jO1EVGtF1ePGl0LHirG4P1ibcD80XyzZcKhcMFeCXmh4Xb1ifGBIV233Qg12x4rBfQgA+tmOukA==
+  /@babel/types/7.11.5:
+    dependencies:
+      '@babel/helper-validator-identifier': 7.10.4
+      lodash: 4.17.20
+      to-fast-properties: 2.0.0
+    dev: true
+    resolution:
+      integrity: sha512-bvM7Qz6eKnJVFIn+1LPtjlBFPVN5jNDc1XmN15vWe7Q3DPBufWWsLiIvUu7xW87uTG6QoggpIDnUgLQvPheU+Q==
   /@csstools/convert-colors/1.4.0:
     dev: false
     engines:
@@ -1054,21 +1070,10 @@ packages:
     dev: false
     resolution:
       integrity: sha512-USg/AbgqBERhY0LayrKmmp7pka08WPa7OlFI46kaNW1pA2mUNf/ifTaxhCr2hGg/eWI0zPhpbEvtGQhSJ/QqWg==
-  /@firebase/auth-interop-types/0.1.5_2eaba5142f97ca1b67dea17e3bab8a6a:
-    dependencies:
-      '@firebase/app-types': 0.6.1
-      '@firebase/util': 0.3.1
-    dev: false
-    peerDependencies:
-      '@firebase/app-types': 0.x
-      '@firebase/util': 0.x
-    resolution:
-      integrity: sha512-88h74TMQ6wXChPA6h9Q3E1Jg6TkTHep2+k63OWg3s0ozyGVMeY+TTOti7PFPzq5RhszQPQOoCi59es4MaRvgCw==
   /@firebase/auth-interop-types/0.1.5_@firebase+util@0.3.1:
     dependencies:
       '@firebase/util': 0.3.1
     dev: false
-    optional: true
     peerDependencies:
       '@firebase/app-types': 0.x
       '@firebase/util': 0.x
@@ -1118,23 +1123,6 @@ packages:
       faye-websocket: 0.11.3
       tslib: 1.13.0
     dev: false
-    optional: true
-    peerDependencies:
-      '@firebase/app-types': '*'
-    resolution:
-      integrity: sha512-QOHhB7+CdjVhEXG9CyX0roA9ARJcEuwbozz0Bix+ULuZqjQ58KUFHMH1apW6EEiUP22d/mYD7dNXsUGshjL9PA==
-  /@firebase/database/0.6.11_@firebase+app-types@0.6.1:
-    dependencies:
-      '@firebase/auth-interop-types': 0.1.5_2eaba5142f97ca1b67dea17e3bab8a6a
-      '@firebase/component': 0.1.18
-      '@firebase/database-types': 0.5.2
-      '@firebase/logger': 0.2.6
-      '@firebase/util': 0.3.1
-      faye-websocket: 0.11.3
-      tslib: 1.13.0
-    dev: false
-    peerDependencies:
-      '@firebase/app-types': '*'
     resolution:
       integrity: sha512-QOHhB7+CdjVhEXG9CyX0roA9ARJcEuwbozz0Bix+ULuZqjQ58KUFHMH1apW6EEiUP22d/mYD7dNXsUGshjL9PA==
   /@firebase/firestore-types/1.12.0_@firebase+app-types@0.6.1:
@@ -1721,8 +1709,32 @@ packages:
     hasBin: true
     resolution:
       integrity: sha512-Y79IXGNQrvuZ8/yiCOGqA5urkuhbkQ42cTA7tAGA3NHWja1lX0Rj4ZyFY0psZRvyShYd5kW3OEUp5oLln/wW/Q==
-  /@nuxt/typescript-build/2.0.2:
+  /@nuxt/types/2.14.6:
     dependencies:
+      '@types/autoprefixer': 9.7.2
+      '@types/babel__core': 7.1.10
+      '@types/compression': 1.7.0
+      '@types/connect': 3.4.33
+      '@types/etag': 1.8.0
+      '@types/file-loader': 4.2.0
+      '@types/html-minifier': 4.0.0
+      '@types/less': 3.0.1
+      '@types/node': 12.12.64
+      '@types/node-sass': 4.11.1
+      '@types/optimize-css-assets-webpack-plugin': 5.0.1
+      '@types/pug': 2.0.4
+      '@types/serve-static': 1.13.5
+      '@types/terser-webpack-plugin': 2.2.1
+      '@types/webpack': 4.41.22
+      '@types/webpack-bundle-analyzer': 3.8.0
+      '@types/webpack-dev-middleware': 3.7.2
+      '@types/webpack-hot-middleware': 2.25.3
+    dev: true
+    resolution:
+      integrity: sha512-wK2B71TkbNAWxIcxdaueMfSIubqQ1DK/Yzix1MbXMLp5JM+fQTPofU/o+PQ9cl1vESPmh79bV/PC/JHYC6xK3w==
+  /@nuxt/typescript-build/2.0.2_@nuxt+types@2.14.6:
+    dependencies:
+      '@nuxt/types': 2.14.6
       consola: 2.15.0
       fork-ts-checker-webpack-plugin: 5.1.0
       ts-loader: 8.0.2_typescript@3.9.7
@@ -1968,9 +1980,61 @@ packages:
     resolution:
       integrity: sha512-RbzJvlNzmRq5c3O09UipeuXno4tA1FE6ikOjxZK0tuxVv3412l64l5t1W5pj4+rJq9vpkm/kwiR07aZXnsKPxw==
   /@types/anymatch/1.3.1:
-    dev: false
     resolution:
       integrity: sha512-/+CRPXpBDpo2RK9C68N3b2cOvO0Cf5B9aPijHsoDQTHivnGSObdOF2BRQOYjojWTDy6nQvMjmqRXIxH55VjxxA==
+  /@types/autoprefixer/9.7.2:
+    dependencies:
+      '@types/browserslist': 4.8.0
+      postcss: 7.0.35
+    dev: true
+    resolution:
+      integrity: sha512-QX7U7YW3zX3ex6MECtWO9folTGsXeP4b8bSjTq3I1ODM+H+sFHwGKuof+T+qBcDClGlCGtDb3SVfiTVfmcxw4g==
+  /@types/babel__core/7.1.10:
+    dependencies:
+      '@babel/parser': 7.11.5
+      '@babel/types': 7.11.5
+      '@types/babel__generator': 7.6.2
+      '@types/babel__template': 7.0.3
+      '@types/babel__traverse': 7.0.15
+    dev: true
+    resolution:
+      integrity: sha512-x8OM8XzITIMyiwl5Vmo2B1cR1S1Ipkyv4mdlbJjMa1lmuKvKY9FrBbEANIaMlnWn5Rf7uO+rC/VgYabNkE17Hw==
+  /@types/babel__generator/7.6.2:
+    dependencies:
+      '@babel/types': 7.11.5
+    dev: true
+    resolution:
+      integrity: sha512-MdSJnBjl+bdwkLskZ3NGFp9YcXGx5ggLpQQPqtgakVhsWK0hTtNYhjpZLlWQTviGTvF8at+Bvli3jV7faPdgeQ==
+  /@types/babel__template/7.0.3:
+    dependencies:
+      '@babel/parser': 7.11.5
+      '@babel/types': 7.11.5
+    dev: true
+    resolution:
+      integrity: sha512-uCoznIPDmnickEi6D0v11SBpW0OuVqHJCa7syXqQHy5uktSCreIlt0iglsCnmvz8yCb38hGcWeseA8cWJSwv5Q==
+  /@types/babel__traverse/7.0.15:
+    dependencies:
+      '@babel/types': 7.11.5
+    dev: true
+    resolution:
+      integrity: sha512-Pzh9O3sTK8V6I1olsXpCfj2k/ygO2q1X0vhhnDrEQyYLHZesWz+zMZMVcwXLCYf0U36EtmyYaFGPfXlTtDHe3A==
+  /@types/body-parser/1.19.0:
+    dependencies:
+      '@types/connect': 3.4.33
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-W98JrE0j2K78swW4ukqMleo8R7h/pFETjM2DQ90MF6XK2i4LO4W3gQ71Lt4w3bfm2EvVSyWHplECvB5sK22yFQ==
+  /@types/browserslist/4.8.0:
+    dev: true
+    resolution:
+      integrity: sha512-4PyO9OM08APvxxo1NmQyQKlJdowPCOQIy5D/NLO3aO0vGC57wsMptvGp3b8IbYnupFZr92l1dlVief1JvS6STQ==
+  /@types/clean-css/4.2.2:
+    dependencies:
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-xiTJn3bmDh1lA8c6iVJs4ZhHw+pcmxXlJQXOB6G1oULaak8rmarIeFKI4aTJ7849dEhaO612wgIualZfbxTJwA==
   /@types/codemirror/0.0.97:
     dependencies:
       '@types/tern': 0.23.3
@@ -1980,6 +2044,18 @@ packages:
   /@types/color-name/1.1.1:
     resolution:
       integrity: sha512-rr+OQyAjxze7GgWrSaJwydHStIhHq2lvY3BOC2Mj7KnzI7XK0Uw1TOOdI9lDoajEbSWLiYgoo4f1R51erQfhPQ==
+  /@types/compression/1.7.0:
+    dependencies:
+      '@types/express': 4.17.8
+    dev: true
+    resolution:
+      integrity: sha512-3LzWUM+3k3XdWOUk/RO+uSjv7YWOatYq2QADJntK1pjkk4DfVP0KrIEPDnXRJxAAGKe0VpIPRmlINLDuCedZWw==
+  /@types/connect/3.4.33:
+    dependencies:
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-2+FrkXY4zllzTNfJth7jOqEHC+enpLeGslEhpnTAkg21GkRrWV4SsAtqchtT4YS9/nODBU2/ZfsBY2X4J/dX7A==
   /@types/eslint-visitor-keys/1.0.0:
     dev: true
     resolution:
@@ -1988,10 +2064,47 @@ packages:
     dev: false
     resolution:
       integrity: sha512-jnqIUKDUqJbDIUxm0Uj7bnlMnRm1T/eZ9N+AVMqhPgzrba2GhGG5o/jCTwmdPK709nEZsGoMzXEDUjcXHa3W0g==
+  /@types/etag/1.8.0:
+    dependencies:
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-EdSN0x+Y0/lBv7YAb8IU4Jgm6DWM+Bqtz7o5qozl96fzaqdqbdfHS5qjdpFeIv7xQ8jSLyjMMNShgYtMajEHyQ==
+  /@types/express-serve-static-core/4.17.13:
+    dependencies:
+      '@types/node': 12.12.64
+      '@types/qs': 6.9.5
+      '@types/range-parser': 1.2.3
+    dev: true
+    resolution:
+      integrity: sha512-RgDi5a4nuzam073lRGKTUIaL3eF2+H7LJvJ8eUnCI0wA6SNjXc44DCmWNiTLs/AZ7QlsFWZiw/gTG3nSQGL0fA==
+  /@types/express/4.17.8:
+    dependencies:
+      '@types/body-parser': 1.19.0
+      '@types/express-serve-static-core': 4.17.13
+      '@types/qs': 6.9.5
+      '@types/serve-static': 1.13.5
+    dev: true
+    resolution:
+      integrity: sha512-wLhcKh3PMlyA2cNAB9sjM1BntnhPMiM0JOBwPBqttjHev2428MLEB4AYVN+d8s2iyCVZac+o41Pflm/ZH5vLXQ==
+  /@types/file-loader/4.2.0:
+    dependencies:
+      '@types/webpack': 4.41.22
+    dev: true
+    resolution:
+      integrity: sha512-N3GMqKiKSNd41q4/lZlkdvNXKKWVdOXrA8Rniu64+25X0K2U1mWmTSu1CIqXKKsZUCwfaFcaioviLQtQ+EowLg==
   /@types/html-minifier-terser/5.1.0:
     dev: false
     resolution:
       integrity: sha512-iYCgjm1dGPRuo12+BStjd1HiVQqhlRhWDOQigNxn023HcjnhsiFz9pc6CzJj4HwDCSQca9bxTL4PxJDbkdm3PA==
+  /@types/html-minifier/4.0.0:
+    dependencies:
+      '@types/clean-css': 4.2.2
+      '@types/relateurl': 0.2.28
+      '@types/uglify-js': 3.11.0
+    dev: true
+    resolution:
+      integrity: sha512-eFnGhrKmjWBlnSGNtunetE3UU2Tc/LUl92htFslSSTmpp9EKHQVcYQadCyYfnzUEFB5G/3wLWo/USQS/mEPKrA==
   /@types/http-proxy/1.17.4:
     dependencies:
       '@types/node': 14.6.0
@@ -2009,6 +2122,10 @@ packages:
     dev: true
     resolution:
       integrity: sha1-7ihweulOEdK4J7y+UnC86n8+ce4=
+  /@types/less/3.0.1:
+    dev: true
+    resolution:
+      integrity: sha512-dBp05MtWN/w1fGVjj5LVrDw6VrdYllpWczbUkCsrzBj08IHsSyRLOFvUrCFqZFVR+nsqkrRLNg6oOlvqMLPaSA==
   /@types/linkify-it/2.1.0:
     dev: false
     resolution:
@@ -2028,6 +2145,22 @@ packages:
     dev: false
     resolution:
       integrity: sha512-eC4U9MlIcu2q0KQmXszyn5Akca/0jrQmwDRgpAMJai7qBWq4amIQhZyNau4VYGtCeALvW1/NtjzJJ567aZxfKA==
+  /@types/memory-fs/0.3.2:
+    dependencies:
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-j5AcZo7dbMxHoOimcHEIh0JZe5e1b8q8AqGSpZJrYc7xOgCIP79cIjTdx5jSDLtySnQDwkDTqwlC7Xw7uXw7qg==
+  /@types/mime/2.0.3:
+    dev: true
+    resolution:
+      integrity: sha512-Jus9s4CDbqwocc5pOAnh8ShfrnMcPHuJYzVcSUU7lrh8Ni5HuIqX3oilL86p3dlTrk0LzHRCgA/GQ7uNCw6l2Q==
+  /@types/node-sass/4.11.1:
+    dependencies:
+      '@types/node': 12.12.64
+    dev: true
+    resolution:
+      integrity: sha512-wPOmOEEtbwQiPTIgzUuRSQZ3H5YHinsxRGeZzPSDefAm4ylXWnZG9C0adses8ymyplKK0gwv3JkDNO8GGxnWfg==
   /@types/node/10.17.28:
     dev: false
     optional: true
@@ -2037,6 +2170,10 @@ packages:
     dev: false
     resolution:
       integrity: sha512-ge4xZ3vSBornVYlDnk7yZ0gK6ChHf/CHB7Gl1I0Jhah8DDnEQqBzgohYG4FX4p81TNirSETOiSyn+y1r9/IR6w==
+  /@types/node/12.12.64:
+    dev: true
+    resolution:
+      integrity: sha512-UV1/ZJMC+HcP902wWdpC43cAcGu0IQk/I5bXjP2aSuCjsk3cE74mDvFrLKga7oDC170ugOAYBwfT4DSQW3akDA==
   /@types/node/13.13.15:
     dev: false
     resolution:
@@ -2049,6 +2186,12 @@ packages:
     dev: true
     resolution:
       integrity: sha512-f5j5b/Gf71L+dbqxIpQ4Z2WlmI/mPJ0fOkGGmFgtb6sAu97EPczzbS3/tJKxmcYDj55OX6ssqwDAWOHIYDRDGA==
+  /@types/optimize-css-assets-webpack-plugin/5.0.1:
+    dependencies:
+      '@types/webpack': 4.41.22
+    dev: true
+    resolution:
+      integrity: sha512-qyi5xmSl+DTmLFtVtelhso3VnNQYxltfgMa+Ed02xqNZCZBD0uYR6i64FmcwfieDzZRdwkJxt9o2JHq/5PBKQg==
   /@types/parse-json/4.0.0:
     dev: true
     resolution:
@@ -2057,12 +2200,34 @@ packages:
     dev: false
     resolution:
       integrity: sha512-RNgcK3FEc1GpeOkamGDq42EYkb6yZW5OWQwTS56NJIB8WL0QGISQglA7En7NUx9RGP8AC52DOe+squqbAckXlA==
+  /@types/pug/2.0.4:
+    dev: true
+    resolution:
+      integrity: sha1-h3L80EGOPNLMFxVV1zAHQVBR9LI=
   /@types/q/1.5.4:
     dev: false
     resolution:
       integrity: sha512-1HcDas8SEj4z1Wc696tH56G8OlRaH/sqZOynNNB+HF0WOeXPaxTtbYzJY2oEfiUxjSKjhCKr+MvR7dCHcEelug==
+  /@types/qs/6.9.5:
+    dev: true
+    resolution:
+      integrity: sha512-/JHkVHtx/REVG0VVToGRGH2+23hsYLHdyG+GrvoUGlGAd0ErauXDyvHtRI/7H7mzLm+tBCKA7pfcpkQ1lf58iQ==
+  /@types/range-parser/1.2.3:
+    dev: true
+    resolution:
+      integrity: sha512-ewFXqrQHlFsgc09MK5jP5iR7vumV/BYayNC6PgJO2LPe8vrnNFyjQjSppfEngITi0qvfKtzFvgKymGheFM9UOA==
+  /@types/relateurl/0.2.28:
+    dev: true
+    resolution:
+      integrity: sha1-a9p9uGU/piZD9e5p6facEaOS46Y=
+  /@types/serve-static/1.13.5:
+    dependencies:
+      '@types/express-serve-static-core': 4.17.13
+      '@types/mime': 2.0.3
+    dev: true
+    resolution:
+      integrity: sha512-6M64P58N+OXjU432WoLLBQxbA0LRGBCRm7aAGQJ+SMC1IMl0dgRVi9EFfoDcS2a7Xogygk/eGN94CfwU9UF7UQ==
   /@types/source-list-map/0.1.2:
-    dev: false
     resolution:
       integrity: sha512-K5K+yml8LTo9bWJI/rECfIPrGgxdpeNbj+d53lwN4QjW1MCwlkhUms+gtdzigTeUyBr09+u8BwOIY3MXvHdcsA==
   /@types/spark-md5/3.0.2:
@@ -2070,7 +2235,6 @@ packages:
     resolution:
       integrity: sha512-82E/lVRaqelV9qmRzzJ1PKTpyrpnT7mwdneKNJB9hUtypZDMggloDfFUCIqRRx3lYRxteCwXSq9c+W71Vf0QnQ==
   /@types/tapable/1.0.6:
-    dev: false
     resolution:
       integrity: sha512-W+bw9ds02rAQaMvaLYxAbJ6cvguW/iJXNT6lTssS1ps6QdrMKttqEAMEG/b5CR8TZl3/L7/lH0ZV5nNR1LXikA==
   /@types/tern/0.23.3:
@@ -2079,12 +2243,47 @@ packages:
     dev: false
     resolution:
       integrity: sha512-imDtS4TAoTcXk0g7u4kkWqedB3E4qpjXzCpD2LU5M5NAXHzCDsypyvXSaG7mM8DKYkCRa7tFp4tS/lp/Wo7Q3w==
+  /@types/terser-webpack-plugin/2.2.1:
+    dependencies:
+      '@types/webpack': 4.41.22
+      terser: 4.8.0
+    dev: true
+    resolution:
+      integrity: sha512-Z/6t/7qz4LeO64owJ9x7JQ6X791qfLxp1M1eCp6hFQlj7xuB5+Ol7DpEn5kWClTARZ7GlPLRsEWzFzQjZShF6w==
+  /@types/uglify-js/3.11.0:
+    dependencies:
+      source-map: 0.6.1
+    dev: true
+    resolution:
+      integrity: sha512-I0Yd8TUELTbgRHq2K65j8rnDPAzAP+DiaF/syLem7yXwYLsHZhPd+AM2iXsWmf9P2F2NlFCgl5erZPQx9IbM9Q==
   /@types/uglify-js/3.9.3:
     dependencies:
       source-map: 0.6.1
     dev: false
     resolution:
       integrity: sha512-KswB5C7Kwduwjj04Ykz+AjvPcfgv/37Za24O2EDzYNbwyzOo8+ydtvzUfZ5UMguiVu29Gx44l1A6VsPPcmYu9w==
+  /@types/webpack-bundle-analyzer/3.8.0:
+    dependencies:
+      '@types/webpack': 4.41.22
+    dev: true
+    resolution:
+      integrity: sha512-Ah6FbkXLAVUNI/ExXHsTS90iRS/Efplh333NySjhGx09oeH9qXf57NMUfl4RADTL5a89hQaq/nbT4eb0LwsQJw==
+  /@types/webpack-dev-middleware/3.7.2:
+    dependencies:
+      '@types/connect': 3.4.33
+      '@types/memory-fs': 0.3.2
+      '@types/webpack': 4.41.22
+      loglevel: 1.7.0
+    dev: true
+    resolution:
+      integrity: sha512-PvETiS//pjVZBK48aJfbxzT7+9LIxanbnk9eXXYUfefGyPdsCkNrMDxRlOVrBvxukXUhD5B6N/pkPMdWrtuFkA==
+  /@types/webpack-hot-middleware/2.25.3:
+    dependencies:
+      '@types/connect': 3.4.33
+      '@types/webpack': 4.41.22
+    dev: true
+    resolution:
+      integrity: sha512-zGkTzrwQnhSadIXGYGZLu7tpXQwn4+6y9nGeql+5UeRtW/k54Jp4SnzB0Qw00ednw0ZFoZOvqTFfXSbFXohc5Q==
   /@types/webpack-sources/1.4.2:
     dependencies:
       '@types/node': 14.6.0
@@ -2093,6 +2292,14 @@ packages:
     dev: false
     resolution:
       integrity: sha512-77T++JyKow4BQB/m9O96n9d/UUHWLQHlcqXb9Vsf4F1+wKNrrlWNFPDLKNT92RJnCSL6CieTc+NDXtCVZswdTw==
+  /@types/webpack-sources/2.0.0:
+    dependencies:
+      '@types/node': 12.12.64
+      '@types/source-list-map': 0.1.2
+      source-map: 0.7.3
+    dev: true
+    resolution:
+      integrity: sha512-a5kPx98CNFRKQ+wqawroFunvFqv7GHm/3KOI52NY9xWADgc8smu4R6prt4EU/M4QfVjvgBkMqU4fBhw3QfMVkg==
   /@types/webpack/4.41.21:
     dependencies:
       '@types/anymatch': 1.3.1
@@ -2104,6 +2311,17 @@ packages:
     dev: false
     resolution:
       integrity: sha512-2j9WVnNrr/8PLAB5csW44xzQSJwS26aOnICsP3pSGCEdsu6KYtfQ6QJsVUKHWRnm1bL7HziJsfh5fHqth87yKA==
+  /@types/webpack/4.41.22:
+    dependencies:
+      '@types/anymatch': 1.3.1
+      '@types/node': 12.12.64
+      '@types/tapable': 1.0.6
+      '@types/uglify-js': 3.11.0
+      '@types/webpack-sources': 2.0.0
+      source-map: 0.6.1
+    dev: true
+    resolution:
+      integrity: sha512-JQDJK6pj8OMV9gWOnN1dcLCyU9Hzs6lux0wBO4lr1+gyEhIBR9U3FMrz12t2GPkg110XAxEAw2WHF6g7nZIbRQ==
   /@typescript-eslint/eslint-plugin/3.9.1_a0db6c89db8b59fdf2bdef1d2ddbcbc4:
     dependencies:
       '@typescript-eslint/experimental-utils': 3.9.1_eslint@7.7.0+typescript@3.9.7
@@ -3091,7 +3309,6 @@ packages:
     resolution:
       integrity: sha1-+OcRMvf/5uAaXJaXpMbz5I1cyBk=
   /buffer-from/1.1.1:
-    dev: false
     resolution:
       integrity: sha512-MQcXEUbCKtEo7bhqEs6560Hyd4XaovZlO/k9V3hjVUF/zwW7KBVdSK4gIt/bzwS9MbR5qob+F5jusZsb0YQK2A==
   /buffer-json/2.0.0:
@@ -3518,7 +3735,6 @@ packages:
     resolution:
       integrity: sha512-puCDz0CzydiSYOrnXpz/PKd69zRrribezjtE9yd4zvytoRc8+RY/KJPvtPFKZS3E3wP6neGyMe0vOTlHO5L3Pw==
   /commander/2.20.3:
-    dev: false
     resolution:
       integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==
   /commander/4.1.1:
@@ -5192,7 +5408,7 @@ packages:
       '@firebase/app': 0.6.10
       '@firebase/app-types': 0.6.1
       '@firebase/auth': 0.14.9_09c9e27784d6fc892e67f6f2badb8926
-      '@firebase/database': 0.6.11_@firebase+app-types@0.6.1
+      '@firebase/database': 0.6.11
       '@firebase/firestore': 1.16.5_f74fbce5100d3991230a70bf33a7bf32
       '@firebase/functions': 0.4.50_f74fbce5100d3991230a70bf33a7bf32
       '@firebase/installations': 0.4.16_f74fbce5100d3991230a70bf33a7bf32
@@ -6851,6 +7067,12 @@ packages:
   /lodash/4.17.20:
     resolution:
       integrity: sha512-PlhdFcillOINfeV7Ni6oF1TAEayyZBoZ8bcshTHqOYJYlrqzRK5hagpagky5o4HfCzzd1TRkXPMFq6cKk9rGmA==
+  /loglevel/1.7.0:
+    dev: true
+    engines:
+      node: '>= 0.6.0'
+    resolution:
+      integrity: sha512-i2sY04nal5jDcagM3FMfG++T69GEEM8CYuOfeOIvmXzOIcwE9a/CJPR0MFM97pYMj/u10lzz7/zd7+qwhrBTqQ==
   /long/4.0.0:
     dev: false
     resolution:
@@ -8643,6 +8865,16 @@ packages:
       node: '>=6.0.0'
     resolution:
       integrity: sha512-03eXong5NLnNCD05xscnGKGDZ98CyzoqPSMjOe6SuoQY7Z2hIj0Ld1g/O/UQRuOle2aRtiIRDg9tDcTGAkLfKw==
+  /postcss/7.0.35:
+    dependencies:
+      chalk: 2.4.2
+      source-map: 0.6.1
+      supports-color: 6.1.0
+    dev: true
+    engines:
+      node: '>=6.0.0'
+    resolution:
+      integrity: sha512-3QT8bBJeX/S5zKTTjTCIjRF3If4avAT6kqxcASlTWEtAFCb9NH0OUxNDfgZSWdP5fJnBYCMEWkIFfWeugjzYMg==
   /prelude-ls/1.2.1:
     dev: true
     engines:
@@ -9641,7 +9873,6 @@ packages:
     dependencies:
       buffer-from: 1.1.1
       source-map: 0.6.1
-    dev: false
     resolution:
       integrity: sha512-Wonm7zOCIJzBGQdB+thsPar0kYuCIzYvxZwlBa87yi/Mdjv7Tip2cyVbLj5o0cFPN4EVkuTwb3GDDyUx2DGnGw==
   /source-map-url/0.4.0:
@@ -9660,13 +9891,11 @@ packages:
     resolution:
       integrity: sha1-igOdLRAh0i0eoUyA2OpGi6LvP8w=
   /source-map/0.6.1:
-    dev: false
     engines:
       node: '>=0.10.0'
     resolution:
       integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==
   /source-map/0.7.3:
-    dev: false
     engines:
       node: '>= 8'
     resolution:
@@ -9956,7 +10185,6 @@ packages:
   /supports-color/6.1.0:
     dependencies:
       has-flag: 3.0.0
-    dev: false
     engines:
       node: '>=6'
     resolution:
@@ -10071,7 +10299,6 @@ packages:
       commander: 2.20.3
       source-map: 0.6.1
       source-map-support: 0.5.19
-    dev: false
     engines:
       node: '>=6.0.0'
     hasBin: true
@@ -11126,6 +11353,7 @@ specifiers:
   '@fortawesome/free-brands-svg-icons': ^5.14.0
   '@fortawesome/free-regular-svg-icons': ^5.14.0
   '@fortawesome/free-solid-svg-icons': ^5.14.0
+  '@nuxt/types': ^2.14.6
   '@nuxt/typescript-build': ^2.0.2
   '@nuxtjs/axios': ^5.12.1
   '@nuxtjs/dotenv': ^1.4.1

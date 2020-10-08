@@ -15,7 +15,7 @@ fun main() {
         it.sessionHandler {
             Api.sessionHandler
         }
-    }.start(System.getenv("PORT")?.toInt() ?: 8080)
+    }.start(System.getenv("PORT")?.toInt() ?: 24000)
 
     app.routes {
         path("api", Api.router)

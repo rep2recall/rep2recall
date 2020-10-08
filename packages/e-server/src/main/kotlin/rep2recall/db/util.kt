@@ -18,10 +18,6 @@ abstract class IdInitTable<T:Comparable<T>>(name: String = ""): IdTable<T>(name)
     open fun init() {}
 }
 
-//abstract class InitTable(name: String = ""): Table(name) {
-//    open fun init() {}
-//}
-
 data class QuerySplit(
         val and: List<QuerySplitPart>,
         val or: List<QuerySplitPart>,
