@@ -2,12 +2,12 @@
 **
 
 # Allow files and directories
-# !/submodules
-!/.qovery.yml
+!/packages/web/dist
+# !/packages/web/package.json
+# !/packages/web/pnpm-lock.yaml
 
-!/submodules/web-frontend/dist
-!/submodules/web-server/dist
-!/submodules/web-server/package.json
-!/submodules/web-server/yarn.lock
+!/packages/server/dist
+!/packages/server/package.json
+!/packages/server/pnpm-lock.yaml
 
 **/node_modules

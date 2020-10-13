@@ -1,23 +1,25 @@
-FROM node:12-alpine AS frontend
+FROM node:12-alpine AS web
+RUN npm i -g pnpm
 WORKDIR /app
-COPY packages/web-frontend/package.json packages/web-frontend/yarn.lock ./
-RUN yarn --frozen-lockfile
-COPY packages/web-frontend .
+COPY packages/web/package.json packages/web/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
+COPY packages/web .
 ARG FIREBASE_CONFIG
 ARG BASE_URL
-RUN yarn build
+RUN pnpm build
 
 FROM node:12-alpine AS server
+RUN npm i -g pnpm
 WORKDIR /app
-COPY packages/web-server/package.json packages/web-server/yarn.lock ./
-RUN yarn --frozen-lockfile
-COPY packages/web-server .
-RUN yarn build
-RUN yarn --production --frozen-lockfile
+COPY packages/server/package.json packages/server/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
+COPY packages/server .
+RUN pnpm build
+RUN pnpm i --prod --frozen-lockfile
 
 FROM astefanutti/scratch-node:12
 WORKDIR /app
 COPY --from=server /app/node_modules /app/dist ./
-COPY --from=frontend /app/dist public
+COPY --from=web /app/dist public
 EXPOSE 8080
 ENTRYPOINT ["node", "dist/index.js"]

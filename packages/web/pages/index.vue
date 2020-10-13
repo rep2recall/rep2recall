@@ -10,7 +10,7 @@ import Markdown from '@/components/Markdown.vue'
 
 @Component({
   components: {
-    Markdown
+    Markdown,
   },
   computed: {
     doLogin() {
@@ -28,8 +28,8 @@ import Markdown from '@/components/Markdown.vue'
           }
         }
       }
-    }
-  }
+    },
+  },
 })
 export default class Home extends Vue {}
 </script>

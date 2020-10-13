@@ -1,30 +1,52 @@
 # Commands
 
-build:
+build-docker:
   command: |
     docker build \
       -t {{.docker.tag}} \
       --build-arg FIREBASE_CONFIG --build-arg BASE_URL \
       .
-build-local:
+build-docker-local:
   command: |
-    # cd submodules/web-frontend && yarn build && cd -
-    # cd submodules/web-server && yarn build && cd -
+    cd packages/web
+    pnpm build
+    cd -
+
+    cd packages/server
+    pnpm build
+    cd -
+
     docker build -f Dockerfile.local -t {{.docker.tag}} .
 start:
   command: |
-    docker run \
+    docker ps -q -f 'name=rep2recall' | xargs docker kill
+
+    docker run --rm \
       -p 8080:8080 \
       -e MONGO_URI -e SECRET -e FIREBASE_SDK -e FIREBASE_CONFIG -e BASE_URL \
-      {{.docker.tag}} 
+      --name rep2recall \
+      {{.docker.tag}}
+kill:
+  command: |
+    docker ps -q -f 'name=rep2recall' | xargs docker kill
 deploy:
   command: |
     docker push {{.docker.tag}}
 dev:
   command: |
     concurrently \
-      'cd submodules/web-server && yarn dev' \
-      'cd submodules/web-frontend && yarn dev'
+      'cd packages/server && pnpm dev' \
+      'cd packages/web && pnpm dev'
+install:
+  command: |
+    cd packages/web
+    echo 'shamefully-hoist=true' > .npmrc
+    pnpm i
+    cd -
+
+    cd packages/server
+    pnpm i
+    cd -
 heroku-token:
   command: |
     heroku auth:token

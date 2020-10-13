@@ -1,6 +1,6 @@
 {
-  "name": "@rep2recall/web-frontend",
-  "version": "1.0.0",
+  "name": "@rep2recall/web",
+  "version": "0.1.0",
   "description": "Repeat until recall",
   "author": "Pacharapol Withayasakpunt",
   "private": true,

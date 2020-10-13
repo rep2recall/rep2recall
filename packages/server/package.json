@@ -1,10 +1,10 @@
 {
-  "name": "@rep2recall/web-server",
+  "name": "@rep2recall/server",
   "private": true,
   "author": "Pacharapol Withayasakpunt <polv@polv.cc>",
   "license": "MIT",
   "scripts": {
-    "dev": "ts-node-dev src/index.ts",
+    "dev": "PORT=24000 ts-node-dev src/index.ts",
     "build": "tsc -p src/tsconfig.json",
     "start": "node dist/index.js"
   },

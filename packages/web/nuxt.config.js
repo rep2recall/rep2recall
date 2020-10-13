@@ -137,20 +137,16 @@ export default {
         },
       },
     ],
-    ...(process.env.FIREBASE_CONFIG
-      ? [
-          [
-            '@nuxtjs/firebase',
-            {
-              config: JSON.parse(process.env.FIREBASE_CONFIG),
-              services: {
-                auth: true,
-                storage: true,
-              },
-            },
-          ],
-        ]
-      : []),
+    [
+      '@nuxtjs/firebase',
+      {
+        config: JSON.parse(process.env.FIREBASE_CONFIG),
+        services: {
+          auth: true,
+          storage: true,
+        },
+      },
+    ],
   ],
   proxy: {
     '/api/': 'http://localhost:24000',

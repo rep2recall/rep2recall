@@ -1,12 +1,13 @@
 FROM node:12-alpine AS server
+RUN npm i -g pnpm
 WORKDIR /app
-COPY submodules/web-server/package.json submodules/web-server/yarn.lock ./
-RUN yarn --production --frozen-lockfile
+COPY packages/server/package.json packages/server/pnpm-lock.yaml ./
+RUN pnpm i --prod --frozen-lockfile
 
 FROM astefanutti/scratch-node:12
 WORKDIR /app
 COPY --from=server /app/node_modules node_modules
-COPY submodules/web-server/dist dist
-COPY submodules/web-frontend/dist public
+COPY packages/server/dist dist
+COPY packages/web/dist public
 EXPOSE 8080
 ENTRYPOINT ["node", "dist/index.js"]
