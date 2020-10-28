@@ -10,6 +10,7 @@
           hide-details="auto"
           append-icon="mdi-magnify"
           @click:append="doSearch"
+          style="width: 300px"
         />
       </form>
     </v-app-bar>
@@ -19,6 +20,7 @@
       absolute
       temporary
       style="height: 100vh;"
+      width="270"
     >
       <v-list>
         <v-list-group
@@ -33,17 +35,17 @@
           </template>
 
           <v-list-item
-            v-for="(t, i) in tags"
-            :key="i"
+            v-for="t in $store.state.tags"
+            :key="t.name"
             link
             dense
           >
             <v-list-item-content>
-              <v-list-item-title> {{t}} </v-list-item-title>
+              <v-list-item-title> {{t.name}} </v-list-item-title>
             </v-list-item-content>
 
-            <v-list-item-action>
-              <v-btn icon @click="doDelete(t)">
+            <v-list-item-action v-if="t.canDelete">
+              <v-btn icon @click="doDelete(t.name)">
                 <v-icon>mdi-trash-can-outline</v-icon>
               </v-btn>
             </v-list-item-action>

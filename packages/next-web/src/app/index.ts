@@ -11,7 +11,6 @@ export default class App extends Vue {
   q = ''
 
   isEdited = false
-  tags = Array(20).fill(null).map((_, i) => (Math.random() * (i + 1)).toString(36).substr(2))
 
   doSearch () {
     const isSearchablePath = ['/', '/edit', '/quiz'].includes('path')
@@ -27,6 +26,6 @@ export default class App extends Vue {
   }
 
   doDelete (id: string) {
-    this.tags = this.tags.filter((t) => t !== id)
+    this.$store.commit('REMOVE_TAGS', id)
   }
 }

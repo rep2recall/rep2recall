@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
 import { Component, Vue } from 'vue-property-decorator'
 
 type Treeview<T> = {
@@ -10,6 +11,26 @@ type Treeview<T> = {
 export default class Quiz extends Vue {
   itemSelected: string[] = ['Level 11-20\x1fLevel 11']
   itemOpened: string[] = ['', 'Level 11-20', 'Level 11-20\x1fLevel 12']
+
+  status = {
+    new: true,
+    due: true,
+    leech: true,
+    graduated: false
+  }
+
+  isSaveNameDialog = false
+  isSaveConfirmDialog = false
+  saveName = ''
+
+  quizActions = [
+    { text: 'Start quiz', callback: () => this.startQuiz() },
+    {
+      text: 'Save',
+      callback: () => this.openSaveNameDialog()
+    },
+    { text: 'Export', callback: () => alert('To be implemented'), disabled: true }
+  ]
 
   quizData: {
     deck: string[];
@@ -110,5 +131,32 @@ export default class Quiz extends Vue {
 
   startQuiz () {
     console.log(this.itemSelected, this.itemOpened)
+  }
+
+  openSaveNameDialog () {
+    this.saveName = new Date().toLocaleString()
+    this.isSaveNameDialog = true
+  }
+
+  async doSaveConfirm () {
+    if (await this.$store.dispatch('hasTag')) {
+      this.isSaveConfirmDialog = true
+    } else {
+      this.doSave()
+    }
+  }
+
+  async doSave () {
+    this.$store.commit('ADD_TAGS', {
+      name: this.saveName,
+      q: this.$route.query.q || '',
+      status: this.status,
+      canDelete: true,
+      itemSelected: this.itemSelected,
+      itemOpened: this.itemOpened
+    })
+
+    this.isSaveNameDialog = false
+    this.isSaveConfirmDialog = false
   }
 }
