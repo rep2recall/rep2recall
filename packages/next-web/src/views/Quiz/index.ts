@@ -8,8 +8,8 @@ type Treeview<T> = {
 
 @Component
 export default class Quiz extends Vue {
-  itemSelected = [2, 3]
-  itemOpened = []
+  itemSelected: string[] = ['Level 11-20\x1fLevel 11']
+  itemOpened: string[] = ['Level 11-20', 'Level 11-20\x1fLevel 12']
 
   quizData: {
     deck: string[];
@@ -52,7 +52,7 @@ export default class Quiz extends Vue {
       c: this['quizData'],
       parent: string[]
     ): this['treeview'] => {
-      let subset = c.filter((c0) => {
+      const subset = c.filter((c0) => {
         const isChild: boolean[] = []
         parent.map((p, i) => {
           isChild.push(c0.deck[i] === p)
@@ -61,50 +61,44 @@ export default class Quiz extends Vue {
         return isChild.length > 0 ? isChild.every((t) => t) : true
       })
 
+      const sMap = new Map<string, this['quizData']>()
+
       if (subset.length === 0) {
-        subset = [{
+        sMap.set(parent.join('\x1f'), [{
           deck: parent,
           new: 0,
           due: 0,
           leech: 0
-        }]
+        }])
       } else {
-        const sMap = new Map<string, this['quizData'][0]>()
         for (const s of subset) {
-          const id = s.deck.join('\x1f')
+          const id = s.deck.slice(0, parent.length + 1).join('\x1f')
 
-          const prev = sMap.get(id) || {
-            deck: s.deck,
-            new: 0,
-            due: 0,
-            leech: 0
+          const prev = sMap.get(id)
+          if (prev) {
+            prev.push(s)
+            sMap.set(id, prev)
+          } else {
+            sMap.set(id, [s])
           }
-          prev.new += s.new
-          prev.due += s.new
-          prev.leech += s.leech
-
-          sMap.set(id, prev)
         }
-        subset = Array.from(sMap)
-          .sort(([k1], [k2]) => k1.localeCompare(k2))
-          .map(([, v]) => v)
       }
 
-      return subset.map((c0) => {
+      return Array.from(sMap).map(([k, vs]) => {
         return {
-          id: c0.deck.join('\x1f'),
-          name: c0.deck[c0.deck.length - 1],
-          new: c0.new,
-          due: c0.due,
-          leech: c0.leech,
-          children: recurseTreeview(subset, c0.deck.slice(0, parent.length + 1))
+          id: k,
+          name: vs[0].deck[parent.length],
+          new: vs.reduce((prev, v) => prev + v.new, 0),
+          due: vs.reduce((prev, v) => prev + v.due, 0),
+          leech: vs.reduce((prev, v) => prev + v.leech, 0),
+          children: vs[0].deck.length > parent.length + 1
+            ? recurseTreeview(vs, vs[0].deck.slice(0, parent.length + 1))
+            : undefined
         }
       })
     }
 
-    const r = recurseTreeview(this.quizData, [])
-    console.log(r)
-    return r
+    return recurseTreeview(this.quizData, [])
   }
 
   startQuiz () {
