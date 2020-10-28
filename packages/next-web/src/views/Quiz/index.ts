@@ -9,7 +9,7 @@ type Treeview<T> = {
 @Component
 export default class Quiz extends Vue {
   itemSelected: string[] = ['Level 11-20\x1fLevel 11']
-  itemOpened: string[] = ['Level 11-20', 'Level 11-20\x1fLevel 12']
+  itemOpened: string[] = ['', 'Level 11-20', 'Level 11-20\x1fLevel 12']
 
   quizData: {
     deck: string[];
@@ -19,27 +19,27 @@ export default class Quiz extends Vue {
   }[] = [
     {
       deck: ['Level  1-10', 'Level  1', 'JE'],
-      new: Math.floor(Math.random() * 100),
-      due: Math.floor(Math.random() * 100),
-      leech: Math.floor(Math.random() * 100)
+      new: Math.floor(Math.random() * 10000),
+      due: Math.floor(Math.random() * 10000),
+      leech: Math.floor(Math.random() * 10000)
     },
     {
       deck: ['Level 11-20', 'Level 11', 'JE'],
-      new: Math.floor(Math.random() * 100),
-      due: Math.floor(Math.random() * 100),
-      leech: Math.floor(Math.random() * 100)
+      new: Math.floor(Math.random() * 10000),
+      due: Math.floor(Math.random() * 10000),
+      leech: Math.floor(Math.random() * 10000)
     },
     {
       deck: ['Level 11-20', 'Level 12', 'JE'],
-      new: Math.floor(Math.random() * 100),
-      due: Math.floor(Math.random() * 100),
-      leech: Math.floor(Math.random() * 100)
+      new: Math.floor(Math.random() * 10000),
+      due: Math.floor(Math.random() * 10000),
+      leech: Math.floor(Math.random() * 10000)
     },
     {
       deck: ['Level 11-20', 'Level 12', 'EJ'],
-      new: Math.floor(Math.random() * 100),
-      due: Math.floor(Math.random() * 100),
-      leech: Math.floor(Math.random() * 100)
+      new: Math.floor(Math.random() * 10000),
+      due: Math.floor(Math.random() * 10000),
+      leech: Math.floor(Math.random() * 10000)
     }
   ]
 
@@ -98,7 +98,14 @@ export default class Quiz extends Vue {
       })
     }
 
-    return recurseTreeview(this.quizData, [])
+    return [{
+      id: '',
+      name: 'All quizzes',
+      new: 0,
+      due: 0,
+      leech: 0,
+      children: recurseTreeview(this.quizData, [])
+    }]
   }
 
   startQuiz () {
