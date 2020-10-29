@@ -11,7 +11,7 @@ dependencies:
   fastify-session: 4.0.1
   fastify-static: 2.7.0
   firebase-admin: 8.13.0
-  mongoose: 5.10.0_mongoose@5.10.0
+  mongoose: 5.10.0
   nanoid: 3.1.12
   shortid: 2.2.15
   zod: 1.10.3
@@ -30,7 +30,7 @@ devDependencies:
   pino-pretty: 4.1.0
   ts-node-dev: 1.0.0-pre.59_typescript@3.9.7
   typescript: 3.9.7
-lockfileVersion: 5.1
+lockfileVersion: 5.2
 packages:
   /@babel/code-frame/7.10.4:
     dependencies:
@@ -273,7 +273,7 @@ packages:
       '@types/mongoose': 5.7.36
       lodash: 4.17.20
       loglevel: 1.6.8
-      mongoose: 5.10.0_mongoose@5.10.0
+      mongoose: 5.10.0
       reflect-metadata: 0.1.13
       semver: 7.3.2
       tslib: 2.0.1
@@ -2590,13 +2590,13 @@ packages:
       integrity: sha512-/XWWub1mHZVoqEsUppE0GV7u9kanLvHxho6EvBxQbShXTKYF9trhZC2NzbulRGeG7xMJHD8IOWRcdKx5LPjAjQ==
   /mongoose-legacy-pluralize/1.0.2_mongoose@5.10.0:
     dependencies:
-      mongoose: 5.10.0_mongoose@5.10.0
+      mongoose: 5.10.0
     dev: false
     peerDependencies:
       mongoose: '*'
     resolution:
       integrity: sha512-Yo/7qQU4/EyIS8YDFSeenIvXxZN+ld7YdV9LqFVQJzTLye8unujAWPZ4NWKfFA+RNjh+wvTWKY9Z3E5XM6ZZiQ==
-  /mongoose/5.10.0_mongoose@5.10.0:
+  /mongoose/5.10.0:
     dependencies:
       bson: 1.1.5
       kareem: 2.3.1
@@ -2612,8 +2612,6 @@ packages:
     dev: false
     engines:
       node: '>=4.0.0'
-    peerDependencies:
-      mongoose: '*'
     resolution:
       integrity: sha512-5itAvBMVDG4+zTDtuLg/IyoTxEMgvpOSHnigQ9Cyh8LR4BEgMAChJj7JSaGkg+tr1AjCSY9DgSdU8bHqCOoxXg==
   /mpath/0.7.0:
