@@ -1,14 +1,13 @@
 dependencies:
   better-sqlite3: 7.1.1
-  elasticlunr: 0.9.5
   fastify: 3.7.0
   fastify-helmet: 5.0.3
   fastify-static: 3.3.0
+  flexsearch: 0.6.32
   id128: 1.6.3
   jsonschema-definer: 1.3.1
 devDependencies:
   '@types/better-sqlite3': 5.4.1
-  '@types/elasticlunr': 0.9.1
   '@types/node': 14.14.6
   '@typescript-eslint/eslint-plugin': 4.6.0_5b45abdb13fea4fae68d9888b9d8cc1b
   '@typescript-eslint/parser': 4.6.0_eslint@7.12.1+typescript@4.0.5
@@ -89,10 +88,6 @@ packages:
     dev: true
     resolution:
       integrity: sha512-8hje3Rhsg/9veTkALfCwiWn7VMrP1QDwHhBSgerttYPABEvrHsMQnU9dlqoM6QX3x4uw3Y06dDVz8uDQo1J4Ng==
-  /@types/elasticlunr/0.9.1:
-    dev: true
-    resolution:
-      integrity: sha512-FOS+tbeQKVIq8HAQ5WkWXMPIEeLFJViIMnWfLsxtRKX0jtWSM+emZe43+sKZgwny7EIfVdbbqdtr+RL2h18ykw==
   /@types/integer/1.0.1:
     dev: true
     resolution:
@@ -694,10 +689,6 @@ packages:
     dev: false
     resolution:
       integrity: sha1-WQxhFWsK4vTwJVcyoViyZrxWsh0=
-  /elasticlunr/0.9.5:
-    dev: false
-    resolution:
-      integrity: sha1-ZVQbswnd3Qz5Ty0ciGGyvmUbsNU=
   /emoji-regex/7.0.3:
     dev: true
     resolution:
@@ -1193,6 +1184,10 @@ packages:
     dev: true
     resolution:
       integrity: sha512-r5wGx7YeOwNWNlCA0wQ86zKyDLMQr+/RB8xy74M4hTphfmjlijTSSXGuH8rnvKZnfT9i+75zmd8jcKdMR4O6jA==
+  /flexsearch/0.6.32:
+    dev: false
+    resolution:
+      integrity: sha512-EF1BWkhwoeLtbIlDbY/vDSLBen/E5l/f1Vg7iX5CDymQCamcx1vhlc3tIZxIDplPjgi0jhG37c67idFbjg+v+Q==
   /forwarded/0.1.2:
     dev: false
     engines:
@@ -2778,12 +2773,10 @@ packages:
       integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==
 specifiers:
   '@types/better-sqlite3': ^5.4.1
-  '@types/elasticlunr': ^0.9.1
   '@types/node': ^14.14.6
   '@typescript-eslint/eslint-plugin': ^4.6.0
   '@typescript-eslint/parser': ^4.6.0
   better-sqlite3: ^7.1.1
-  elasticlunr: ^0.9.5
   eslint: ^7.11.0
   eslint-config-standard: ^15.0.1
   eslint-plugin-import: ^2.22.1
@@ -2793,6 +2786,7 @@ specifiers:
   fastify: ^3.7.0
   fastify-helmet: ^5.0.3
   fastify-static: ^3.3.0
+  flexsearch: ^0.6.32
   id128: ^1.6.3
   import-sort-parser-typescript: ^6.0.0
   jsonschema-definer: ^1.3.1
