@@ -9,6 +9,10 @@ const router = new VueRouter({
   routes: [
     {
       path: '/',
+      redirect: '/quiz'
+    },
+    {
+      path: '/quiz',
       component: () => import(/* webpackChunkName: "quiz" */ '@/views/Quiz.vue')
     }
   ]

@@ -40,7 +40,7 @@
             link
             dense
           >
-            <v-list-item-content>
+            <v-list-item-content @click.native="doLoad(t.name)">
               <v-list-item-title> {{t.name}} </v-list-item-title>
             </v-list-item-content>
 

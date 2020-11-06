@@ -1,23 +1,68 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
+import { api } from '@/assets/api'
 import { Component, Vue } from 'vue-property-decorator'
 
-type Treeview<T> = {
+type ITreeview<T> = {
   id: string;
   name: string;
-  children?: Treeview<T>[];
+  children?: ITreeview<T>[];
 } & T
 
-@Component
-export default class Quiz extends Vue {
-  itemSelected: string[] = ['Level 11-20\x1fLevel 11']
-  itemOpened: string[] = ['', 'Level 11-20', 'Level 11-20\x1fLevel 12']
+interface IStatus {
+  new: boolean;
+  due: boolean;
+  leech: boolean;
+  graduated: boolean;
+}
 
-  status = {
+interface IQuizData {
+  deck: string[];
+  new: number;
+  due: number;
+  leech: number;
+}
+
+@Component<Quiz>({
+  watch: {
+    itemSelected: {
+      deep: true,
+      handler () {
+        this.saveState()
+      }
+    },
+    itemOpened: {
+      deep: true,
+      handler () {
+        this.saveState()
+      }
+    },
+    status: {
+      deep: true,
+      handler () {
+        this.saveState()
+      }
+    },
+    '$route.query.tag' () {
+      this.loadState()
+    }
+  },
+  created () {
+    this.loadState()
+  }
+})
+export default class Quiz extends Vue {
+  itemSelected: string[] = []
+  itemOpened: string[] = []
+
+  status: IStatus = {
     new: true,
     due: true,
     leech: true,
     graduated: false
   }
+
+  quizData: IQuizData[] = []
+
+  quizIds: string[] = []
 
   isSaveNameDialog = false
   isSaveConfirmDialog = false
@@ -29,48 +74,16 @@ export default class Quiz extends Vue {
       text: 'Save',
       callback: () => this.openSaveNameDialog()
     },
-    { text: 'Export', callback: () => alert('To be implemented'), disabled: true }
+    { text: 'Export', callback: () => this.exportQuiz(), disabled: true }
   ]
 
-  quizData: {
-    deck: string[];
-    new: number;
-    due: number;
-    leech: number;
-  }[] = [
-    {
-      deck: ['Level  1-10', 'Level  1', 'JE'],
-      new: Math.floor(Math.random() * 10000),
-      due: Math.floor(Math.random() * 10000),
-      leech: Math.floor(Math.random() * 10000)
-    },
-    {
-      deck: ['Level 11-20', 'Level 11', 'JE'],
-      new: Math.floor(Math.random() * 10000),
-      due: Math.floor(Math.random() * 10000),
-      leech: Math.floor(Math.random() * 10000)
-    },
-    {
-      deck: ['Level 11-20', 'Level 12', 'JE'],
-      new: Math.floor(Math.random() * 10000),
-      due: Math.floor(Math.random() * 10000),
-      leech: Math.floor(Math.random() * 10000)
-    },
-    {
-      deck: ['Level 11-20', 'Level 12', 'EJ'],
-      new: Math.floor(Math.random() * 10000),
-      due: Math.floor(Math.random() * 10000),
-      leech: Math.floor(Math.random() * 10000)
-    }
-  ]
-
-  get treeview (): Treeview<{
+  get treeview (): ITreeview<{
     new: number;
     due: number;
     leech: number;
   }>[] {
     const recurseTreeview = (
-      c: this['quizData'],
+      c: IQuizData[],
       parent: string[]
     ): this['treeview'] => {
       const subset = c.filter((c0) => {
@@ -82,7 +95,7 @@ export default class Quiz extends Vue {
         return isChild.length > 0 ? isChild.every((t) => t) : true
       })
 
-      const sMap = new Map<string, this['quizData']>()
+      const sMap = new Map<string, IQuizData[]>()
 
       if (subset.length === 0) {
         sMap.set(parent.join('\x1f'), [{
@@ -129,8 +142,36 @@ export default class Quiz extends Vue {
     }]
   }
 
-  startQuiz () {
-    console.log(this.itemSelected, this.itemOpened)
+  async startQuiz () {
+    try {
+      const { data } = await api.post<{
+        quizIds: string[];
+      }>('/api/quiz', {
+        itemSelected: this.itemSelected,
+        status: this.status
+      })
+
+      this.quizIds = data.quizIds
+      alert('Starting quiz')
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  async exportQuiz () {
+    try {
+      const { data } = await api.post<{
+        quizIds: string[];
+      }>('/api/quiz', {
+        itemSelected: this.itemSelected,
+        status: this.status
+      })
+
+      this.quizIds = data.quizIds
+      alert('Exporting quiz')
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   openSaveNameDialog () {
@@ -139,7 +180,7 @@ export default class Quiz extends Vue {
   }
 
   async doSaveConfirm () {
-    if (await this.$store.dispatch('hasTag')) {
+    if (this.$accessor.hasTag(this.saveName)) {
       this.isSaveConfirmDialog = true
     } else {
       this.doSave()
@@ -147,9 +188,9 @@ export default class Quiz extends Vue {
   }
 
   async doSave () {
-    this.$store.commit('ADD_TAGS', {
+    this.$accessor.ADD_TAGS({
       name: this.saveName,
-      q: this.$route.query.q || '',
+      q: this.$route.query.q as string || '',
       status: this.status,
       canDelete: true,
       itemSelected: this.itemSelected,
@@ -158,5 +199,68 @@ export default class Quiz extends Vue {
 
     this.isSaveNameDialog = false
     this.isSaveConfirmDialog = false
+  }
+
+  async loadState () {
+    try {
+      const { data } = await api.get<{
+        itemSelected: string[];
+        itemOpened: string[];
+        status: IStatus;
+        quizData: IQuizData[];
+      }>('/api/quiz/treeview', {
+        params: {
+          tag: this.$route.query.tag
+        }
+      })
+
+      this.itemSelected = data.itemSelected
+      this.itemOpened = data.itemOpened
+      this.status = data.status
+      this.quizData = data.quizData
+    } catch (e) {
+      console.error(e)
+
+      this.itemSelected = ['Level 11-20\x1fLevel 11']
+      this.itemOpened = ['', 'Level 11-20', 'Level 11-20\x1fLevel 12']
+      this.quizData = [
+        {
+          deck: ['Level  1-10', 'Level  1', 'JE'],
+          new: Math.floor(Math.random() * 10000),
+          due: Math.floor(Math.random() * 10000),
+          leech: Math.floor(Math.random() * 10000)
+        },
+        {
+          deck: ['Level 11-20', 'Level 11', 'JE'],
+          new: Math.floor(Math.random() * 10000),
+          due: Math.floor(Math.random() * 10000),
+          leech: Math.floor(Math.random() * 10000)
+        },
+        {
+          deck: ['Level 11-20', 'Level 12', 'JE'],
+          new: Math.floor(Math.random() * 10000),
+          due: Math.floor(Math.random() * 10000),
+          leech: Math.floor(Math.random() * 10000)
+        },
+        {
+          deck: ['Level 11-20', 'Level 12', 'EJ'],
+          new: Math.floor(Math.random() * 10000),
+          due: Math.floor(Math.random() * 10000),
+          leech: Math.floor(Math.random() * 10000)
+        }
+      ]
+    }
+  }
+
+  async saveState () {
+    try {
+      await api.patch('/api/quiz/treeview', {
+        itemSelected: this.itemSelected,
+        itemOpened: this.itemOpened,
+        status: this.status
+      })
+    } catch (e) {
+      console.error(e)
+    }
   }
 }

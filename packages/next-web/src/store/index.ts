@@ -1,7 +1,12 @@
+import {
+  actionTree,
+  mutationTree,
+  useAccessor
+} from 'typed-vuex'
 import Vue from 'vue'
 import Vuex from 'vuex'
 
-interface Tag {
+export interface ITag {
   name: string;
   q: string;
   status: {
@@ -10,54 +15,79 @@ interface Tag {
     leech: boolean;
     graduated: boolean;
   };
-  canDelete: boolean;
   itemSelected: string[];
   itemOpened: string[];
 }
 
+type ITagFull = ITag & {
+  canDelete: boolean;
+}
+
 Vue.use(Vuex)
 
-export default new Vuex.Store({
-  state: () => ({
-    tags: [{
-      name: 'Default',
-      q: '',
-      status: {
-        new: true,
-        due: true,
-        leech: true,
-        graduated: false
-      },
-      canDelete: false,
-      itemSelected: [''],
-      itemOpened: ['']
-    }] as Tag[]
-  }),
-  mutations: {
-    ADD_TAGS (state, t: Tag) {
-      if (state.tags.map((t0) => t0.name).includes(t.name)) {
-        return false
-      }
-
-      state.tags = [t, ...state.tags]
-
-      return true
+const state = (): {
+  tags: ITagFull[];
+} => ({
+  tags: [{
+    name: 'Default',
+    q: '',
+    status: {
+      new: true,
+      due: true,
+      leech: true,
+      graduated: false
     },
-    REMOVE_TAGS (state, t: string) {
-      if (!state.tags.map((t0) => t0.name).includes(t)) {
-        return false
-      }
+    canDelete: false,
+    itemSelected: [''],
+    itemOpened: ['']
+  }]
+})
 
-      state.tags = state.tags.filter((t0) => t0.name !== t)
+const mutations = mutationTree(state, {
+  ADD_TAGS (state, t: ITagFull) {
+    if (state.tags.map((t0) => t0.name).includes(t.name)) {
+      return false
+    }
 
-      return true
-    }
+    state.tags = [t, ...state.tags]
+
+    return true
   },
-  actions: {
-    hasTag ({ state }, t: string) {
-      return state.tags.map((t0) => t0.name).includes(t)
+  REMOVE_TAGS (state, t: string) {
+    if (!state.tags.map((t0) => t0.name).includes(t)) {
+      return false
     }
-  },
-  modules: {
+
+    state.tags = state.tags.filter((t0) => t0.name !== t)
+
+    return true
   }
 })
+
+const actions = actionTree({ state, mutations }, {
+  hasTag ({ state }, t: string) {
+    return state.tags.map((t0) => t0.name).includes(t)
+  }
+})
+
+const storePattern = {
+  state,
+  mutations,
+  actions,
+  modules: {
+  }
+}
+
+const store = new Vuex.Store(storePattern)
+
+export const accessor = useAccessor(store, storePattern)
+Vue.prototype.$accessor = accessor
+
+declare module 'vue/types/vue' {
+  // eslint-disable-next-line @typescript-eslint/interface-name-prefix
+  interface Vue {
+    $accessor: typeof accessor;
+  }
+}
+
+export default store

@@ -1,8 +1,11 @@
+import { api } from '@/assets/api'
+import { ITag } from '@/store'
 import { Component, Vue } from 'vue-property-decorator'
 
 @Component<App>({
   created () {
     this.q = this.$route.query.q as string
+    this.loadTags()
   }
 })
 export default class App extends Vue {
@@ -25,7 +28,33 @@ export default class App extends Vue {
     }
   }
 
+  doLoad (id: string) {
+    this.$router.push({
+      path: '/quiz',
+      query: {
+        tag: id
+      }
+    })
+  }
+
   doDelete (id: string) {
-    this.$store.commit('REMOVE_TAGS', id)
+    this.$accessor.REMOVE_TAGS(id)
+  }
+
+  async loadTags () {
+    try {
+      const { data } = await api.get<{
+        tags: ITag[];
+      }>('/api/tag/q')
+
+      data.tags.map((t) => {
+        this.$accessor.ADD_TAGS({
+          ...t,
+          canDelete: false
+        })
+      })
+    } catch (e) {
+      console.error(e)
+    }
   }
 }
