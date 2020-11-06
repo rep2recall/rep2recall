@@ -44,14 +44,18 @@ const state = (): {
 })
 
 const mutations = mutationTree(state, {
-  ADD_TAGS (state, t: ITagFull) {
-    if (state.tags.map((t0) => t0.name).includes(t.name)) {
-      return false
+  UPDATE_TAGS (state, t: ITagFull) {
+    const i = state.tags.map((t0) => t0.name).indexOf(t.name)
+
+    if (i >= 0) {
+      state.tags = [
+        ...state.tags.slice(0, i),
+        t,
+        ...state.tags.slice(i + 1)
+      ]
+    } else {
+      state.tags = [t, ...state.tags]
     }
-
-    state.tags = [t, ...state.tags]
-
-    return true
   },
   REMOVE_TAGS (state, t: string) {
     if (!state.tags.map((t0) => t0.name).includes(t)) {

@@ -45,7 +45,7 @@ export default class App extends Vue {
     try {
       const { data } = await api.get<{
         tags: ITag[];
-      }>('/api/tag/q')
+      }>('/api/preset/q')
 
       data.tags.map((t) => {
         this.$accessor.ADD_TAGS({

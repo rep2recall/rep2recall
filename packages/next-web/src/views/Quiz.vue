@@ -34,7 +34,19 @@
       </v-card>
     </v-dialog>
 
-    <v-card class="ml-8 mr-4 mb-4">
+    <form @submit.prevent="doFilter">
+      <v-text-field
+        class="mx-4 mb-4"
+        label="Filter the quiz"
+        v-model="q"
+        hide-details="auto"
+        append-icon="mdi-magnify"
+        @click:append="doFilter"
+        full-width
+      />
+    </form>
+
+    <v-card class="mx-4 mb-4">
       <div class="d-flex flex-row align-center mx-4">
         <v-switch v-model="status.new" label="New" />
         <v-switch v-model="status.leech" label="Leech" />
