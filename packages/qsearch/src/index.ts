@@ -5,7 +5,7 @@ import sqlite from 'better-sqlite3'
 
 export interface ICard {
   deck: string[]
-  front?: string
+  front: string
   back?: string
   mnemonic?: string
   note?: Record<string, string>
@@ -28,13 +28,16 @@ export class QSearch {
 
   init() {
     this.db.exec(/* sql */ `
-    CREATE TABLE [card] (
+    CREATE TABLE IF NOT EXISTS [card] (
       [uid]         VARCHAR PRIMARY KEY,
       [deck]        VARCHAR NOT NULL,  -- :: separated
-      [front]       VARCHAR,
+      [front]       VARCHAR NOT NULL,
+      -- [tFront]      VARCHAR,
       [back]        VARCHAR,
+      -- [tBack]       VARCHAR,
       [mnemonic]    VARCHAR,
       [noteId]      VARCHAR,
+      -- [templateId]  VARCHAR REFERENCES [template]([id]),
       [srsLevel]    INT,
       [nextReview]  INT,  -- epoch milliseconds
       [rightStreak] INT,
@@ -47,6 +50,7 @@ export class QSearch {
 
     CREATE INDEX IF NOT EXISTS card_deck        ON [card]([deck]);
     CREATE INDEX IF NOT EXISTS card_noteId      ON [card]([noteId]);
+    -- CREATE INDEX IF NOT EXISTS card_templateId  ON [card]([templateId]);
     CREATE INDEX IF NOT EXISTS card_srsLevel    ON [card]([srsLevel]);
     CREATE INDEX IF NOT EXISTS card_nextReview  ON [card]([nextReview]);
     CREATE INDEX IF NOT EXISTS card_rightStreak ON [card]([rightStreak]);
@@ -58,23 +62,16 @@ export class QSearch {
     `)
 
     this.db.exec(/* sql */ `
-    CREATE VIRTUAL TABLE [q] USING FTS5(
-      [uid],
-      [deck],
-      [front],
-      [back],
-      [mnemonic],
-      tokenize = "unicode61 separators ':./'"
+    CREATE TABLE IF NOT EXISTS [noteAttr] (
+      [uid]         VARCHAR PRIMARY KEY,
+      [noteId]      VARCHAR NOT NULL,
+      [key]         VARCHAR NOT NULL,
+      [value]       VARCHAR NOT NULL
     );
-    `)
 
-    this.db.exec(/* sql */ `
-    CREATE VIRTUAL TABLE [noteAttr] USING FTS5(
-      [noteId],
-      [key],
-      [value],
-      tokenize = "unicode61 separators ':./'"
-    )
+    CREATE INDEX IF NOT EXISTS noteAttr_noteId  ON [noteAttr]([noteId]);
+    CREATE INDEX IF NOT EXISTS noteAttr_key     ON [noteAttr]([key]);
+    CREATE INDEX IF NOT EXISTS noteAttr_value   ON [noteAttr]([value]);
     `)
   }
 
@@ -113,28 +110,14 @@ export class QSearch {
     )
     `)
 
-    const insertQ = this.db.prepare(/* sql */ `
-    INSERT INTO [q] (
-      [uid],
-      [deck],
-      [front],
-      [back],
-      [mnemonic]
-    ) VALUES (
-      @uid,
-      @deck,
-      @front,
-      @back,
-      @mnemonic
-    )
-    `)
-
     const insertNoteAttr = this.db.prepare(/* sql */ `
     INSERT INTO [noteAttr] (
+      [uid],
       [noteId],
       [key],
       [value]
     ) VALUES (
+      @uid,
       @noteId,
       @key,
       @value
@@ -149,7 +132,12 @@ export class QSearch {
         if (c.note) {
           noteId = Ulid.generate().toCanonical()
           Object.entries(c.note).map(([key, value]) => {
-            insertNoteAttr.run({ noteId, key, value })
+            insertNoteAttr.run({
+              uid: Ulid.generate().toCanonical(),
+              noteId,
+              key,
+              value,
+            })
           })
         }
 
@@ -169,184 +157,18 @@ export class QSearch {
           maxRight: c.maxRight,
           maxWrong: c.maxWrong,
         })
-
-        insertQ.run({
-          uid,
-          deck: c.deck.join('::'),
-          front: c.front,
-          back: c.back,
-          mnemonic: c.mnemonic,
-        })
       })
     })()
   }
 
   search(q: string): any[] {
-    const tCard: ISplitOpToken[] = []
-    const tQ: ISplitOpToken[] = []
-    const tNoteAttr: ISplitOpToken[] = []
-
     const tokens = splitOp(q)
-
-    for (const t of tokens) {
-      let isParsed = false
-
-      if (t.k) {
-        if (['uid', 'deck', 'front', 'back', 'mnemonic'].includes(t.k)) {
-          tQ.push(t)
-          isParsed = true
-        } else if (
-          [
-            'srsLevel',
-            'nextReview',
-            'rightStreak',
-            'wrongStreak',
-            'lastRight',
-            'lastWrong',
-            'maxRight',
-            'maxWrong',
-          ].includes(t.k)
-        ) {
-          tCard.push(t)
-          isParsed = true
-        }
-      }
-
-      if (!isParsed) {
-        tNoteAttr.push(t)
-      }
-    }
-
-    const uids: string[] | null = (() => {
-      if (!tQ.length) {
-        return null
-      }
-
-      const $and: ISplitOpToken[] = []
-      const $or: ISplitOpToken[] = []
-      const $not: ISplitOpToken[] = []
-
-      for (const t of tQ) {
-        switch (t.prefix) {
-          case '+':
-            $and.push(t)
-            break
-          case '-':
-            $not.push(t)
-            break
-          default:
-            $or.push(t)
-        }
-      }
-
-      const parseToken = (t: ISplitOpToken) => {
-        if (!t.k) {
-          throw new Error('no k')
-        }
-
-        return `"${t.k}" : "${t.v.replace(/"/g, '""')}"`
-      }
-
-      const $$and = $and.map((t) => parseToken(t))
-
-      const $$or = $or.map((t) => parseToken(t)).join(' OR ')
-      if ($$or) {
-        $$and.push(`(${$$or})`)
-      }
-
-      const $$not = $not.map((t) => parseToken(t)).join(' AND ')
-      if ($$not) {
-        $$and.push(`NOT (${$$not})`)
-      }
-
-      if (!$and.length) {
-        return null
-      }
-
-      return this.db
-        .prepare(
-          /* sql */ `
-      SELECT [uid]
-      FROM [q]
-      WHERE [q] MATCH ?
-      `
-        )
-        .all([$$and.join(' AND ')])
-        .map(({ uid }) => uid)
-    })()
-
-    if (uids && !uids.length) {
-      return []
-    }
-
-    const noteIds: string[] | null = (() => {
-      if (!tNoteAttr.length) {
-        return null
-      }
-
-      const $and: ISplitOpToken[] = []
-      const $or: ISplitOpToken[] = []
-      const $not: ISplitOpToken[] = []
-
-      for (const t of tNoteAttr) {
-        switch (t.prefix) {
-          case '+':
-            $and.push(t)
-            break
-          case '-':
-            $not.push(t)
-            break
-          default:
-            $or.push(t)
-        }
-      }
-
-      const parseToken = (t: ISplitOpToken) => {
-        if (t.k) {
-          return (
-            `("key" : "${removeBraces(t.k).replace(/"/g, '""')}") AND ` +
-            `("value" : "${t.v.replace(/"/g, '""')}")`
-          )
-        }
-
-        return `("value" : "${t.v.replace(/"/g, '""')}")`
-      }
-
-      const $$and = $and.map((t) => parseToken(t))
-
-      const $$or = $or.map((t) => parseToken(t)).join(' OR ')
-      if ($$or) {
-        $$and.push(`(${$$or})`)
-      }
-
-      const $$not = $not.map((t) => parseToken(t)).join(' AND ')
-      if ($$not) {
-        $$and.push(`NOT (${$$not})`)
-      }
-
-      console.log($$and)
-
-      return this.db
-        .prepare(
-          /* sql */ `
-      SELECT [noteId]
-      FROM [noteAttr]
-      WHERE [noteAttr] MATCH ?
-      `
-        )
-        .all([$$and.join(' AND ')])
-        .map(({ noteId }) => noteId)
-    })()
-
-    if (noteIds && !noteIds.length) {
-      return []
-    }
 
     const $and: ISplitOpToken[] = []
     const $or: ISplitOpToken[] = []
     const $not: ISplitOpToken[] = []
 
-    for (const t of tCard) {
+    for (const t of tokens) {
       switch (t.prefix) {
         case '+':
           $and.push(t)
@@ -362,39 +184,99 @@ export class QSearch {
     const params = new Map()
 
     const parseToken = (t: ISplitOpToken) => {
-      if (!t.k) {
-        throw new Error('no k')
-      }
+      if (
+        t.k &&
+        [
+          'uid',
+          'deck',
+          'front',
+          'back',
+          'mnemonic',
+          'srsLevel',
+          'nextReview',
+          'rightStreak',
+          'wrongStreak',
+          'lastRight',
+          'lastWrong',
+          'maxRight',
+          'maxWrong',
+        ].includes(t.k)
+      ) {
+        if (t.v === 'NULL') {
+          return `[${t.k}] IS NULL`
+        }
 
-      if (t.v === 'NULL') {
-        return `[${t.k}] IS NULL`
-      }
+        let v: string | number | null = null
 
-      let v: number | null = null
-
-      if (['nextReview', 'lastRight', 'lastWrong'].includes(t.k)) {
-        const m = /^(?<y>\d{4})(-(?<mo>\d{2})(-(?<d>\d{2})(T(?<h>\d{2}):(?<min>\d{2}))?)?)?$/.exec(
-          t.v
-        )
-
-        if (m && m.groups) {
-          const d = new Date(
-            parseInt(m.groups.y),
-            m.groups.mo ? parseInt(m.groups.mo) - 1 : 0,
-            m.groups.d ? parseInt(m.groups.d) : 1,
-            m.groups.h ? parseInt(m.groups.h) : 0,
-            m.groups.min ? parseInt(m.groups.min) : 0
+        if (['nextReview', 'lastRight', 'lastWrong'].includes(t.k)) {
+          const m = /^(?<y>\d{4})(-(?<mo>\d{2})(-(?<d>\d{2})(T(?<h>\d{2}):(?<min>\d{2}))?)?)?$/.exec(
+            t.v
           )
-          v = +d - d.getTimezoneOffset() * 60 * 1000 * 1000
-        } else if (!/^\d+(\.\d+)?$/.test(t.v)) {
-          v = +new Date(t.v)
+
+          if (m && m.groups) {
+            const d = new Date(
+              parseInt(m.groups.y),
+              m.groups.mo ? parseInt(m.groups.mo) - 1 : 0,
+              m.groups.d ? parseInt(m.groups.d) : 1,
+              m.groups.h ? parseInt(m.groups.h) : 0,
+              m.groups.min ? parseInt(m.groups.min) : 0
+            )
+            v = +d - d.getTimezoneOffset() * 60 * 1000 * 1000
+          } else if (!/^\d+(\.\d+)?$/.test(t.v)) {
+            v = +new Date(t.v)
+          }
+        } else if (
+          [
+            'srsLevel',
+            'rightStreak',
+            'wrongStreak',
+            'maxRight',
+            'maxWrong',
+          ].includes(t.k)
+        ) {
+          v = parseInt(t.v)
+        } else {
+          t.v = removeBraces(t.v)
+
+          if (t.op === ':') {
+            params.set(params.size, t.v.replace(/[_%]/g, '[$&]'))
+            return `[${t.k}] LIKE '%'||@${params.size - 1}||'%'`
+          }
+        }
+
+        if (t.op === ':') {
+          t.op = '='
+        }
+
+        params.set(params.size, v)
+        return `[${t.k}] ${t.op} @${params.size - 1}`
+      } else if (t.k) {
+        params.set(params.size, removeBraces(t.k))
+        t.v = removeBraces(t.v)
+
+        if (t.op === ':') {
+          params.set(params.size, t.v.replace(/[_%]/g, '[$&]'))
+          return [
+            `n.[key] = @${params.size - 2}`,
+            `n.[value] LIKE '%'||@${params.size - 1}||'%'`,
+          ].join(' AND ')
+        } else {
+          params.set(params.size, t.v)
+          return [
+            `n.[key] = @${params.size - 2}`,
+            `n.[value] ${t.op} @${params.size - 1}`,
+          ].join(' AND ')
         }
       } else {
-        v = parseInt(t.v)
+        t.v = removeBraces(t.v)
+        params.set(params.size, t.v.replace(/[_%]/g, '[$&]'))
+        return `(${[
+          `n.[value] LIKE '%'||@${params.size - 1}||'%'`,
+          `[front] LIKE '%'||@${params.size - 1}||'%'`,
+          `[back] LIKE '%'||@${params.size - 1}||'%'`,
+          `[mnemonic] LIKE '%'||@${params.size - 1}||'%'`,
+        ].join(' OR ')})`
       }
-
-      params.set(params.size, v)
-      return `[${t.k}] ${t.op} @${params.size - 1}`
     }
 
     const $$and = $and.map((t) => parseToken(t))
@@ -409,35 +291,13 @@ export class QSearch {
       $$and.push(`NOT (${$$not})`)
     }
 
-    if (noteIds) {
-      $$and.unshift(
-        `n.[noteId] IN (${noteIds
-          .map((u) => {
-            params.set(params.size, u)
-            return `@${params.size - 1}`
-          })
-          .join(',')})`
-      )
-    }
-
-    if (uids) {
-      $$and.unshift(
-        `[uid] IN (${uids
-          .map((u) => {
-            params.set(params.size, u)
-            return `@${params.size - 1}`
-          })
-          .join(',')})`
-      )
-    }
-
     const where = $$and.length ? $$and.join(' AND ') : 'TRUE'
 
     return this.db
       .prepare(
         /* sql */ `
       SELECT
-        [uid],
+        [card].[uid]    [id],
         [deck],
         [front],
         [back],
@@ -452,9 +312,9 @@ export class QSearch {
         [maxWrong],
         IIF(n.[key] IS NULL, NULL, json_group_object(n.[key], n.[value])) note
       FROM [card]
-      LEFT JOIN [noteAttr] n ON n.[noteId] = [card].noteId
+      LEFT JOIN [noteAttr] n ON n.[noteId] = [card].[noteId]
       WHERE ${where}
-      GROUP BY [uid]
+      GROUP BY [card].[uid]
       LIMIT 10
       `
       )

@@ -3,4 +3,4 @@ import path from 'path'
 
 const qSearch = new QSearch(path.join(__dirname, 'test.db'))
 
-console.log(qSearch.search('nostrum'))
+console.log(qSearch.search('"card":totam'))

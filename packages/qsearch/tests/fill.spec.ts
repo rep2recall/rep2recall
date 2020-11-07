@@ -15,7 +15,7 @@ qSearch.insertMany(
       deck: Array(faker.random.number({ min: 1, max: 5 }))
         .fill(null)
         .map(() => faker.hacker.noun()),
-      front: Math.random() < 0.1 ? faker.lorem.paragraphs() : undefined,
+      front: faker.lorem.paragraphs(),
       back: Math.random() < 0.1 ? faker.lorem.paragraphs() : undefined,
       mnemonic: Math.random() < 0.1 ? faker.lorem.paragraphs() : undefined,
       note:
