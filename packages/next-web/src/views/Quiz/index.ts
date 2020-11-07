@@ -150,6 +150,7 @@ export default class Quiz extends Vue {
         ids: string[];
       }>('/api/quiz/q', {
         decks: this.itemSelected,
+        q: this.q,
         status: this.status
       })
 
@@ -165,7 +166,8 @@ export default class Quiz extends Vue {
       const { data } = await api.post<{
         ids: string[];
       }>('/api/quiz/q', {
-        itemSelected: this.itemSelected,
+        decks: this.itemSelected,
+        q: this.q,
         status: this.status
       })
 
@@ -192,8 +194,8 @@ export default class Quiz extends Vue {
   async doSave () {
     await api.put('/api/preset', {
       q: this.q,
-      itemSelected: this.itemSelected,
-      itemOpened: this.itemOpened,
+      selected: this.itemSelected,
+      opened: this.itemOpened,
       status: this.status
     }, {
       params: {
@@ -289,13 +291,11 @@ export default class Quiz extends Vue {
 
     this._doFilterTimeout = window.setTimeout(async () => {
       try {
-        const { data } = await api.get<{
+        const { data } = await api.post<{
           data: IQuizData[];
         }>('/api/quiz/treeview', {
-          params: {
-            q: this.q,
-            tag: this.$route.query.tag
-          }
+          q: this.q,
+          status: this.status
         })
 
         this.quizData = data.data

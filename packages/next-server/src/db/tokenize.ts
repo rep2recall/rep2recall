@@ -64,20 +64,16 @@ export function split(
     if (prev === options.escape) {
       tokenStack.addChar(c)
     } else {
-      let canAddChar = true
-
       for (const [op, cl] of options.brackets) {
         if (c === cl) {
           if (bracketStack.peek() === op) {
             bracketStack.pop()
-            canAddChar = false
             break
           }
         }
 
         if (c === op) {
           bracketStack.push(c)
-          canAddChar = false
           break
         }
       }
