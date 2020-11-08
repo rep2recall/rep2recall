@@ -41,7 +41,7 @@ interface IQuizData {
         this.saveState()
       }
     },
-    '$route.query.tag' () {
+    '$route.query.id' () {
       this.loadState()
     }
   },
@@ -187,11 +187,38 @@ export default class Quiz extends Vue {
     if (this.$accessor.hasTag(this.saveName)) {
       this.isSaveConfirmDialog = true
     } else {
-      this.doSave()
+      const { data } = await api.put<{
+        id: string;
+      }>('/api/preset', {
+        q: this.q,
+        name: this.saveName,
+        selected: this.itemSelected,
+        opened: this.itemOpened,
+        status: this.status
+      })
+
+      this.$router.push({
+        path: '/quiz',
+        query: {
+          id: data.id
+        }
+      })
+
+      this.$accessor.UPDATE_TAGS({
+        id: data.id,
+        name: this.saveName,
+        q: this.q,
+        status: this.status,
+        canDelete: true,
+        itemSelected: this.itemSelected,
+        itemOpened: this.itemOpened
+      })
+
+      this.isSaveNameDialog = false
     }
   }
 
-  async doSave () {
+  async doSaveUpdate () {
     await api.put('/api/preset', {
       q: this.q,
       selected: this.itemSelected,
@@ -199,13 +226,14 @@ export default class Quiz extends Vue {
       status: this.status
     }, {
       params: {
-        tag: this.$route.query.tag
+        id: this.$route.query.id
       }
     })
 
     this.$accessor.UPDATE_TAGS({
+      id: this.$route.query.id as string,
       name: this.saveName,
-      q: this.$route.query.q as string || '',
+      q: this.q,
       status: this.status,
       canDelete: true,
       itemSelected: this.itemSelected,
@@ -220,18 +248,20 @@ export default class Quiz extends Vue {
     try {
       const { data } = await api.get<{
         q: string;
-        itemSelected: string[];
-        itemOpened: string[];
+        name: string;
+        selected: string[];
+        opened: string[];
         status: IStatus;
       }>('/api/preset', {
         params: {
-          tag: this.$route.query.tag
+          id: this.$route.query.id
         }
       })
 
       this.q = data.q
-      this.itemSelected = data.itemSelected
-      this.itemOpened = data.itemOpened
+      this.saveName = data.name
+      this.itemSelected = data.selected
+      this.itemOpened = data.opened
       this.status = data.status
 
       this.doFilter()
@@ -271,10 +301,11 @@ export default class Quiz extends Vue {
 
   async saveState () {
     try {
-      await api.patch('/api/preset/default', {
+      await api.put('/api/preset/default', {
         q: this.q,
-        itemSelected: this.itemSelected,
-        itemOpened: this.itemOpened,
+        name: this.saveName,
+        selected: this.itemSelected,
+        opened: this.itemOpened,
         status: this.status
       })
     } catch (e) {

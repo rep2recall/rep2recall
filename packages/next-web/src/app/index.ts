@@ -44,10 +44,10 @@ export default class App extends Vue {
   async loadTags () {
     try {
       const { data } = await api.get<{
-        tags: ITag[];
-      }>('/api/preset/q')
+        data: ITag[];
+      }>('/api/preset/all')
 
-      data.tags.map((t) => {
+      data.data.map((t) => {
         this.$accessor.ADD_TAGS({
           ...t,
           canDelete: false

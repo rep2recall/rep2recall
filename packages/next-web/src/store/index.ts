@@ -7,6 +7,7 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 
 export interface ITag {
+  id: string;
   name: string;
   q: string;
   status: {
@@ -29,6 +30,7 @@ const state = (): {
   tags: ITagFull[];
 } => ({
   tags: [{
+    id: '',
     name: 'Default',
     q: '',
     status: {
