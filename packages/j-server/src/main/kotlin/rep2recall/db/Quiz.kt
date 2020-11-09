@@ -4,18 +4,16 @@ import com.github.guepardoapps.kulid.ULID
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
-import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.jodatime.datetime
 import org.joda.time.DateTime
 import org.joda.time.Duration
-import rep2recall.db.NoteAttrTable.nullable
 
 object QuizTable: IdInitTable<String>("quiz") {
     override val id = varchar("id", 26).entityId()
     val updatedAt = datetime("updated_at").nullable()
-
     val userId = reference("user_id", UserTable)
-    val noteId = varchar("note_id", 26).index().nullable()
+
+    val noteId = reference("note_id", NoteTable).nullable()
     val templateId = reference("template_id", TemplateTable).nullable()
 
     val deck = varchar("deck", 200)
@@ -44,7 +42,7 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
 
         fun create(
                 user: User,
-                noteId: String?,
+                note: Note?,
                 template: Template?,
                 deck: String,
                 front: String? = null,
@@ -62,7 +60,7 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
         ): Quiz {
             return  new(id) {
                 userId = user.id
-                this.noteId = noteId
+                noteId = note?.id
                 templateId = template?.id
                 this.deck = deck
                 this.front = front
@@ -93,15 +91,12 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
     }
 
     var updatedAt by QuizTable.updatedAt
-
     var userId by QuizTable.userId
-    @Suppress("unused")
     val user by User referencedOn QuizTable.userId
 
     var noteId by QuizTable.noteId
 
     var templateId by QuizTable.templateId
-    @Suppress("unused")
     val template by Template optionalReferencedOn QuizTable.templateId
 
     var deck: String by QuizTable.deck
@@ -117,13 +112,6 @@ class Quiz(id: EntityID<String>): Entity<String>(id) {
     var maxWrong by QuizTable.maxWrong
     var lastRight by QuizTable.lastRight
     var lastWrong by QuizTable.lastWrong
-
-    fun purge() {
-        noteId?.let {
-            NoteAttrTable.deleteWhere { NoteAttrTable.noteId eq it }
-        }
-        delete()
-    }
 
     @Suppress("unused")
     fun markRight() = updateSrsLevel(1)

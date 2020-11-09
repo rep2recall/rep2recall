@@ -9,13 +9,12 @@ import org.jetbrains.exposed.sql.jodatime.datetime
 object TemplateTable: IdInitTable<String>("template") {
     override val id = varchar("id", 26).entityId()
     val updatedAt = datetime("updated_at").nullable()
+    val userId = reference("user_id", UserTable)
 
     val name = varchar("name", 100).index()
     val front = varchar("front", 1000)
     val back = varchar("back", 1000).nullable()
     val shared = varchar("shared", 1000).nullable()
-
-    val userId = reference("user_id", UserTable)
 
     override fun init() {
         uniqueIndex(name, userId)
@@ -46,13 +45,11 @@ class Template(id: EntityID<String>): Entity<String>(id) {
     }
 
     var updatedAt by TemplateTable.updatedAt
+    var userId by TemplateTable.userId
+    val user by User referencedOn TemplateTable.userId
 
     var name by TemplateTable.name
     var front by TemplateTable.front
     var back by TemplateTable.back
     var shared by TemplateTable.shared
-
-    var userId by TemplateTable.userId
-    @Suppress("unused")
-    val user by User referencedOn TemplateTable.userId
 }

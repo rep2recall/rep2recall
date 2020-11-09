@@ -57,7 +57,7 @@ class Db(
                     it.init()
                 }
 
-                User.create("")
+                User.create("default")
             }
         }
     }

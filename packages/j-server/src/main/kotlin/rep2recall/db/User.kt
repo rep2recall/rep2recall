@@ -53,15 +53,16 @@ class User(id: EntityID<String>): Entity<String>(id) {
     var name by UserTable.name
     var apiKey by UserTable.apiKey
 
-    @Suppress("MemberVisibilityCanBePrivate")
-    val templates by Template referrersOn TemplateTable.userId
-    @Suppress("MemberVisibilityCanBePrivate")
+    val notes by Note referrersOn NoteTable.userId
+    val presets by Preset referrersOn PresetTable.userId
     val quizzes by Quiz referrersOn QuizTable.userId
+    val templates by Template referrersOn TemplateTable.userId
 
-    @Suppress("unused")
-    fun purge() {
+    override fun delete() {
+        notes.map { it.delete() }
+        presets.map { it.delete() }
+        quizzes.map { it.delete() }
         templates.map { it.delete() }
-        quizzes.map { it.purge() }
-        delete()
+        super.delete()
     }
 }

@@ -111,6 +111,12 @@ object QueryUtil {
         else -> c eq p.value
     }
 
+    @JvmName("compIdStringNullable")
+    fun comp(p: QuerySplitPart, c: Column<EntityID<String>?>) = when(p.value) {
+        "NULL" -> c.isNull()
+        else -> c eq p.value
+    }
+
     @JvmName("compIntNullable")
     fun comp(p: QuerySplitPart, c: Column<Int?>) = p.value.toIntOrNull()?.let {
         when(p.op) {
