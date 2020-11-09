@@ -1,12 +1,12 @@
-import MarkdownIt from 'markdown-it'
-import { unescapeAll } from 'markdown-it/lib/common/utils'
-import emoji from 'markdown-it-emoji'
 import imsize from '@patarapolw/markdown-it-imsize'
-import mdContainer from 'markdown-it-container'
-import extLink from 'markdown-it-external-links'
 import HyperPug from 'hyperpug'
+import { elementClose, elementOpen, patch } from 'incremental-dom'
+import MarkdownIt from 'markdown-it'
+import mdContainer from 'markdown-it-container'
+import emoji from 'markdown-it-emoji'
+import extLink from 'markdown-it-external-links'
+import { unescapeAll } from 'markdown-it/lib/common/utils'
 import stylis from 'stylis'
-import { elementOpen, elementClose, patch } from 'incremental-dom'
 
 import { makeIncremental } from './incremental'
 
@@ -17,15 +17,11 @@ export default class MakeHtml {
   html = ''
   private el: HTMLDivElement | null = null
 
-  constructor(
-    public id = Math.random()
-      .toString(36)
-      .substr(2)
-  ) {
+  constructor(public id = Math.random().toString(36).substr(2)) {
     this.id = 'el-' + id
     this.md = MarkdownIt({
       // breaks: true,
-      html: true
+      html: true,
     })
       .use((md) => {
         const { fence } = md.renderer.rules
@@ -49,7 +45,7 @@ export default class MakeHtml {
       })
       .use(extLink, {
         externalTarget: '_blank',
-        externalRel: 'noopener nofollow'
+        externalRel: 'noopener nofollow',
       })
       .use(emoji)
       .use(imsize)
@@ -71,7 +67,7 @@ export default class MakeHtml {
             // closing tag
             return '</details>\n'
           }
-        }
+        },
       })
 
     // this.md.addExtension(
@@ -85,7 +81,7 @@ export default class MakeHtml {
 
     this.hp = new HyperPug({
       markdown: (s) => this.mdConvert(s),
-      css: (s) => this.mdConvert(s)
+      css: (s) => this.mdConvert(s),
     })
   }
 

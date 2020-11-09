@@ -18,7 +18,7 @@ section
 import { Vue, Component } from 'nuxt-property-decorator'
 
 @Component({
-  layout: 'dashboard'
+  layout: 'dashboard',
 })
 export default class Community extends Vue {
   lessons: {
@@ -30,23 +30,23 @@ export default class Community extends Vue {
       key: 'hsk',
       name: 'HSK',
       description:
-        'A curated list of vocabularies for HSK Level 1-6, divided into 60 levels.'
+        'A curated list of vocabularies for HSK Level 1-6, divided into 60 levels.',
     },
     {
       key: 'news',
       name: 'News',
-      description: 'Vocabularies according to current news.'
+      description: 'Vocabularies according to current news.',
     },
     {
       key: 'categories',
       name: 'Categories',
-      description: 'Vocabularies for common categories, such as animal.'
+      description: 'Vocabularies for common categories, such as animal.',
     },
     {
       key: 'thailand',
       name: 'Thailand',
-      description: 'Vocabularies related to Thailand.'
-    }
+      description: 'Vocabularies related to Thailand.',
+    },
   ]
 }
 </script>

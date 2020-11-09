@@ -1,7 +1,7 @@
 <template lang="pug">
 .columns
   .column.is-8-desktop.is-offset-2-desktop(style="margin-top: 1em;")
-    Markdown(:content="require('@/content/home.md')" :ctx="{ doLogin }")
+    Markdown(v-if="$fireAuthObj" :content="require('@/content/home.md')" :ctx="{ doLogin }")
 </template>
 
 <script lang="ts">
@@ -11,6 +11,11 @@ import Markdown from '@/components/Markdown.vue'
 @Component({
   components: {
     Markdown,
+  },
+  middleware(ctx) {
+    if (!process.env.IS_FIREBASE) {
+      ctx.redirect('/quiz')
+    }
   },
   computed: {
     doLogin() {

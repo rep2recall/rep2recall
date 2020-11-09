@@ -3,9 +3,7 @@ module.exports = {
     es6: true,
     node: true
   },
-  extends: [
-    'standard'
-  ],
+  extends: ['standard'],
   globals: {
     Atomics: 'readonly',
     SharedArrayBuffer: 'readonly'
@@ -15,10 +13,9 @@ module.exports = {
     ecmaVersion: 11,
     sourceType: 'module'
   },
-  plugins: [
-    '@typescript-eslint'
-  ],
+  plugins: ['@typescript-eslint'],
   rules: {
-    'no-unused-vars': 0
+    'space-before-function-paren': 0,
+    indent: 0
   }
 }

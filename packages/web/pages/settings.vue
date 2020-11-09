@@ -15,7 +15,7 @@
       alt="MDN Basic Authentication"
     ) Basic Authentication
     span &nbsp;
-    code your@email.com:api_key
+    code {{email}}:api_key
     span &nbsp;with base64 encoding.
   p
     span The API documentation is at&nbsp;
@@ -27,17 +27,20 @@
 import { Vue, Component } from 'nuxt-property-decorator'
 
 @Component({
-  layout: 'dashboard'
+  layout: 'dashboard',
 })
 export default class Settings extends Vue {
   apiKey = ''
+  email = ((this.$store.state.user || {}).user || {}).email || ''
 
   get apiUrl() {
     return new URL('/api/doc', process.env.BASE_URL).href
   }
 
   async created() {
-    this.apiKey = (await this.$axios.$get('/api/user/')).secret
+    const { email, secret } = await this.$axios.$get('/api/user/')
+    this.email = email
+    this.apiKey = secret
   }
 
   resetApiKey() {
@@ -48,7 +51,7 @@ export default class Settings extends Vue {
       hasIcon: true,
       onConfirm: async () => {
         this.apiKey = (await this.$axios.$patch('/api/user/secret')).secret
-      }
+      },
     })
   }
 }

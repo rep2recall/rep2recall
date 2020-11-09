@@ -1,10 +1,11 @@
-import { ActionTree, MutationTree } from 'vuex'
-import { User } from 'firebase/app'
+// eslint-disable-next-line import/order
 import { RootState } from '~/store'
+import { User } from 'firebase/app'
+import { ActionTree, MutationTree } from 'vuex'
 
 export const state = () => ({
   user: null as User | null,
-  isAuthReady: false
+  isAuthReady: false,
 })
 
 export type UserModuleState = ReturnType<typeof state>
@@ -13,7 +14,7 @@ export const mutations: MutationTree<UserModuleState> = {
   updateUser(state, { user }) {
     state.user = user
     state.isAuthReady = true
-  }
+  },
 }
 
 export const actions: ActionTree<UserModuleState, RootState> = {
@@ -32,5 +33,5 @@ export const actions: ActionTree<UserModuleState, RootState> = {
     }
 
     commit('updateUser', { user })
-  }
+  },
 }

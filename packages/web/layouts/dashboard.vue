@@ -22,7 +22,7 @@ section
         fontawesome(:icon="['fab', 'github']")
         span About
     div(style="flex-grow: 1;")
-    nav#icon-nav(style="margin-bottom: 0.5em;")
+    nav#icon-nav(v-if="user" style="margin-bottom: 0.5em;")
       b-tooltip(label="Click to logout")
         a.nav-link(@click="doLogout")
           figure.image.is-48x48(style="margin-left: 0.5em; margin-right: 1em;")
@@ -54,7 +54,7 @@ export default class App extends Vue {
   }
 
   get isAuthReady() {
-    return this.$store.state.user.isAuthReady
+    return !this.$fireAuthObj || this.$store.state.user.isAuthReady
   }
 
   created() {
@@ -68,6 +68,10 @@ export default class App extends Vue {
   }
 
   doLogout() {
+    if (!this.$fireAuth) {
+      return
+    }
+
     this.$buefy.dialog.confirm({
       message: 'Are you sure you want to logout?',
       type: 'is-danger',
@@ -75,7 +79,7 @@ export default class App extends Vue {
       onConfirm: async () => {
         await this.$fireAuth.signOut()
         this.$router.push('/')
-      }
+      },
     })
   }
 

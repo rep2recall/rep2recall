@@ -1,19 +1,24 @@
 import path from 'path'
 
 import fastify from 'fastify'
-import fastifyStatic from 'fastify-static'
 import helmet from 'fastify-helmet'
+import fastifyStatic from 'fastify-static'
 
 import router from './api'
 import { initDatabase } from './db/model'
+
+;
 
 (async () => {
   await initDatabase(process.env.MONGO_URI!)
 
   const app = fastify({
-    logger: process.env.NODE_ENV === 'development' ? {
-      prettyPrint: true
-    } : true
+    logger:
+      process.env.NODE_ENV === 'development'
+        ? {
+            prettyPrint: true
+          }
+        : true
   })
 
   const port = parseInt(process.env.PORT || '8080')
@@ -35,14 +40,18 @@ import { initDatabase } from './db/model'
   })
 
   app.setNotFoundHandler((_, reply) => {
-    reply.sendFile('index.html')
+    reply.status(200).sendFile('200.html')
   })
 
-  app.listen(port, process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0', (err) => {
-    if (err) {
-      throw err
+  app.listen(
+    port,
+    process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0',
+    (err) => {
+      if (err) {
+        throw err
+      }
+
+      console.log(`Go to http://localhost:${port}`)
     }
-
-    console.log(`Go to http://localhost:${port}`)
-  })
+  )
 })().catch(console.error)

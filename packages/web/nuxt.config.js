@@ -1,5 +1,4 @@
 export default {
-  mode: 'universal',
   target: 'static',
   telemetry: false,
   /*
@@ -63,7 +62,9 @@ export default {
     '~/plugins/codemirror.client.js',
     '~/plugins/context.client.js',
     '~/plugins/filter.js',
-    '~/plugins/firebase-auth.client.ts',
+    ...(process.env.FIREBASE_CONFIG
+      ? ['~/plugins/firebase-auth.client.ts']
+      : []),
   ],
   /*
    ** Nuxt.js dev-modules
@@ -137,16 +138,20 @@ export default {
         },
       },
     ],
-    [
-      '@nuxtjs/firebase',
-      {
-        config: JSON.parse(process.env.FIREBASE_CONFIG),
-        services: {
-          auth: true,
-          storage: true,
-        },
-      },
-    ],
+    ...(process.env.FIREBASE_CONFIG
+      ? [
+          [
+            '@nuxtjs/firebase',
+            {
+              config: JSON.parse(process.env.FIREBASE_CONFIG),
+              services: {
+                auth: true,
+                storage: true,
+              },
+            },
+          ],
+        ]
+      : []),
   ],
   proxy: {
     '/api/': 'http://localhost:24000',
@@ -176,6 +181,7 @@ export default {
   },
   env: {
     BASE_URL: process.env.BASE_URL,
+    IS_FIREBASE: process.env.FIREBASE_CONFIG ? '1' : '',
   },
   generate: {
     crawler: false,

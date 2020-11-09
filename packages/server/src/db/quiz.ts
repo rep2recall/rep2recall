@@ -11,13 +11,13 @@ export const srsMap = [
   durationOf(16, 'week')
 ]
 
-export function getNextReview (srsLevel: number): Date {
+export function getNextReview(srsLevel: number): Date {
   let toAdd = srsMap[srsLevel]
   toAdd = toAdd === undefined ? durationOf(10, 'minute') : toAdd
   return dayjs().add(toAdd, 'hour').toDate()
 }
 
-export function repeatReview (): Date {
+export function repeatReview(): Date {
   return dayjs().add(10, 'minute').toDate()
 }
 
@@ -29,7 +29,7 @@ type DurationUnit = 'minute' | 'hour' | 'day' | 'week'
  * @param n
  * @param unit
  */
-export function durationOf (n: number, unit: DurationUnit) {
+export function durationOf(n: number, unit: DurationUnit) {
   const factor = {
     minute: 1 / 60,
     hour: 1,

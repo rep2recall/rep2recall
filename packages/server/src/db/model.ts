@@ -1,13 +1,21 @@
 import crypto from 'crypto'
 
-import { prop, getModelForClass, index, setGlobalOptions, Severity, DocumentType, mongoose } from '@typegoose/typegoose'
+import {
+  DocumentType,
+  Severity,
+  getModelForClass,
+  index,
+  mongoose,
+  prop,
+  setGlobalOptions
+} from '@typegoose/typegoose'
+import { Serialize } from 'any-serialize'
 import { nanoid } from 'nanoid'
 import shortid from 'shortid'
-import { Serialize } from 'any-serialize'
 
-import { repeatReview, srsMap, getNextReview } from './quiz'
+import { getNextReview, repeatReview, srsMap } from './quiz'
+import { IDeck, IEntry, IQuizStatistics, zEntry } from './schema'
 import QSearch from './search'
-import { IDeck, IQuizStatistics, IEntry, zEntry } from './schema'
 
 export const ser = new Serialize()
 export const qSearch = new QSearch({
@@ -36,25 +44,30 @@ class DbUser {
   @prop({ required: true, unique: true }) email!: string
   @prop({ default: () => DbUserModel.newSecret() }) secret?: string
 
-  static newSecret () {
+  static newSecret() {
     return crypto.randomBytes(64).toString('base64')
   }
 
-  static async signInOrCreate (email: string) {
+  static async signInOrCreate(email: string) {
     let user = await DbUserModel.findOne({ email })
     if (!user) {
-      user = await DbUserModel.create({ email, secret: DbUserModel.newSecret() })
+      user = await DbUserModel.create({
+        email,
+        secret: DbUserModel.newSecret()
+      })
     }
     return user
   }
 
-  static async signInWithSecret (email: string, secret: string) {
+  static async signInWithSecret(email: string, secret: string) {
     const u = await DbUserModel.findOne({ email, secret })
     return u
   }
 }
 
-export const DbUserModel = getModelForClass(DbUser, { schemaOptions: { collection: 'user', timestamps: true } })
+export const DbUserModel = getModelForClass(DbUser, {
+  schemaOptions: { collection: 'user', timestamps: true }
+})
 
 @index({ userId: 1, key: 1 }, { unique: true })
 @index({ 'deck.id': 1 })
@@ -95,25 +108,37 @@ class DbCard {
     }
 
     return s
-  }) quiz?: IQuizStatistics
+  })
+  quiz?: IQuizStatistics
 
   /**
    * Content
    */
   @prop() markdown?: string
 
-  static async uInsert (userId: string, entries: IEntry[]) {
+  static async uInsert(userId: string, entries: IEntry[]) {
     entries = entries.map((el) => zEntry.parse(el))
 
-    const deckMap = new Map<string, {
-      id: string
-      name: string
-      lesson?: string
-    } | undefined>()
+    const deckMap = new Map<
+      string,
+      | {
+          id: string
+          name: string
+          lesson?: string
+        }
+      | undefined
+    >()
 
-    await Promise.all(entries.filter((el) => el.deck && el.deck.id).map(async (el) => {
-      deckMap.set(el.deck!.id!, await DbDeckModel.uGetInfo(userId, el.deck!.id!))
-    }))
+    await Promise.all(
+      entries
+        .filter((el) => el.deck && el.deck.id)
+        .map(async (el) => {
+          deckMap.set(
+            el.deck!.id!,
+            await DbDeckModel.uGetInfo(userId, el.deck!.id!)
+          )
+        })
+    )
 
     const ops = entries.map((el) => {
       const { key, data, tag, ref, markdown, quiz, deck } = el
@@ -130,7 +155,7 @@ class DbCard {
               ref,
               markdown,
               quiz,
-              deck: (deck && deck.id) ? deckMap.get(deck.id) : undefined
+              deck: deck && deck.id ? deckMap.get(deck.id) : undefined
             },
             upsert: true
           }
@@ -145,7 +170,7 @@ class DbCard {
               ref,
               markdown,
               quiz,
-              deck: (deck && deck.id) ? deckMap.get(deck.id) : undefined
+              deck: deck && deck.id ? deckMap.get(deck.id) : undefined
             }
           }
         }
@@ -155,12 +180,20 @@ class DbCard {
     const r = await DbCardModel.bulkWrite(ops, { ordered: false })
     const allIds = Object.assign(r.insertedIds || {}, r.upsertedIds || {})
 
-    return (await DbCardModel.find({
-      _id: { $in: entries.map((_, i) => allIds[i.toString()]).filter((el) => el) }
-    }).select({ key: 1, _id: 0 })).map((el) => el.key!)
+    return (
+      await DbCardModel.find({
+        _id: {
+          $in: entries.map((_, i) => allIds[i]).filter((el) => el)
+        }
+      }).select({ key: 1, _id: 0 })
+    ).map((el) => el.key!)
   }
 
-  static async uUpdate (userId: string, keys: string[], update: Partial<IEntry>) {
+  static async uUpdate(
+    userId: string,
+    keys: string[],
+    update: Partial<IEntry>
+  ) {
     update = zEntry.partial().parse(update)
 
     const { deck, ...nonDeck } = update
@@ -175,7 +208,10 @@ class DbCard {
       } else if (deck.name) {
         if (!deck.lessonId) {
           if (deck.lesson) {
-            const r1 = await DbLessonModel.findOne({ userId, name: deck.lesson })
+            const r1 = await DbLessonModel.findOne({
+              userId,
+              name: deck.lesson
+            })
             if (r1) {
               deck.lessonId = r1._id
             }
@@ -191,44 +227,56 @@ class DbCard {
       }
     }
 
-    await DbCardModel.updateMany({
-      userId,
-      key: { $in: keys }
-    }, {
-      $set: ser.clone({
-        ...nonDeck,
-        deck: (deck && deck.id) ? {
-          id: deck.id,
-          name: deck.name,
-          lesson
-        } : undefined
-      })
-    })
+    await DbCardModel.updateMany(
+      {
+        userId,
+        key: { $in: keys }
+      },
+      {
+        $set: ser.clone({
+          ...nonDeck,
+          deck:
+            deck && deck.id
+              ? {
+                  id: deck.id,
+                  name: deck.name,
+                  lesson
+                }
+              : undefined
+        })
+      }
+    )
   }
 
-  static async uAddTag (userId: string, keys: string[], tag: string[]) {
-    await DbCardModel.updateMany({
-      userId,
-      key: { $in: keys }
-    }, {
-      $addToSet: { tag: { $each: tag } }
-    })
+  static async uAddTag(userId: string, keys: string[], tag: string[]) {
+    await DbCardModel.updateMany(
+      {
+        userId,
+        key: { $in: keys }
+      },
+      {
+        $addToSet: { tag: { $each: tag } }
+      }
+    )
   }
 
-  static async uRemoveTag (userId: string, keys: string[], tag: string[]) {
-    await DbCardModel.updateMany({
-      userId,
-      key: { $in: keys }
-    }, {
-      $pull: { tag: { $in: tag } }
-    })
+  static async uRemoveTag(userId: string, keys: string[], tag: string[]) {
+    await DbCardModel.updateMany(
+      {
+        userId,
+        key: { $in: keys }
+      },
+      {
+        $pull: { tag: { $in: tag } }
+      }
+    )
   }
 
   markRight = this._updateSrsLevel(+1)
   markWrong = this._updateSrsLevel(-1)
   markRepeat = this._updateSrsLevel(0)
 
-  private _updateSrsLevel (dSrsLevel: number) {
+  private _updateSrsLevel(dSrsLevel: number) {
     return () => {
       this.quiz = this.quiz || {
         nextReview: repeatReview(),
@@ -276,7 +324,9 @@ class DbCard {
   }
 }
 
-export const DbCardModel = getModelForClass(DbCard, { schemaOptions: { collection: 'card', timestamps: true } })
+export const DbCardModel = getModelForClass(DbCard, {
+  schemaOptions: { collection: 'card', timestamps: true }
+})
 
 @index({ userId: 1, name: 1, lessonId: 1 }, { unique: true })
 class DbDeck {
@@ -286,10 +336,13 @@ class DbDeck {
   @prop({ required: true }) name!: string
   @prop() lessonId?: string
 
-  static async uUpsert (userId: string, entry: {
-    name: string
-    lessonId?: string
-  }) {
+  static async uUpsert(
+    userId: string,
+    entry: {
+      name: string
+      lessonId?: string
+    }
+  ) {
     const { name, lessonId } = entry
 
     let item: DocumentType<DbDeck> | null = null
@@ -305,7 +358,7 @@ class DbDeck {
     return item!
   }
 
-  static async uGetInfo (userId: string, id: string) {
+  static async uGetInfo(userId: string, id: string) {
     const r = await DbDeckModel.aggregate([
       { $match: { userId, _id: id } },
       { $limit: 1 },
@@ -328,16 +381,20 @@ class DbDeck {
       }
     ])
 
-    return r[0] as {
-      id: string
-      name: string
-      lesson?: string
-      lessonId?: string
-    } | undefined
+    return r[0] as
+      | {
+          id: string
+          name: string
+          lesson?: string
+          lessonId?: string
+        }
+      | undefined
   }
 }
 
-export const DbDeckModel = getModelForClass(DbDeck, { schemaOptions: { collection: 'deck', timestamps: true } })
+export const DbDeckModel = getModelForClass(DbDeck, {
+  schemaOptions: { collection: 'deck', timestamps: true }
+})
 
 @index({ userId: 1, name: 1 }, { unique: true })
 class DbLesson {
@@ -348,9 +405,11 @@ class DbLesson {
   @prop() description?: string
 }
 
-export const DbLessonModel = getModelForClass(DbLesson, { schemaOptions: { collection: 'lesson', timestamps: true } })
+export const DbLessonModel = getModelForClass(DbLesson, {
+  schemaOptions: { collection: 'lesson', timestamps: true }
+})
 
-export async function initDatabase (mongoUri: string) {
+export async function initDatabase(mongoUri: string) {
   await mongoose.connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,

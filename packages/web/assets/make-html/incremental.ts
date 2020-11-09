@@ -1,5 +1,6 @@
 import { Parser } from 'htmlparser2'
-import { elementOpen, elementClose, text } from 'incremental-dom'
+import { elementClose, elementOpen, text } from 'incremental-dom'
+
 import { ser } from '../util'
 
 export function makeIncremental(s: string): () => void {
@@ -16,7 +17,7 @@ export function makeIncremental(s: string): () => void {
           'class',
           'reveal-viewer',
           'src',
-          `/reveal.html?id=${src}`
+          `/reveal.html?id=${src}`,
         ])
         isRendered = true
       }
@@ -31,14 +32,14 @@ export function makeIncremental(s: string): () => void {
             'class',
             'pdf-viewer',
             'src',
-            `https://drive.google.com/file/d/${src}/preview`
+            `https://drive.google.com/file/d/${src}/preview`,
           ])
         } else {
           elementOpen('iframe', 'pdf-' + src, [
             'class',
             'pdf-viewer',
             'src',
-            src
+            src,
           ])
         }
         isRendered = true
@@ -62,13 +63,13 @@ export function makeIncremental(s: string): () => void {
       onopentag: open,
       // onopentagname: open,
       ontext: text,
-      onclosetag: close
+      onclosetag: close,
     },
     {
       decodeEntities: true,
       lowerCaseAttributeNames: false,
       lowerCaseTags: false,
-      recognizeSelfClosing: true
+      recognizeSelfClosing: true,
     }
   )
 

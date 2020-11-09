@@ -39,7 +39,7 @@ import {
   normalizeArray,
   nullifyObject,
   stringSorter,
-  deepMerge
+  deepMerge,
 } from '@/assets/util'
 import { Matter } from '@/assets/make-html/matter'
 import MakeHtml from '@/assets/make-html'
@@ -55,21 +55,19 @@ import MakeHtml from '@/assets/make-html'
         confirmText: 'Leave',
         cancelText: 'Cancel',
         onConfirm: () => next(),
-        onCancel: () => next(false)
+        onCancel: () => next(false),
       })
     } else {
       next()
     }
-  }
+  },
 })
 export default class Edit extends Vue {
   hasPreview = false
   isEdited = false
   markdown = ''
   scrollSize = 0
-  key = Math.random()
-    .toString(36)
-    .substr(2)
+  key = Math.random().toString(36).substr(2)
 
   tag: string[] = []
   filteredTags: string[] = []
@@ -119,37 +117,38 @@ export default class Edit extends Vue {
       },
       'Ctrl-S': () => {
         this.save()
-      }
+      },
     })
 
-    // @ts-ignore
-    this.codemirror.on('paste', async (ins, evt) => {
-      const { items } = evt.clipboardData || ({} as any)
-      if (items) {
-        for (const k of Object.keys(items)) {
-          const item = items[k]
-          if (item.kind === 'file') {
-            evt.preventDefault()
-            const f: File = item.getAsFile()
+    if (!this.$fireStoreObj) {
+      this.codemirror.on('paste', async (ins, evt) => {
+        const { items } = evt.clipboardData || ({} as any)
+        if (items) {
+          for (const k of Object.keys(items)) {
+            const item = items[k]
+            if (item.kind === 'file') {
+              evt.preventDefault()
+              const f: File = item.getAsFile()
 
-            const cursor = ins.getCursor()
-            let filename = f.name
+              const cursor = ins.getCursor()
+              let filename = f.name
 
-            if (filename === 'image.png') {
-              filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
+              if (filename === 'image.png') {
+                filename = dayjs().format('YYYYMMDD-HHmm') + '.png'
+              }
+
+              const snapshot = await this.$fireStorage
+                .ref()
+                .child(filename)
+                .put(f)
+              ins
+                .getDoc()
+                .replaceRange(`![${filename}](${snapshot.downloadURL})`, cursor)
             }
-
-            const snapshot = await this.$fireStorage
-              .ref()
-              .child(filename)
-              .put(f)
-            ins
-              .getDoc()
-              .replaceRange(`![${filename}](${snapshot.downloadURL})`, cursor)
           }
         }
-      }
-    })
+      })
+    }
 
     window.onbeforeunload = (e: any) => {
       const msg = this.canSave ? 'Please save before leaving.' : null
@@ -200,8 +199,8 @@ export default class Edit extends Vue {
 
       const r = await this.$axios.$get('/api/edit/', {
         params: {
-          key: this.key
-        }
+          key: this.key,
+        },
       })
 
       if (r) {
@@ -214,7 +213,7 @@ export default class Edit extends Vue {
           nextReview,
           srsLevel,
           stat,
-          markdown
+          markdown,
         } = r.data
 
         const { header, content } = this.matter.parse(markdown)
@@ -235,7 +234,7 @@ export default class Edit extends Vue {
                 data,
                 srsLevel,
                 stat,
-                nextReview
+                nextReview,
               },
               header
             )
@@ -246,9 +245,7 @@ export default class Edit extends Vue {
         isSet = true
       }
     } else {
-      this.key = Math.random()
-        .toString(36)
-        .substr(2)
+      this.key = Math.random().toString(36).substr(2)
       this.matter.header = {}
     }
 
@@ -289,7 +286,7 @@ export default class Edit extends Vue {
       quiz,
       deck,
       markdown,
-      tag: this.tag
+      tag: this.tag,
     }
 
     if (!this.$route.query.key) {
@@ -301,7 +298,7 @@ export default class Edit extends Vue {
     } else {
       await this.$axios.$patch('/api/edit/', {
         keys: [this.key],
-        set: content
+        set: content,
       })
 
       this.key = this.matter.header.key || this.key
@@ -312,8 +309,8 @@ export default class Edit extends Vue {
     if (this.$route.query.key !== this.key) {
       this.$router.push({
         query: {
-          key: this.key
-        }
+          key: this.key,
+        },
       })
     }
 
@@ -334,7 +331,7 @@ export default class Edit extends Vue {
         document.body,
         hbs.compile(new Matter().parse(this.markdown).content)({
           [this.key]: self,
-          ...this.ctx
+          ...this.ctx,
         })
       )
       this.outputWindow.document
@@ -373,8 +370,8 @@ export default class Edit extends Vue {
           if (!data) {
             const r = await this.$axios.$get('/api/edit/', {
               params: {
-                key
-              }
+                key,
+              },
             })
             this.ctx[key] = r
             this.ctx[key].markdown = new Matter().parse(

@@ -18,12 +18,12 @@ export default class Markdown extends Vue {
 
   dynamicComponent = Vue.extend({
     computed: {
-      ctx: () => this.ctx
+      ctx: () => this.ctx,
     },
     mounted() {
       Prism.highlightAllUnder(this.$el)
     },
-    template: this.makeHtml.getHTML(this.content)
+    template: this.makeHtml.getHTML(this.content),
   })
 }
 </script>

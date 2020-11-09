@@ -1,5 +1,3 @@
-import Vue from 'vue'
-import VueCodemirror from 'vue-codemirror'
 import 'codemirror/lib/codemirror.css'
 import 'codemirror/mode/markdown/markdown.js'
 import 'codemirror/mode/yaml/yaml.js'
@@ -23,6 +21,9 @@ import 'codemirror/addon/fold/markdown-fold.js'
 import 'codemirror/addon/fold/foldgutter.css'
 import 'codemirror/theme/monokai.css'
 
+import Vue from 'vue'
+import VueCodemirror from 'vue-codemirror'
+
 Vue.use(VueCodemirror, {
   options: {
     theme: 'monokai',
@@ -37,12 +38,12 @@ Vue.use(VueCodemirror, {
       Tab: (cm) => {
         const spaces = Array(cm.getOption('indentUnit') + 1).join(' ')
         cm.getDoc().replaceSelection(spaces)
-      }
+      },
     },
     foldGutter: true,
     mode: {
       name: 'yaml-frontmatter',
-      base: 'markdown'
-    }
-  }
+      base: 'markdown',
+    },
+  },
 })

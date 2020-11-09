@@ -1,12 +1,15 @@
 export interface ISplitOptions {
-  brackets: [string, string][],
+  brackets: [string, string][]
   split: string
   escape: string
   keepBrace?: boolean
 }
 
 export const defaultSplitOptions: ISplitOptions = {
-  brackets: [['"', '"'], ["'", "'"]],
+  brackets: [
+    ['"', '"'],
+    ["'", "'"]
+  ],
   split: ' ',
   escape: '\\'
 }
@@ -25,26 +28,29 @@ export const defaultSplitOptions: ISplitOptions = {
  * ['a', 'b c', 'd e']
  * ```
  */
-export function split (ss: string, options: ISplitOptions = defaultSplitOptions) {
+export function split(
+  ss: string,
+  options: ISplitOptions = defaultSplitOptions
+) {
   const bracketStack = {
     data: [] as string[],
-    push (c: string) {
+    push(c: string) {
       this.data.push(c)
     },
-    pop () {
+    pop() {
       return this.data.pop()
     },
-    peek () {
+    peek() {
       return this.data.length > 0 ? this.data[this.data.length - 1] : undefined
     }
   }
   const tokenStack = {
     data: [] as string[],
     currentChars: [] as string[],
-    addChar (c: string) {
+    addChar(c: string) {
       this.currentChars.push(c)
     },
-    flush () {
+    flush() {
       const d = this.currentChars.join('')
       if (d) {
         this.data.push(d)
@@ -54,7 +60,7 @@ export function split (ss: string, options: ISplitOptions = defaultSplitOptions)
   }
 
   let prev = ''
-  ss.split('').map((c) => {
+  ss.split('').forEach((c) => {
     if (prev === options.escape) {
       tokenStack.addChar(c)
     } else {
@@ -90,7 +96,7 @@ export function split (ss: string, options: ISplitOptions = defaultSplitOptions)
 
   tokenStack.flush()
 
-  return tokenStack.data.map(s => s.trim()).filter(s => s)
+  return tokenStack.data.map((s) => s.trim()).filter((s) => s)
 }
 
 export interface ISplitOpToken {
@@ -109,11 +115,14 @@ export interface ISplitOpToken {
  * [{"k": "a", "op": ":", "prefix": undefined, "v": "b"}, {"k": "c", "op": ":", "prefix": "-", "v": "d e"}]
  * ```
  */
-export function splitOp (ss: string) {
-  const data = split(ss, Object.assign({ keepBrace: true }, defaultSplitOptions))
+export function splitOp(ss: string) {
+  const data = split(
+    ss,
+    Object.assign({ keepBrace: true }, defaultSplitOptions)
+  )
   const output: ISplitOpToken[] = []
 
-  data.map((d) => {
+  data.forEach((d) => {
     const m = /^([-+?])?([A-Z_.-]+)([:><])(.+)$/i.exec(d)
     if (m) {
       const [, prefix, k, op, v] = m
@@ -134,7 +143,7 @@ export function splitOp (ss: string) {
   return output
 }
 
-function removeBraces (ss: string) {
+function removeBraces(ss: string) {
   const m = /^(.)(.+)(.)$/.exec(ss)
   if (m) {
     for (const [op, cl] of defaultSplitOptions.brackets) {

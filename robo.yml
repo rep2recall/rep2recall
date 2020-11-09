@@ -1,12 +1,6 @@
 # Commands
 
-build-docker:
-  command: |
-    docker build \
-      -t {{.docker.tag}} \
-      --build-arg FIREBASE_CONFIG --build-arg BASE_URL \
-      .
-build-docker-local:
+build:
   command: |
     cd packages/web
     pnpm build
@@ -17,9 +11,24 @@ build-docker-local:
     cd -
 
     docker build -f Dockerfile.local -t {{.docker.tag}} .
+build-standalone:
+  command: |
+    export FIREBASE_CONFIG=
+    export BASE_URL=http://localhost:36323
+
+    cd packages/web
+    pnpm build
+    cd -
+
+    cd packages/server
+    pnpm build
+    cd -
+
+    docker build -f Dockerfile.local -t patarapolw/rep2recall .
+    docker-compose build --force-recreate --no-deps
 start:
   command: |
-    docker ps -q -f 'name=rep2recall' | xargs docker kill
+    robo -c {{ .robo.file }} kill
 
     docker run --rm \
       -p 8080:8080 \

@@ -9,5 +9,6 @@ WORKDIR /app
 COPY --from=server /app/node_modules node_modules
 COPY packages/server/dist dist
 COPY packages/web/dist public
-EXPOSE 8080
+ARG PORT=8080
+EXPOSE ${PORT}
 ENTRYPOINT ["node", "dist/index.js"]

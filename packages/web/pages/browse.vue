@@ -95,7 +95,7 @@ import { Matter } from '@/assets/make-html/matter'
 import MakeHtml from '@/assets/make-html'
 
 @Component({
-  layout: 'dashboard'
+  layout: 'dashboard',
 })
 export default class Query extends Vue {
   selected: any = null
@@ -107,7 +107,7 @@ export default class Query extends Vue {
   tagList: string[] = []
   sort = {
     key: 'updatedAt',
-    type: 'desc'
+    type: 'desc',
   }
 
   isLoading = false
@@ -122,7 +122,7 @@ export default class Query extends Vue {
     { label: 'Data', field: 'data', width: 300 },
     { label: 'Next Review', field: 'nextReview', width: 250, sortable: true },
     { label: 'SRS Level', field: 'srsLevel', width: 150, sortable: true },
-    { label: 'Tag', field: 'tag', width: 200 }
+    { label: 'Tag', field: 'tag', width: 200 },
   ]
 
   perPage = 5
@@ -140,8 +140,8 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/browse',
       query: {
-        q: this.q
-      }
+        q: this.q,
+      },
     })
   }
 
@@ -150,7 +150,7 @@ export default class Query extends Vue {
     return makeHtml.getHTML(
       hbs.compile(this.ctx[item.key].markdown || '')({
         [item.key]: item,
-        ...this.ctx
+        ...this.ctx,
       })
     )
   }
@@ -167,9 +167,9 @@ export default class Query extends Vue {
       limit: this.perPage,
       sort: {
         key: this.sort.key,
-        desc: this.sort.type === 'desc'
+        desc: this.sort.type === 'desc',
       },
-      count: true
+      count: true,
     })
 
     await Promise.all(
@@ -187,7 +187,7 @@ export default class Query extends Vue {
         return {
           ...el,
           lesson: (el.lesson || []).filter((ls: any) => ls.deck),
-          tag: stringSorter(el.tag || [])
+          tag: stringSorter(el.tag || []),
         }
       })
     )
@@ -197,8 +197,8 @@ export default class Query extends Vue {
     this.$router.push({
       query: {
         ...this.$route.query,
-        page: p.toString()
-      }
+        page: p.toString(),
+      },
     })
   }
 
@@ -219,14 +219,14 @@ export default class Query extends Vue {
       onConfirm: async () => {
         await this.$axios.$delete('/api/edit/', {
           data: {
-            keys: this.checked.map((el) => el.key)
-          }
+            keys: this.checked.map((el) => el.key),
+          },
         })
 
         setTimeout(() => {
           this.load()
         }, 100)
-      }
+      },
     })
   }
 
@@ -244,8 +244,8 @@ export default class Query extends Vue {
     this.$router.push({
       path: '/edit',
       query: {
-        key: it.key
-      }
+        key: it.key,
+      },
     })
   }
 
@@ -267,8 +267,8 @@ export default class Query extends Vue {
       await this.$axios.$patch('/api/edit/', {
         keys: this.checked.map((el) => el.key),
         set: {
-          tag: this.tagList
-        }
+          tag: this.tagList,
+        },
       })
 
       this.isEditTagsDialog = false
@@ -288,8 +288,8 @@ export default class Query extends Vue {
           if (!data) {
             const r = await this.$axios.$get('/api/edit/', {
               params: {
-                key
-              }
+                key,
+              },
             })
             this.ctx[key] = r
             this.ctx[key].markdown = new Matter().parse(

@@ -54,17 +54,17 @@ import { deepMerge, normalizeArray } from '@/assets/util'
 @Component<Quiz>({
   layout: 'dashboard',
   components: {
-    Treeview
+    Treeview,
   },
   data() {
     return {
       handler: {
         quiz: (deck: string) => {
           this.activeDeck = deck
-        }
-      }
+        },
+      },
     }
-  }
+  },
 })
 export default class Quiz extends Vue {
   data = []
@@ -104,7 +104,7 @@ export default class Quiz extends Vue {
   async load() {
     const data = await this.$axios.$post('/api/quiz/stat', {
       q: this.q,
-      lesson: this.lessonId
+      lesson: this.lessonId,
     })
     this.$set(this, 'data', data)
   }
@@ -120,8 +120,8 @@ export default class Quiz extends Vue {
       path: '/quiz',
       query: {
         q: this.q,
-        id: this.lessonId
-      }
+        id: this.lessonId,
+      },
     })
   }
 
@@ -133,12 +133,12 @@ export default class Quiz extends Vue {
           await this.$axios.$post('/api/quiz/', {
             q: this.q,
             lesson: this.lessonId,
-            deck: this.activeDeck
+            deck: this.activeDeck,
           })
         ).keys || []
       let next = {
         hour: 0,
-        day: 0
+        day: 0,
       }
 
       this.$set(this, 'quizKeys', keys)
@@ -148,17 +148,17 @@ export default class Quiz extends Vue {
           this.$axios.$post('/api/quiz/', {
             q: `${this.q} nextReview<+1h`,
             lesson: this.lessonId,
-            deck: this.activeDeck
+            deck: this.activeDeck,
           }),
           this.$axios.$post('/api/quiz/', {
             q: `${this.q} nextReview<+1d`,
             lesson: this.lessonId,
-            deck: this.activeDeck
-          })
+            deck: this.activeDeck,
+          }),
         ])
         next = {
           hour: hour.keys.length,
-          day: day.keys.length
+          day: day.keys.length,
         }
       }
 
@@ -202,8 +202,8 @@ export default class Quiz extends Vue {
       if (!this.currentQuizMarkdown) {
         const r = await this.$axios.$get('/api/edit/', {
           params: {
-            key: this.key
-          }
+            key: this.key,
+          },
         })
 
         const matter = new Matter()
@@ -262,8 +262,8 @@ export default class Quiz extends Vue {
       {},
       {
         params: {
-          key: this.key
-        }
+          key: this.key,
+        },
       }
     )
 
@@ -276,8 +276,8 @@ export default class Quiz extends Vue {
       {},
       {
         params: {
-          key: this.key
-        }
+          key: this.key,
+        },
       }
     )
 
@@ -290,8 +290,8 @@ export default class Quiz extends Vue {
       {},
       {
         params: {
-          key: this.key
-        }
+          key: this.key,
+        },
       }
     )
 
@@ -302,8 +302,8 @@ export default class Quiz extends Vue {
     return this.$router.resolve({
       path: '/edit',
       query: {
-        key
-      }
+        key,
+      },
     }).href
   }
 
@@ -324,8 +324,8 @@ export default class Quiz extends Vue {
           if (!data) {
             const r = await this.$axios.$get('/api/edit/', {
               params: {
-                key
-              }
+                key,
+              },
             })
             this.ctx[key] = r
             this.ctx[key].markdown = new Matter().parse(

@@ -24,8 +24,8 @@ import DueScore from './DueScore.vue'
 @Component({
   components: {
     DueScore,
-    Treeview: () => import('./Treeview.vue')
-  }
+    Treeview: () => import('./Treeview.vue'),
+  },
 })
 export default class TreeItem extends Vue {
   @Prop({ required: true }) deck!: string

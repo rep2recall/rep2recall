@@ -1,12 +1,15 @@
-import escapeRegexp from 'escape-string-regexp'
 import dotProp from 'dot-prop-immutable'
+import escapeRegexp from 'escape-string-regexp'
 
 import { split } from './tokenize'
 
-export type ISchema = Record<string, {
-  type?: 'string' | 'number' | 'date' | 'boolean'
-  isAny?: boolean
-}>
+export type ISchema = Record<
+  string,
+  {
+    type?: 'string' | 'number' | 'date' | 'boolean'
+    isAny?: boolean
+  }
+>
 
 export interface IQSearchResult {
   cond: any
@@ -15,7 +18,7 @@ export interface IQSearchResult {
 
 export default class QSearch {
   // eslint-disable-next-line no-useless-constructor
-  constructor (
+  constructor(
     // eslint-disable-next-line no-unused-vars
     public options: {
       /**
@@ -38,41 +41,42 @@ export default class QSearch {
     } = {}
   ) {}
 
-  get dialect () {
+  get dialect() {
     return this.options.dialect || 'mongo'
   }
 
   /**
    * Meaning case-insensitve substring
    */
-  get hasSubstrSupport () {
+  get hasSubstrSupport() {
     return ['native', 'liteorm'].includes(this.dialect)
   }
 
-  get schema () {
-    return this.options.schema || {} as ISchema
+  get schema() {
+    return this.options.schema || ({} as ISchema)
   }
 
-  get nonSchemaKeys () {
+  get nonSchemaKeys() {
     return new Set<string>(this.options.nonSchemaKeys || [])
   }
 
-  normalizeDates (d: any): Date | string | null {
-    const fn = this.options.normalizeDates instanceof Function
-      ? this.options.normalizeDates
-      : this.options.normalizeDates === false
+  normalizeDates(d: any): Date | string | null {
+    const fn =
+      this.options.normalizeDates instanceof Function
+        ? this.options.normalizeDates
+        : this.options.normalizeDates === false
         ? (d: any) => d
-        : (d: any) => d ? new Date(d) : null
+        : (d: any) => (d ? new Date(d) : null)
     return fn(d)
   }
 
-  parse (q: string): IQSearchResult {
+  parse(q: string): IQSearchResult {
     let $or = [] as any[]
     const $and = [] as any[]
     const nonSchema = [] as string[]
 
-    split(q).map((el) => {
-      const [op] = /^[-+?]/.exec(el) || [] as string[]
+    split(q).forEach((el) => {
+      const [op] = /^[-+?]/.exec(el) || ([] as string[])
       if (op) {
         el = el.substr(1)
       }
@@ -96,7 +100,8 @@ export default class QSearch {
               v = new Date()
             } else {
               const vMillisec = (() => {
-                const [, p1, p2] = /^([+-]?\d+(?:\.\d+)?)([yMwdhm])$/i.exec(v) || []
+                const [, p1, p2] =
+                  /^([+-]?\d+(?:\.\d+)?)([yMwdhm])$/i.exec(v) || []
                 const v0 = +new Date()
                 if (p2 === 'y') {
                   return v0 + parseFloat(p1) * 365 * 24 * 60 * 60 * 1000 // 365d 24h 60m 60s 1000ms
@@ -137,9 +142,7 @@ export default class QSearch {
             v = { $lt: v }
           }
 
-          return op === '-'
-            ? { $nor: [{ [k]: v }] }
-            : { [k]: v }
+          return op === '-' ? { $nor: [{ [k]: v }] } : { [k]: v }
         }
       }
 
@@ -152,37 +155,22 @@ export default class QSearch {
       if (v === 'NULL') {
         if (this.dialect === 'liteorm') {
           if (op === '-') {
-            $and.push(
-              { [k]: { $exists: true } }
-            )
+            $and.push({ [k]: { $exists: true } })
             return
           } else if (op === '?') {
-            $or.push(
-              { [k]: { $exists: false } }
-            )
+            $or.push({ [k]: { $exists: false } })
           } else {
-            $and.push(
-              { [k]: { $exists: false } }
-            )
+            $and.push({ [k]: { $exists: false } })
           }
         } else {
           if (op === '-') {
-            $and.push(
-              { [k]: { $exists: true } },
-              { [k]: { $ne: null } }
-            )
+            $and.push({ [k]: { $exists: true } }, { [k]: { $ne: null } })
             return
           } else if (op === '?') {
-            $or.push(
-              { [k]: { $exists: false } },
-              { [k]: null }
-            )
+            $or.push({ [k]: { $exists: false } }, { [k]: null })
           } else {
             $and.push({
-              $or: [
-                { [k]: { $exists: false } },
-                { [k]: null }
-              ]
+              $or: [{ [k]: { $exists: false } }, { [k]: null }]
             })
           }
         }
@@ -196,7 +184,10 @@ export default class QSearch {
       } else if (this.schema) {
         subCond = {
           [op === '-' ? '$and' : '$or']: Object.entries(this.schema)
-            .filter(([_, v0]) => (!v0.type || v0.type === 'string') && v0.isAny !== false)
+            .filter(
+              ([_, v0]) =>
+                (!v0.type || v0.type === 'string') && v0.isAny !== false
+            )
             .map(([k0, _]) => addOp(k0, opK, k))
             .filter((c) => c)
         }
@@ -211,34 +202,43 @@ export default class QSearch {
       }
     })
 
-    $or.push($and.length > 1 ? { $and } : ($and[0] || {}))
+    $or.push($and.length > 1 ? { $and } : $and[0] || {})
     $or = $or.filter((el) => el)
 
-    const cond = $or.length > 1 ? { $or } : ($or[0] || {})
+    const cond = $or.length > 1 ? { $or } : $or[0] || {}
 
     return { cond, nonSchema }
   }
 
-  filter<T> (q: string, item: T[]): T[] {
+  filter<T>(q: string, item: T[]): T[] {
     return item.filter((it) => this.filterFunction(this.parse(q).cond)(it))
   }
 
-  filterFunction (cond: any) {
+  filterFunction(cond: any) {
     return (item: Record<string, any>): boolean => {
       for (const [k, v] of Object.entries<any>(cond)) {
         if (k[0] === '$') {
           if (k === '$and') {
-            return v.every((x: Record<string, any>) => this.filterFunction(x)(item))
+            return v.every((x: Record<string, any>) =>
+              this.filterFunction(x)(item)
+            )
           } else if (k === '$or') {
-            return v.some((x: Record<string, any>) => this.filterFunction(x)(item))
+            return v.some((x: Record<string, any>) =>
+              this.filterFunction(x)(item)
+            )
           } else if (k === '$nor') {
-            return !v.some((x: Record<string, any>) => this.filterFunction(x)(item))
+            return !v.some((x: Record<string, any>) =>
+              this.filterFunction(x)(item)
+            )
           }
         } else {
           const itemK = dotProp.get<any>(item, k)
 
-          if (v && v.constructor === {}.constructor &&
-            Object.keys(v).some((k0) => k0[0] === '$')) {
+          if (
+            v &&
+            v.constructor === {}.constructor &&
+            Object.keys(v).some((k0) => k0[0] === '$')
+          ) {
             return (() => {
               for (const op of Object.keys(v)) {
                 try {
@@ -254,9 +254,7 @@ export default class QSearch {
                     const arr = Array.isArray(itemK) ? itemK : [itemK]
 
                     return arr.some((el) => {
-                      return typeof el === 'string'
-                        ? cmp.test(el)
-                        : false
+                      return typeof el === 'string' ? cmp.test(el) : false
                     })
                   } else if (op === '$substr') {
                     const cmp = v[op].toString()
@@ -264,8 +262,9 @@ export default class QSearch {
 
                     return arr.some((el) => {
                       return typeof el === 'string'
-                        ? el.toLocaleLowerCase()
-                          .includes(cmp.toLocaleLowerCase())
+                        ? el
+                            .toLocaleLowerCase()
+                            .includes(cmp.toLocaleLowerCase())
                         : false
                     })
                   } else if (op === '$nsubstr') {
@@ -274,12 +273,17 @@ export default class QSearch {
 
                     return arr.every((el) => {
                       return typeof el === 'string'
-                        ? !el.toLocaleLowerCase()
-                          .includes(cmp.toLocaleLowerCase())
+                        ? !el
+                            .toLocaleLowerCase()
+                            .includes(cmp.toLocaleLowerCase())
                         : true
                     })
                   } else if (op === '$exists') {
-                    return (itemK === null || itemK === undefined || itemK === '') !== v[op]
+                    return (
+                      (itemK === null ||
+                        itemK === undefined ||
+                        itemK === '') !== v[op]
+                    )
                   } else {
                     let v1 = itemK
                     let v2 = v[op]
@@ -287,7 +291,11 @@ export default class QSearch {
                     let canCompare = false
 
                     if (typeof v1 === 'object' && typeof v2 === 'object') {
-                      if (v1 && v2 && (v1 instanceof Date || v2 instanceof Date)) {
+                      if (
+                        v1 &&
+                        v2 &&
+                        (v1 instanceof Date || v2 instanceof Date)
+                      ) {
                         if (!(v1 instanceof Date)) {
                           v1 = new Date(v1)
                         }
@@ -299,7 +307,7 @@ export default class QSearch {
                         canCompare = true
                       }
                     } else {
-                      canCompare = (typeof v1 === typeof v2)
+                      canCompare = typeof v1 === typeof v2
                     }
 
                     if (op === '$ne') {
@@ -318,7 +326,7 @@ export default class QSearch {
                       }
                     }
                   }
-                } catch (e) { }
+                } catch (e) {}
               }
               return false
             })()

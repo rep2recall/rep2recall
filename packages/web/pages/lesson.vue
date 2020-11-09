@@ -23,7 +23,7 @@ section
 import { Vue, Component } from 'nuxt-property-decorator'
 
 @Component({
-  layout: 'dashboard'
+  layout: 'dashboard',
 })
 export default class Lesson extends Vue {
   lessons: {
@@ -44,7 +44,7 @@ export default class Lesson extends Vue {
       id: '',
       name: 'Default',
       description:
-        'Entries outside lessons will be here. Usually, user-created entries.'
+        'Entries outside lessons will be here. Usually, user-created entries.',
     })
 
     this.$set(this, 'lessons', entries)
