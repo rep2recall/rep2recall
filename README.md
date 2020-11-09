@@ -33,28 +33,14 @@ the following extensions.
 
 So, Emojis are supported. Settings are roughly similar to <https://patarapolw.github.io/showdown-extra>.
 
-## Running on your machine
+Also, now [Anki](https://apps.ankiweb.net/)-compatible.
 
-Requirements are
+## Running on your machine (offline-enabled)
 
-- MongoDB
-- Firebase (both on UI-side and server-side, i.e. firebase-admin)
-- [Robo](https://github.com/tj/robo) for `robo.yml`-task-runner
-
-### Required environmental variables
+Just take [/docker-compose.yml](/docker-compose.yml) and run
 
 ```sh
-MONGO_URI=       # Get this from MongoDB Atlas
-SECRET=          # Generate this yourself
-FIREBASE_SDK=    # Get this from Firebase Admin SDK, and JSONify it
-FIREBASE_CONFIG=   # Get this from Firebase Client, and JSONify it
-BASE_URL=          # Where you want to deploy
+docker-compose up
 ```
 
-For the development machine, you can create `.env` first, then `source .env`, or use [Oh-My-Zsh plugin dotenv](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/dotenv).
-
-## Offline versions
-
-Offline versions are now available via Electron at <https://github.com/patarapolw/rep2recall/releases>.
-
-Also, now [Anki](https://apps.ankiweb.net/)-compatible.
+There were also Electron versions, if you don't have Docker - <https://github.com/patarapolw/rep2recall/releases>. However, it might not be updated, as I made them offline using SQLite.
