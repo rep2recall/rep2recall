@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context
+import io.javalin.plugin.openapi.annotations.*
 import org.jetbrains.exposed.sql.*
 import org.joda.time.DateTime
 import rep2recall.db.*
@@ -12,12 +13,26 @@ import rep2recall.db.*
 object NoteController {
     val handler = EndpointGroup {
         get(this::getOne)
-        post("q", this::query)
         put(this::create)
         patch(this::update)
         delete(this::delete)
     }
 
+    @OpenApi(
+            tags = ["note"],
+            summary = "Get a Note",
+            description = "either id or key is required",
+            queryParams = [
+                OpenApiParam("select", String::class, required = true,
+                    description = "Comma (,) separated fields"),
+                OpenApiParam("id", String::class),
+                OpenApiParam("key", String::class)
+            ],
+            responses = [
+                OpenApiResponse("200", [OpenApiContent(Note.PartialSer::class)]),
+                OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
     private fun getOne(ctx: Context) {
         val select = ctx.queryParam<String>("select").get()
                 .split(",")
@@ -25,38 +40,17 @@ object NoteController {
 
         _findOne(ctx)?.let {
             ctx.json(it.filterKey(select))
-        } ?: ctx.status(404).json(mapOf(
-                "error" to "not found"
-        ))
+        } ?: ctx.status(404).json(StdErrorResponse("not found"))
     }
 
-    private data class QueryRequest(
-            val q: String,
-            val offset: Long = 0,
-            val limit: Int = 5
+    @OpenApi(
+            tags = ["note"],
+            summary = "Create a Note",
+            requestBody = OpenApiRequestBody([OpenApiContent(Note.Ser::class)]),
+            responses = [
+                OpenApiResponse("201", [OpenApiContent(CreateResponse::class)])
+            ]
     )
-
-    private fun query(ctx: Context) {
-        val body = ctx.bodyValidator<QueryRequest>().get()
-
-        fun getQuery() = NoteTable.innerJoin(NoteAttrTable).select {
-            QueryUtil.parse(body.q, listOf(":", "=", "~")) { p ->
-                QueryUtil.comp(p)
-            } and (NoteTable.userId eq ctx.sessionAttribute<String>("userId")!!)
-        }.groupBy(NoteTable.id)
-
-        val count = getQuery().count()
-        val ids = getQuery()
-                .orderBy(NoteTable.id, SortOrder.DESC)
-                .limit(body.limit, body.offset)
-                .map { it[NoteTable.id].value }
-
-        ctx.json(mapOf(
-                "result" to ids,
-                "count" to count
-        ))
-    }
-
     private fun create(ctx: Context) {
         val body = ctx.bodyValidator<Note.Ser>().get()
 
@@ -65,15 +59,29 @@ object NoteController {
                 body
         )
 
-        ctx.json(mapOf(
-                "id" to n.id.value
-        ))
+        ctx.status(201).json(CreateResponse(n.id.value))
     }
 
+    @OpenApi(
+            tags = ["note"],
+            summary = "Update a Note",
+            description = "either id or key is required",
+            queryParams = [
+                OpenApiParam("id", String::class),
+                OpenApiParam("key", String::class)
+            ],
+            requestBody = OpenApiRequestBody([OpenApiContent(Note.PartialSer::class)]),
+            responses = [
+                OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
+                OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
     private fun update(ctx: Context) {
         val body = ctx.body<Map<String, JsonElement>>()
 
         _findOne(ctx)?.let { n ->
+            n.updatedAt = DateTime.now()
+
             body["nextReview"]?.let {
                 n.nextReview = if (it.isJsonNull) {
                     null
@@ -165,16 +173,25 @@ object NoteController {
         ))
     }
 
+    @OpenApi(
+            tags = ["note"],
+            summary = "Delete a Note",
+            description = "either id or key is required",
+            queryParams = [
+                OpenApiParam("id", String::class),
+                OpenApiParam("key", String::class)
+            ],
+            responses = [
+                OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
+                OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
     private fun delete(ctx: Context) {
         _findOne(ctx)?.let {
             it.delete()
 
-            ctx.status(201).json(mapOf(
-                    "result" to "deleted"
-            ))
-        } ?: ctx.status(304).json(mapOf(
-                "error" to "not found"
-        ))
+            ctx.status(201).json(StdSuccessResponse("deleted"))
+        } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
 
     @Suppress("FunctionName")

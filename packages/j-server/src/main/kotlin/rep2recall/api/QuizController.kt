@@ -3,13 +3,14 @@ package rep2recall.api
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context
+import io.javalin.plugin.openapi.annotations.*
 import org.jetbrains.exposed.sql.*
 import org.joda.time.DateTime
 import rep2recall.db.*
 
 object QuizController {
     val handler = EndpointGroup {
-        post("q", this::query)
+        post(this::query)
         post("treeview", this::treeview)
         patch("mark", this::mark)
     }
@@ -20,12 +21,24 @@ object QuizController {
             val status: Preset.Status
     )
 
+    private data class QueryResponse(
+            val result: List<String>
+    )
+
+    @OpenApi(
+            tags = ["quiz"],
+            summary = "Create a quiz",
+            requestBody = OpenApiRequestBody([OpenApiContent(QueryRequest::class)]),
+            responses = [
+                OpenApiResponse("200", [OpenApiContent(QueryResponse::class)])
+            ]
+    )
     private fun query(ctx: Context) {
         val body = ctx.bodyValidator<QueryRequest>().get()
 
-        ctx.json(mapOf(
-                "result" to Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
-                        body.q, body.status, body.decks)).map { it.key }
+        ctx.json(QueryResponse(
+                Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+                    body.q, body.status, body.decks)).map { it.key }.shuffled()
         ))
     }
 
@@ -36,34 +49,62 @@ object QuizController {
 
     private data class TreeviewItem(
             val deck: String,
-            val notes: List<Note>
+            val new: Int,
+            val due: Int,
+            val leech: Int
     )
 
+    private data class TreeviewResponse(
+            val result: List<TreeviewItem>
+    )
+
+    @OpenApi(
+            tags = ["quiz"],
+            summary = "Query decks for treeview",
+            requestBody = OpenApiRequestBody([OpenApiContent(TreeviewRequest::class)]),
+            responses = [
+                OpenApiResponse("200", [OpenApiContent(TreeviewResponse::class)])
+            ]
+    )
     private fun treeview(ctx: Context) {
         val body = ctx.bodyValidator<TreeviewRequest>().get()
         val now = DateTime.now()
 
-        ctx.json(mapOf(
-                "result" to Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+        ctx.json(TreeviewResponse(
+                Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
                         body.q, body.status))
                         .filter { it.deck != null }
                         .groupBy { it.deck }
                         .map { p ->
-                            mapOf(
-                                    "deck" to p.key,
-                                    "new" to p.value.filter { it.srsLevel == null }.size,
-                                    "due" to p.value.filter {
+                            TreeviewItem(
+                                    deck = p.key!!,
+                                    new = p.value.filter { it.srsLevel == null }.size,
+                                    due = p.value.filter {
                                         it.nextReview?.let { r -> r < now } ?: true
                                     }.size,
-                                    "leech" to p.value.filter {
+                                    leech = p.value.filter {
                                         it.srsLevel == 0 ||
                                                 (it.wrongStreak?.let { r -> r > 2 } ?: false)
-                                    }
+                                    }.size
                             )
                         }
         ))
     }
 
+    @OpenApi(
+            tags = ["quiz"],
+            summary = "Mark a quiz item",
+            description = "As right, wrong, or repeat",
+            queryParams = [
+                OpenApiParam("key", String::class, required = true),
+                OpenApiParam("as", String::class, required = true,
+                    description = "right, wrong, or repeat")
+            ],
+            responses = [
+                OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
+                OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
     private fun mark(ctx: Context) {
         val key = ctx.queryParam<String>("key").get()
         val `as` = ctx.queryParam<String>("as")
@@ -79,12 +120,8 @@ object QuizController {
                 "wrong" -> it.markWrong()
                 "repeat" -> it.markRepeat()
             }
-            ctx.status(201).json(mapOf(
-                    "result" to "updated"
-            ))
-        } ?: ctx.status(304).json(mapOf(
-                "error" to "not found"
-        ))
+            ctx.status(201).json(StdSuccessResponse("updated"))
+        } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
 
     @Suppress("FunctionName")

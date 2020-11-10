@@ -171,6 +171,25 @@ class Note(id: EntityID<String>): SerEntity(id) {
             val data: List<NoteAttr.Ser>? = null
     )
 
+    data class PartialSer(
+            val nextReview: String? = null,
+            val lastRight: String? = null,
+            val lastWrong: String? = null,
+
+            val id: String? = null,
+            val key: String? = null,
+            val deck: String? = null,
+            val front: String? = null,
+            val back: String? = null,
+            val mnemonic: String? = null,
+            val srsLevel: Int? = null,
+            val rightStreak: Int? = null,
+            val wrongStreak: Int? = null,
+            val maxRight: Int? = null,
+            val maxWrong: Int? = null,
+            val data: List<NoteAttr.Ser>? = null
+    )
+
     override fun serialize() = Ser(
             nextReview = nextReview?.toString(),
             lastRight = lastRight?.toString(),

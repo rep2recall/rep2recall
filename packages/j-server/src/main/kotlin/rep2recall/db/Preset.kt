@@ -67,6 +67,15 @@ class Preset(id: EntityID<String>): SerEntity(id) {
             val opened: List<String>
     )
 
+    data class PartialSer(
+            val id: String?,
+            val q: String?,
+            val name: String?,
+            val status: Status?,
+            val selected: List<String>?,
+            val opened: List<String>?
+    )
+
     override fun serialize() = Ser(
             id.value,
             q, name, status, selected, opened

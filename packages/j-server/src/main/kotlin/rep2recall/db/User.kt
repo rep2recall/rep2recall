@@ -66,6 +66,13 @@ class User(id: EntityID<String>): SerEntity(id) {
             val apiKey: String
     )
 
+    data class PartialSer(
+            val id: String?,
+            val email: String?,
+            val name: String?,
+            val apiKey: String?
+    )
+
     override fun serialize() = Ser(
             id.value,
             email, name, apiKey
