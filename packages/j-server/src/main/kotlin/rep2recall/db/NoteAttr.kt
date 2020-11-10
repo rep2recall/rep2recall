@@ -33,10 +33,10 @@ class NoteAttr(id: EntityID<String>): SerEntity(id) {
     var noteId by NoteAttrTable.noteId
     val note by Note referencedOn NoteAttrTable.noteId
 
-    data class Ser(
-            val key: String,
-            val value: String
-    )
-
-    override fun serialize() = Ser(key, value)
+    override fun serialize() = NoteAttrSer(key, value)
 }
+
+data class NoteAttrSer(
+        val key: String,
+        val value: String
+)

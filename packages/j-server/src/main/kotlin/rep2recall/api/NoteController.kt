@@ -29,7 +29,7 @@ object NoteController {
                 OpenApiParam("key", String::class)
             ],
             responses = [
-                OpenApiResponse("200", [OpenApiContent(Note.PartialSer::class)]),
+                OpenApiResponse("200", [OpenApiContent(NotePartialSer::class)]),
                 OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
             ]
     )
@@ -46,13 +46,13 @@ object NoteController {
     @OpenApi(
             tags = ["note"],
             summary = "Create a Note",
-            requestBody = OpenApiRequestBody([OpenApiContent(Note.Ser::class)]),
+            requestBody = OpenApiRequestBody([OpenApiContent(NoteSer::class)]),
             responses = [
                 OpenApiResponse("201", [OpenApiContent(CreateResponse::class)])
             ]
     )
     private fun create(ctx: Context) {
-        val body = ctx.bodyValidator<Note.Ser>().get()
+        val body = ctx.bodyValidator<NoteSer>().get()
 
         val n = Note.create(
                 User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
@@ -70,7 +70,7 @@ object NoteController {
                 OpenApiParam("id", String::class),
                 OpenApiParam("key", String::class)
             ],
-            requestBody = OpenApiRequestBody([OpenApiContent(Note.PartialSer::class)]),
+            requestBody = OpenApiRequestBody([OpenApiContent(NotePartialSer::class)]),
             responses = [
                 OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
                 OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])
@@ -141,7 +141,7 @@ object NoteController {
             }
 
             body["data"]?.let {
-                val data = gson.fromJson<List<NoteAttr.Ser>>(it)
+                val data = gson.fromJson<List<NoteAttrSer>>(it)
                 val oldItems = n.data.toMutableList()
 
                 for (a in data) {
@@ -162,6 +162,15 @@ object NoteController {
 
                 for (item in oldItems) {
                     item.delete()
+                }
+            }
+
+            body["tag"]?.let {
+                User.findById(ctx.sessionAttribute<String>("userId")!!)?.let { u ->
+                    val tags = gson.fromJson<List<String>>(it)
+                    n.tags = SizedCollection(tags.map { t ->
+                        Tag.upsert(u, t)
+                    })
                 }
             }
 

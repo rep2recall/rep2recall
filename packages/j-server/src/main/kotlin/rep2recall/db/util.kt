@@ -182,15 +182,11 @@ object QueryUtil {
     } else Op.FALSE
 
     fun comp(p: QuerySplitPart): Op<Boolean> {
-        val q: Op<Boolean> = when(p.op) {
-            "=" -> NoteAttrTable.value eq p.value
-            "~" -> NoteAttrTable.value regexp p.value
-            else -> NoteAttrTable.value regexp Pattern.quote(p.value)
-        }
+        val q = comp(p, NoteAttrTable.value)
 
         return p.key?.let {
-            (NoteAttrTable.key eq unquote(p.key)) and q
-        } ?: q
+            (NoteAttrTable.key eq unquote(it)) and q
+        } ?: (q or comp(p, TagTable.name))
     }
 
     private fun splitBy(q: String, splitter: String): List<String> {

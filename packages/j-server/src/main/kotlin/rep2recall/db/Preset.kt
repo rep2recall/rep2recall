@@ -19,7 +19,7 @@ class Preset(id: EntityID<String>): SerEntity(id) {
     companion object: ULIDEntityClass<Preset>(PresetTable) {
         fun create(
                 user: User,
-                p: Ser
+                p: PresetSer
         ): Preset {
             return new {
                 this.userId = user.id
@@ -36,18 +36,11 @@ class Preset(id: EntityID<String>): SerEntity(id) {
     var userId by NoteTable.userId
     val user by User referencedOn NoteTable.userId
 
-    data class Status(
-            val new: Boolean,
-            val due: Boolean,
-            val leech: Boolean,
-            val graduated: Boolean
-    )
-
     var q by PresetTable.q
     var name by PresetTable.name
-    var status: Status by PresetTable.status.transform(
+    var status: PresetStatus by PresetTable.status.transform(
             { gson.toJson(it) },
-            { gson.fromJson<Status>(it) }
+            { gson.fromJson<PresetStatus>(it) }
     )
     var selected: List<String> by PresetTable.selected.transform(
             { it.joinToString("\u001f") },
@@ -58,26 +51,33 @@ class Preset(id: EntityID<String>): SerEntity(id) {
             { it.split("\u001f") }
     )
 
-    data class Ser(
-            val id: String,
-            val q: String,
-            val name: String,
-            val status: Status,
-            val selected: List<String>,
-            val opened: List<String>
-    )
-
-    data class PartialSer(
-            val id: String?,
-            val q: String?,
-            val name: String?,
-            val status: Status?,
-            val selected: List<String>?,
-            val opened: List<String>?
-    )
-
-    override fun serialize() = Ser(
+    override fun serialize() = PresetSer(
             id.value,
             q, name, status, selected, opened
     )
 }
+
+data class PresetSer(
+        val id: String,
+        val q: String,
+        val name: String,
+        val status: PresetStatus,
+        val selected: List<String>,
+        val opened: List<String>
+)
+
+data class PresetPartialSer(
+        val id: String?,
+        val q: String?,
+        val name: String?,
+        val status: PresetStatus?,
+        val selected: List<String>?,
+        val opened: List<String>?
+)
+
+data class PresetStatus(
+        val new: Boolean,
+        val due: Boolean,
+        val leech: Boolean,
+        val graduated: Boolean
+)

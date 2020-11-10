@@ -29,7 +29,7 @@ object PresetController {
                 OpenApiParam("id", String::class, required = true)
             ],
             responses = [
-                OpenApiResponse("200", [OpenApiContent(Preset.PartialSer::class)]),
+                OpenApiResponse("200", [OpenApiContent(PresetPartialSer::class)]),
                 OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
             ]
     )
@@ -50,15 +50,11 @@ object PresetController {
         ))
     }
 
-    private data class GetAllResponse(
-            val result: List<Preset.Ser>
-    )
-
     @OpenApi(
             tags = ["preset"],
             summary = "Get all Presets",
             responses = [
-                OpenApiResponse("200", [OpenApiContent(GetAllResponse::class)]),
+                OpenApiResponse("200", [OpenApiContent(PresetGetAllResponse::class)]),
                 OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
             ]
     )
@@ -74,13 +70,13 @@ object PresetController {
     @OpenApi(
             tags = ["preset"],
             summary = "Create a Preset",
-            requestBody = OpenApiRequestBody([OpenApiContent(Preset.Ser::class)]),
+            requestBody = OpenApiRequestBody([OpenApiContent(PresetSer::class)]),
             responses = [
                 OpenApiResponse("201", [OpenApiContent(CreateResponse::class)])
             ]
     )
     private fun create(ctx: Context) {
-        val body = ctx.bodyValidator<Preset.Ser>().get()
+        val body = ctx.bodyValidator<PresetSer>().get()
 
         val p = Preset.create(
                 User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
@@ -98,7 +94,7 @@ object PresetController {
             queryParams = [
                 OpenApiParam("id", String::class, required = true)
             ],
-            requestBody = OpenApiRequestBody([OpenApiContent(Preset.PartialSer::class)]),
+            requestBody = OpenApiRequestBody([OpenApiContent(PresetPartialSer::class)]),
             responses = [
                 OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
                 OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])

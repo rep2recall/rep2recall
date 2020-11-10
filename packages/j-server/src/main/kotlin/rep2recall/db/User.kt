@@ -52,29 +52,31 @@ class User(id: EntityID<String>): SerEntity(id) {
 
     val notes by Note referrersOn NoteTable.userId
     val presets by Preset referrersOn PresetTable.userId
+    val tags by Tag referrersOn TagTable.userId
 
     override fun delete() {
         notes.map { it.delete() }
         presets.map { it.delete() }
+        tags.map { it.delete() }
         super.delete()
     }
 
-    data class Ser(
-            val id: String,
-            val email: String,
-            val name: String?,
-            val apiKey: String
-    )
-
-    data class PartialSer(
-            val id: String?,
-            val email: String?,
-            val name: String?,
-            val apiKey: String?
-    )
-
-    override fun serialize() = Ser(
+    override fun serialize() = UserSer(
             id.value,
             email, name, apiKey
     )
 }
+
+data class UserSer(
+        val id: String,
+        val email: String,
+        val name: String?,
+        val apiKey: String
+)
+
+data class UserPartialSer(
+        val id: String?,
+        val email: String?,
+        val name: String?,
+        val apiKey: String?
+)

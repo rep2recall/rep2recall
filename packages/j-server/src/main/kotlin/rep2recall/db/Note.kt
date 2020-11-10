@@ -2,6 +2,7 @@ package rep2recall.db
 
 import com.github.guepardoapps.kulid.ULID
 import org.jetbrains.exposed.dao.id.EntityID
+import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.jodatime.datetime
 import org.joda.time.DateTime
@@ -32,11 +33,18 @@ object NoteTable: InitTable("note") {
     }
 }
 
+object NoteTagTable: Table() {
+    val noteId = reference("note_id", NoteTable.id)
+    val tagId = reference("tag_id", TagTable.id)
+
+    override val primaryKey = PrimaryKey(noteId, tagId)
+}
+
 class Note(id: EntityID<String>): SerEntity(id) {
     companion object: ULIDEntityClass<Note>(NoteTable) {
         fun create(
                 user: User,
-                n: Note.Ser
+                n: NoteSer
         ): Note {
             val id = ULID.random()
             val note = new(id) {
@@ -56,8 +64,12 @@ class Note(id: EntityID<String>): SerEntity(id) {
                 this.lastWrong = n.lastWrong?.let { DateTime.parse(it) }
             }
 
-            n.data?.forEach {
+            n.data.forEach {
                 NoteAttr.create(it.key, it.value, note)
+            }
+
+            n.tags.forEach {
+                Tag.upsert(user, it)
             }
 
             return note
@@ -97,6 +109,7 @@ class Note(id: EntityID<String>): SerEntity(id) {
     var lastWrong by NoteTable.lastWrong
 
     val data by NoteAttr via NoteAttrTable
+    var tags by Tag via NoteTagTable
 
     override fun delete() {
         NoteAttrTable.deleteWhere { NoteAttrTable.noteId eq id }
@@ -152,45 +165,7 @@ class Note(id: EntityID<String>): SerEntity(id) {
         }
     }
 
-    data class Ser(
-            val nextReview: String? = null,
-            val lastRight: String? = null,
-            val lastWrong: String? = null,
-
-            val id: String,
-            val key: String,
-            val deck: String? = null,
-            val front: String? = null,
-            val back: String? = null,
-            val mnemonic: String? = null,
-            val srsLevel: Int? = null,
-            val rightStreak: Int? = null,
-            val wrongStreak: Int? = null,
-            val maxRight: Int? = null,
-            val maxWrong: Int? = null,
-            val data: List<NoteAttr.Ser>? = null
-    )
-
-    data class PartialSer(
-            val nextReview: String? = null,
-            val lastRight: String? = null,
-            val lastWrong: String? = null,
-
-            val id: String? = null,
-            val key: String? = null,
-            val deck: String? = null,
-            val front: String? = null,
-            val back: String? = null,
-            val mnemonic: String? = null,
-            val srsLevel: Int? = null,
-            val rightStreak: Int? = null,
-            val wrongStreak: Int? = null,
-            val maxRight: Int? = null,
-            val maxWrong: Int? = null,
-            val data: List<NoteAttr.Ser>? = null
-    )
-
-    override fun serialize() = Ser(
+    override fun serialize() = NoteSer(
             nextReview = nextReview?.toString(),
             lastRight = lastRight?.toString(),
             lastWrong = lastWrong?.toString(),
@@ -206,6 +181,47 @@ class Note(id: EntityID<String>): SerEntity(id) {
             wrongStreak = wrongStreak,
             maxRight = maxRight,
             maxWrong = maxWrong,
-            data = data.map { it.serialize() }
+            data = data.sortedBy { it.id }.map { it.serialize() },
+            tags = tags.sortedBy { it.id }.map { it.serialize() }
     )
 }
+
+data class NoteSer(
+        val nextReview: String? = null,
+        val lastRight: String? = null,
+        val lastWrong: String? = null,
+
+        val id: String,
+        val key: String? = null,
+        val deck: String? = null,
+        val front: String? = null,
+        val back: String? = null,
+        val mnemonic: String? = null,
+        val srsLevel: Int? = null,
+        val rightStreak: Int? = null,
+        val wrongStreak: Int? = null,
+        val maxRight: Int? = null,
+        val maxWrong: Int? = null,
+        val data: List<NoteAttrSer> = listOf(),
+        val tags: List<String> = listOf()
+)
+
+data class NotePartialSer(
+        val nextReview: String? = null,
+        val lastRight: String? = null,
+        val lastWrong: String? = null,
+
+        val id: String? = null,
+        val key: String? = null,
+        val deck: String? = null,
+        val front: String? = null,
+        val back: String? = null,
+        val mnemonic: String? = null,
+        val srsLevel: Int? = null,
+        val rightStreak: Int? = null,
+        val wrongStreak: Int? = null,
+        val maxRight: Int? = null,
+        val maxWrong: Int? = null,
+        val data: List<NoteAttrSer>? = null,
+        val tags: List<String>? = null
+)

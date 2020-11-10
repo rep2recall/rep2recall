@@ -10,6 +10,7 @@ import io.javalin.plugin.openapi.annotations.OpenApiContent
 import io.javalin.plugin.openapi.annotations.OpenApiParam
 import io.javalin.plugin.openapi.annotations.OpenApiResponse
 import org.joda.time.DateTime
+import rep2recall.db.UserPartialSer
 import rep2recall.db.filterKey
 
 object UserController {
@@ -28,7 +29,7 @@ object UserController {
                         description = "Comma (,) separated fields")
             ],
             responses = [
-                OpenApiResponse("200", [OpenApiContent(User.PartialSer::class)]),
+                OpenApiResponse("200", [OpenApiContent(UserPartialSer::class)]),
                 OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
             ]
     )

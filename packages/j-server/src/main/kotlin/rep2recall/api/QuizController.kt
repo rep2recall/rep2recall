@@ -15,48 +15,22 @@ object QuizController {
         patch("mark", this::mark)
     }
 
-    private data class QueryRequest(
-            val q: String,
-            val decks: List<String>,
-            val status: Preset.Status
-    )
-
-    private data class QueryResponse(
-            val result: List<String>
-    )
-
     @OpenApi(
             tags = ["quiz"],
             summary = "Create a quiz",
-            requestBody = OpenApiRequestBody([OpenApiContent(QueryRequest::class)]),
+            requestBody = OpenApiRequestBody([OpenApiContent(QuizQueryRequest::class)]),
             responses = [
-                OpenApiResponse("200", [OpenApiContent(QueryResponse::class)])
+                OpenApiResponse("200", [OpenApiContent(QuizQueryResponse::class)])
             ]
     )
     private fun query(ctx: Context) {
-        val body = ctx.bodyValidator<QueryRequest>().get()
+        val body = ctx.bodyValidator<QuizQueryRequest>().get()
 
-        ctx.json(QueryResponse(
+        ctx.json(QuizQueryResponse(
                 Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
                     body.q, body.status, body.decks)).map { it.key }.shuffled()
         ))
     }
-
-    private data class TreeviewRequest(
-            val q: String,
-            val status: Preset.Status
-    )
-
-    private data class TreeviewItem(
-            val deck: String,
-            val new: Int,
-            val due: Int,
-            val leech: Int
-    )
-
-    private data class TreeviewResponse(
-            val result: List<TreeviewItem>
-    )
 
     @OpenApi(
             tags = ["quiz"],
@@ -128,9 +102,13 @@ object QuizController {
     private fun _getQuery(
             userId: String,
             q: String,
-            status: Preset.Status,
+            status: PresetStatus,
             decks: List<String>? = null
-    ) = NoteTable.leftJoin(NoteAttrTable).select {
+    ) = NoteTable
+            .leftJoin(NoteAttrTable)
+            .leftJoin(NoteTagTable)
+            .leftJoin(TagTable)
+            .select {
         fun isDeck(d: String) = (NoteTable.deck eq d) or
                 (NoteTable.deck greater "$d::" and (NoteTable.deck less "$d:;"))
 
@@ -184,6 +162,7 @@ object QuizController {
                 "lastWrong" -> QueryUtil.comp(p, NoteTable.lastWrong)
                 "maxRight" -> QueryUtil.comp(p, NoteTable.maxRight)
                 "maxWrong" -> QueryUtil.comp(p, NoteTable.maxWrong)
+                "tag" -> QueryUtil.comp(p, TagTable.name)
                 "deck" -> when(p.op) {
                     ":" -> isDeck(p.value)
                     else -> QueryUtil.comp(p, NoteTable.deck)
