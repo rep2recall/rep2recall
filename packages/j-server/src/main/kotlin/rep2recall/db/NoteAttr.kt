@@ -1,13 +1,8 @@
 package rep2recall.db
 
-import com.github.guepardoapps.kulid.ULID
-import org.jetbrains.exposed.dao.Entity
-import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 
-object NoteAttrTable: IdInitTable<String>("note_attr") {
-    override val id = QuizTable.varchar("id", 26).entityId()
-
+object NoteAttrTable: InitTable("note_attr") {
     val key = varchar("key", 50)
     val value = varchar("value", 1000)
     val noteId = reference("note_id", NoteTable)
@@ -17,11 +12,8 @@ object NoteAttrTable: IdInitTable<String>("note_attr") {
     }
 }
 
-class NoteAttr(id: EntityID<String>): Entity<String>(id) {
-    companion object: EntityClass<String, NoteAttr>(NoteAttrTable) {
-        override fun new(id: String?, init: NoteAttr.() -> Unit) = super.new(id ?: ULID.random(), init)
-        override fun new(init: NoteAttr.() -> Unit) = new(null, init)
-
+class NoteAttr(id: EntityID<String>): SerEntity(id) {
+    companion object: ULIDEntityClass<NoteAttr>(NoteAttrTable) {
         fun create(
                 key: String,
                 value: String,
@@ -45,4 +37,6 @@ class NoteAttr(id: EntityID<String>): Entity<String>(id) {
             val key: String,
             val value: String
     )
+
+    override fun serialize() = Ser(key, value)
 }

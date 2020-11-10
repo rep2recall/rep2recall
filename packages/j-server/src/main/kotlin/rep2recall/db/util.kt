@@ -1,6 +1,12 @@
 package rep2recall.db
 
+import com.github.guepardoapps.kulid.ULID
+import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonElement
+import org.jetbrains.exposed.dao.Entity
+import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
@@ -15,11 +21,28 @@ import org.joda.time.DateTime
 import org.joda.time.Duration
 import java.util.regex.Pattern
 
-val gson = Gson()
+val gson: Gson = GsonBuilder()
+//        .serializeNulls()
+        .create()
 
-abstract class IdInitTable<T:Comparable<T>>(name: String = ""): IdTable<T>(name) {
+abstract class InitTable(name: String = ""): IdTable<String>(name) {
+    override val id = varchar("id", 26).entityId()
     open fun init() {}
 }
+
+abstract class SerEntity(id: EntityID<String>): Entity<String>(id) {
+    abstract fun serialize(): Any
+}
+
+abstract class ULIDEntityClass<Entity:SerEntity>(table: InitTable): EntityClass<String, Entity>(table) {
+    override fun new(id: String?, init: Entity.() -> Unit) = super.new(id ?: ULID.random(), init)
+    override fun new(init: Entity.() -> Unit) = new(null, init)
+}
+
+fun SerEntity.filterKey(select: Set<String>) = gson.fromJson<Map<String, JsonElement>>(gson.toJson(serialize()))
+        .entries
+        .filter { select.contains(it.key) }
+        .associate { it.key to it.value }
 
 data class QuerySplit(
         val and: List<QuerySplitPart>,
@@ -117,6 +140,21 @@ object QueryUtil {
         else -> c eq p.value
     }
 
+    @JvmName("compString")
+    fun comp(p: QuerySplitPart, c: Column<String>) = when(p.op) {
+        "<" -> c less p.value
+        "<=" -> c lessEq p.value
+        ">" -> c greater p.value
+        ">=" -> c greaterEq p.value
+        else -> c eq p.value
+    }
+
+    @JvmName("compStringNullable")
+    fun comp(p: QuerySplitPart, c: Column<String?>) = when(p.value) {
+        "NULL" -> c.isNull()
+        else -> c eq p.value
+    }
+
     @JvmName("compIntNullable")
     fun comp(p: QuerySplitPart, c: Column<Int?>) = p.value.toIntOrNull()?.let {
         when(p.op) {
@@ -151,7 +189,7 @@ object QueryUtil {
         }
 
         return p.key?.let {
-            (NoteAttrTable.key eq p.key) and q
+            (NoteAttrTable.key eq unquote(p.key)) and q
         } ?: q
     }
 

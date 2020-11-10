@@ -1,37 +1,33 @@
 package rep2recall.api
 
+import com.github.salomonbrys.kotson.fromJson
+import com.google.gson.JsonElement
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import rep2recall.db.*
 
 object NoteController {
     val handler = EndpointGroup {
         get(this::getOne)
-        post(this::query)
+        post("q", this::query)
         put(this::create)
         patch(this::update)
         delete(this::delete)
     }
 
     private fun getOne(ctx: Context) {
-        val id = ctx.queryParam<String>("id")
-                .check({ it.length < 26 }, "cannot be longer than a ULID")
-                .get()
+        val select = ctx.queryParam<String>("select").get()
+                .split(",")
+                .toSet()
 
-        Note.find {
-            (NoteTable.id eq id) and (NoteTable.userId eq ctx.sessionAttribute<String>("userId"))
-        }.firstOrNull()?.let {
-            ctx.json(mapOf(
-                    "id" to it.id.value,
-                    "attrs" to it.attrs.map { a -> mapOf(
-                            "key" to a.key,
-                            "value" to a.value
-                    ) }
-            ))
-        } ?: ctx.json(mapOf<String, String>())
+        _findOne(ctx)?.let {
+            ctx.json(it.filterKey(select))
+        } ?: ctx.status(404).json(mapOf(
+                "error" to "not found"
+        ))
     }
 
     private data class QueryRequest(
@@ -41,7 +37,7 @@ object NoteController {
     )
 
     private fun query(ctx: Context) {
-        val body = ctx.bodyValidator(QueryRequest::class.java).get()
+        val body = ctx.bodyValidator<QueryRequest>().get()
 
         fun getQuery() = NoteTable.innerJoin(NoteAttrTable).select {
             QueryUtil.parse(body.q, listOf(":", "=", "~")) { p ->
@@ -61,87 +57,137 @@ object NoteController {
         ))
     }
 
-    private data class CreateRequest(
-            val attrs: List<NoteAttr.Ser>
-    )
-
     private fun create(ctx: Context) {
-        val body = ctx.bodyValidator(CreateRequest::class.java).get()
+        val body = ctx.bodyValidator<Note.Ser>().get()
 
-        val n = transaction(Api.db.db) {
-            Note.create(
-                    null,
-                    User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
-                    body.attrs
-            )
-        }
+        val n = Note.create(
+                User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
+                body
+        )
 
         ctx.json(mapOf(
                 "id" to n.id.value
         ))
     }
 
-    private data class UpdateRequest(
-            var id: String,
-            val attrs: List<NoteAttr.Ser>
-    )
-
     private fun update(ctx: Context) {
-        val body = ctx.bodyValidator(UpdateRequest::class.java).get()
+        val body = ctx.body<Map<String, JsonElement>>()
 
-        transaction(Api.db.db) {
-            val n = Note.findById(body.id)?.let {
-                if (it.userId.value == ctx.sessionAttribute<String>("userId")) {
-                    it
-                } else {
+        _findOne(ctx)?.let { n ->
+            body["nextReview"]?.let {
+                n.nextReview = if (it.isJsonNull) {
                     null
-                }
-            } ?: let {
-                Note.create(
-                        null,
-                        User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
-                        listOf()
-                )
+                } else DateTime.parse(gson.fromJson(it))
             }
 
-            val oldItems = n.attrs.toMutableList()
+            body["lastRight"]?.let {
+                n.lastRight = if (it.isJsonNull) {
+                    null
+                } else DateTime.parse(gson.fromJson(it))
+            }
 
-            for (a in body.attrs) {
-                var isNew = true
-                for (item in oldItems) {
-                    if (a.key == item.key) {
-                        item.value = a.value
-                        oldItems.remove(item)
-                        isNew = false
-                        break
+            body["lastWrong"]?.let {
+                n.lastWrong = if (it.isJsonNull) {
+                    null
+                } else DateTime.parse(gson.fromJson(it))
+            }
+
+            body["key"]?.let {
+                n.key = gson.fromJson(it)
+            }
+
+            body["deck"]?.let {
+                n.deck = gson.fromJson(it)
+            }
+
+            body["front"]?.let {
+                n.front = gson.fromJson(it)
+            }
+
+            body["back"]?.let {
+                n.back = gson.fromJson(it)
+            }
+
+            body["mnemonic"]?.let {
+                n.mnemonic = gson.fromJson(it)
+            }
+
+            body["srsLevel"]?.let {
+                n.srsLevel = gson.fromJson(it)
+            }
+
+            body["rightStreak"]?.let {
+                n.rightStreak = gson.fromJson(it)
+            }
+
+            body["wrongStreak"]?.let {
+                n.wrongStreak = gson.fromJson(it)
+            }
+
+            body["maxRight"]?.let {
+                n.maxRight = gson.fromJson(it)
+            }
+
+            body["maxWrong"]?.let {
+                n.maxWrong = gson.fromJson(it)
+            }
+
+            body["data"]?.let {
+                val data = gson.fromJson<List<NoteAttr.Ser>>(it)
+                val oldItems = n.data.toMutableList()
+
+                for (a in data) {
+                    var isNew = true
+                    for (item in oldItems) {
+                        if (a.key == item.key) {
+                            item.value = a.value
+                            oldItems.remove(item)
+                            isNew = false
+                            break
+                        }
+                    }
+
+                    if (isNew) {
+                        NoteAttr.create(a.key, a.value, n)
                     }
                 }
 
-                if (isNew) {
-                    NoteAttr.create(a.key, a.value, n)
+                for (item in oldItems) {
+                    item.delete()
                 }
             }
 
-            for (item in oldItems) {
-                item.delete()
-            }
-        }
-
-        ctx.status(201).result("Updated")
+            ctx.status(201).json(mapOf(
+                    "result" to "updated"
+            ))
+        } ?: ctx.status(304).json(mapOf(
+                "error" to "not found"
+        ))
     }
 
     private fun delete(ctx: Context) {
-        val id = ctx.queryParam<String>("id")
-                .check({ it.length < 26 }, "cannot be longer than a ULID")
-                .get()
+        _findOne(ctx)?.let {
+            it.delete()
 
-        transaction(Api.db.db) {
-            Note.findById(id)?.let { n ->
-                n.attrs.map { it.delete() }
-                n.delete()
-            }
-        }
-
-        ctx.status(201).result("Deleted")
+            ctx.status(201).json(mapOf(
+                    "result" to "deleted"
+            ))
+        } ?: ctx.status(304).json(mapOf(
+                "error" to "not found"
+        ))
     }
+
+    @Suppress("FunctionName")
+    private fun _findOne(ctx: Context) = (
+            ctx.queryParam<String>("id").getOrNull()?.let {
+                Note.find {
+                    NoteTable.userId eq ctx.sessionAttribute<String>("userId") and
+                    (NoteTable.id eq it)
+                }
+            } ?: ctx.queryParam<String>("key").get().let {
+                Note.find {
+                    NoteTable.userId eq ctx.sessionAttribute<String>("userId") and
+                    (NoteTable.key eq it)
+                }
+            }).firstOrNull()
 }

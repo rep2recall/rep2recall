@@ -48,7 +48,7 @@ class Db(
     init {
         transaction(db) {
             val tables = arrayOf(
-                    NoteAttrTable, QuizTable, TemplateTable, UserTable
+                    UserTable, NoteAttrTable, NoteTable, PresetTable
             )
 
             if (db.dialect.allTablesNames().isEmpty()) {

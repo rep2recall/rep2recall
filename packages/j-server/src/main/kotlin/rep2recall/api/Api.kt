@@ -73,6 +73,7 @@ object Api {
         }
 
         path("note", NoteController.handler)
+        path("preset", PresetController.handler)
         path("quiz", QuizController.handler)
         path("user", UserController.handler)
     }

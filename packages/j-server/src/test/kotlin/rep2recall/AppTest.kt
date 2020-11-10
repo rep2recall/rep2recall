@@ -1,9 +1,10 @@
 package rep2recall
 
+import org.joda.time.DateTime
 import kotlin.test.Test
-import kotlin.test.assertNotNull
 
 class AppTest {
-    @Test fun testAppHasAGreeting() {
+    @Test fun printDate() {
+        println(DateTime.now().toString())
     }
 }

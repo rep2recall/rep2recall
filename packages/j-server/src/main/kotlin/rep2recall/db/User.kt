@@ -1,15 +1,12 @@
 package rep2recall.db
 
 import com.github.guepardoapps.kulid.ULID
-import org.jetbrains.exposed.dao.Entity
-import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.jodatime.datetime
 import java.security.SecureRandom
 import java.util.*
 
-object UserTable: IdInitTable<String>("user") {
-    override val id = varchar("id", 26).entityId()
+object UserTable: InitTable("user") {
     val updatedAt = datetime("updated_at").nullable()
 
     val email = varchar("email", 100).uniqueIndex()
@@ -17,8 +14,8 @@ object UserTable: IdInitTable<String>("user") {
     val apiKey = varchar("api_key", 100)
 }
 
-class User(id: EntityID<String>): Entity<String>(id) {
-    companion object: EntityClass<String, User>(UserTable) {
+class User(id: EntityID<String>): SerEntity(id) {
+    companion object: ULIDEntityClass<User>(UserTable) {
         override fun new(id: String?, init: User.() -> Unit): User {
             return super.new(id ?: ULID.random()) {
                 apiKey = newApiKey()
@@ -55,14 +52,22 @@ class User(id: EntityID<String>): Entity<String>(id) {
 
     val notes by Note referrersOn NoteTable.userId
     val presets by Preset referrersOn PresetTable.userId
-    val quizzes by Quiz referrersOn QuizTable.userId
-    val templates by Template referrersOn TemplateTable.userId
 
     override fun delete() {
         notes.map { it.delete() }
         presets.map { it.delete() }
-        quizzes.map { it.delete() }
-        templates.map { it.delete() }
         super.delete()
     }
+
+    data class Ser(
+            val id: String,
+            val email: String,
+            val name: String?,
+            val apiKey: String
+    )
+
+    override fun serialize() = Ser(
+            id.value,
+            email, name, apiKey
+    )
 }

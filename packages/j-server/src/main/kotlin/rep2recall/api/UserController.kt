@@ -6,28 +6,31 @@ import rep2recall.db.User
 import rep2recall.db.UserTable
 import io.javalin.apibuilder.ApiBuilder.*
 import org.joda.time.DateTime
+import rep2recall.db.filterKey
 
 object UserController {
     val handler = EndpointGroup {
         get(this::getOne)
-        patch("secret", this::newSecret)
+        patch("apiKey", this::newApiKey)
         post("signOut", this::signOut)
         delete(this::delete)
     }
 
     private fun getOne(ctx: Context) {
+        val select = ctx.queryParam<String>("select").get()
+                .split(",")
+                .toSet()
+
         User.find {
             UserTable.id eq ctx.sessionAttribute<String>("userId")
         }.firstOrNull()?.let {
-            ctx.json(mapOf(
-                    "email" to it.email,
-                    "name" to it.name,
-                    "apiKey" to it.apiKey
-            ))
-        } ?: ctx.json(mapOf<String, Any>())
+            ctx.json(it.filterKey(select))
+        } ?: ctx.status(404).json(mapOf(
+                "error" to "not found"
+        ))
     }
 
-    private fun newSecret(ctx: Context) {
+    private fun newApiKey(ctx: Context) {
         val u = User.find {
             UserTable.id eq ctx.sessionAttribute<String>("userId")
         }.firstOrNull()
