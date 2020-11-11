@@ -49,6 +49,7 @@ application {
 shadowJar {
     archiveClassifier = ''
     archiveVersion = ''
+    destinationDir = file('.')
 
     if (System.getenv('LOCAL')) {
         dependencies {

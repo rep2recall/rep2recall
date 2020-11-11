@@ -28,23 +28,11 @@
         </v-card-title>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="doSave">Yes</v-btn>
+          <v-btn text @click="doSaveUpdate">Yes</v-btn>
           <v-btn text @click.stop="isSaveConfirmDialog = false">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <form @submit.prevent="doFilter">
-      <v-text-field
-        class="mx-4 mb-4"
-        label="Filter the quiz"
-        v-model="q"
-        hide-details="auto"
-        append-icon="mdi-magnify"
-        @click:append="doFilter"
-        full-width
-      />
-    </form>
 
     <v-card class="mx-4 mb-4">
       <div class="d-flex flex-row align-center mx-4">

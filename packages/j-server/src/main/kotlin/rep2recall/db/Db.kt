@@ -47,15 +47,18 @@ class Db(
 
     init {
         transaction(db) {
-            val tables = arrayOf(
-                    UserTable, NoteAttrTable, NoteTable, PresetTable
-            )
-
             if (db.dialect.allTablesNames().isEmpty()) {
+                val tables = arrayOf(
+                        UserTable, NoteAttrTable, NoteTable, PresetTable,
+                        TagTable
+                )
+
                 SchemaUtils.create(*tables)
                 tables.map {
                     it.init()
                 }
+
+                SchemaUtils.create(NoteTagTable)
 
                 User.create("default")
             }

@@ -14,6 +14,7 @@ import org.eclipse.jetty.server.session.DefaultSessionCache
 import org.eclipse.jetty.server.session.JDBCSessionDataStoreFactory
 import org.eclipse.jetty.server.session.SessionHandler
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.transactions.transaction
 import rep2recall.db.Db
 import rep2recall.db.User
 import rep2recall.db.UserTable
@@ -46,10 +47,13 @@ object Api {
                                 .decode(authString.split(" ")[1])).split(':', limit = 2)
                         ctx.sessionAttribute(
                                 "userId",
-                                User.find {
-                                    (UserTable.apiKey eq u[1]) and (UserTable.email eq u[0])
-                                }.firstOrNull()?.id?.value
+                                transaction(db.db) {
+                                    User.find {
+                                        (UserTable.apiKey eq u[1]) and (UserTable.email eq u[0])
+                                    }.firstOrNull()?.id?.value
+                                }
                         )
+                        return@before
                     }
 
             ctx.header<String>("Authorization")
@@ -61,15 +65,27 @@ object Api {
                                     try {
                                         val d = FirebaseAuth.getInstance(firebaseApp)
                                                 .verifyIdToken(authString.split(" ")[1])
-                                        User.find { UserTable.email eq d.email }.firstOrNull()
-                                                ?: User.create(d.email, d.name)
+                                        transaction(db.db) {
+                                            (User.find { UserTable.email eq d.email }.firstOrNull()
+                                                    ?: User.create(d.email, d.name)).id.value
+                                        }
                                     } catch (e: Error) {
                                         ctx.status(401).result(e.message ?: "Unauthorized")
                                         null
                                     }
-                                } ?: User.find { UserTable.email eq "default" }.firstOrNull())?.id?.value
+                                })
                         )
+                        return@before
                     }
+
+            if (System.getenv("DATABASE_URL").isNullOrEmpty()) {
+                ctx.sessionAttribute(
+                        "userId",
+                        transaction(db.db) {
+                            User.find { UserTable.email eq "default" }.firstOrNull()?.id?.value
+                        }
+                )
+            }
         }
 
         path("note", NoteController.handler)

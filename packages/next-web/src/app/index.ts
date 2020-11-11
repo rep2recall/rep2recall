@@ -4,7 +4,7 @@ import { Component, Vue } from 'vue-property-decorator'
 
 @Component<App>({
   created () {
-    this.q = this.$route.query.q as string
+    this.q = this.$accessor.q
     this.loadTags()
   }
 })
@@ -16,23 +16,14 @@ export default class App extends Vue {
   isEdited = false
 
   doSearch () {
-    const isSearchablePath = ['/', '/edit', '/quiz'].includes('path')
-
-    if (!isSearchablePath || this.q !== this.$route.query.q) {
-      this.$router.push({
-        path: isSearchablePath ? this.$route.path : '/',
-        query: {
-          q: this.q
-        }
-      })
-    }
+    this.$accessor.UPDATE_Q(this.q)
   }
 
   doLoad (id: string) {
     this.$router.push({
       path: '/quiz',
       query: {
-        tag: id
+        id
       }
     })
   }
@@ -43,14 +34,38 @@ export default class App extends Vue {
 
   async loadTags () {
     try {
+      await api.get('/api/preset', {
+        params: {
+          select: 'id'
+        }
+      })
+    } catch (e) {
+      await api.put('/api/preset', {
+        id: '',
+        q: this.q,
+        name: 'Default',
+        selected: [''],
+        opened: [''],
+        status: {
+          new: true,
+          due: true,
+          leech: true,
+          graduated: false
+        }
+      })
+    }
+
+    try {
       const { data } = await api.get<{
-        data: ITag[];
+        result: ITag[];
       }>('/api/preset/all')
 
-      data.data.map((t) => {
-        this.$accessor.ADD_TAGS({
+      console.log(data)
+
+      data.result.map((t) => {
+        this.$accessor.UPDATE_TAGS({
           ...t,
-          canDelete: false
+          canDelete: !!t.id
         })
       })
     } catch (e) {

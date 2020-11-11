@@ -5,6 +5,7 @@ import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context
 import io.javalin.plugin.openapi.annotations.*
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import rep2recall.db.*
 
@@ -26,10 +27,12 @@ object QuizController {
     private fun query(ctx: Context) {
         val body = ctx.bodyValidator<QuizQueryRequest>().get()
 
-        ctx.json(QuizQueryResponse(
-                Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
-                    body.q, body.status, body.decks)).map { it.key }.shuffled()
-        ))
+        transaction(Api.db.db) {
+            ctx.json(QuizQueryResponse(
+                    Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+                            body.q, body.status, body.decks)).map { it.key }.shuffled()
+            ))
+        }
     }
 
     @OpenApi(
@@ -44,25 +47,27 @@ object QuizController {
         val body = ctx.bodyValidator<TreeviewRequest>().get()
         val now = DateTime.now()
 
-        ctx.json(TreeviewResponse(
-                Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
-                        body.q, body.status))
-                        .filter { it.deck != null }
-                        .groupBy { it.deck }
-                        .map { p ->
-                            TreeviewItem(
-                                    deck = p.key!!,
-                                    new = p.value.filter { it.srsLevel == null }.size,
-                                    due = p.value.filter {
-                                        it.nextReview?.let { r -> r < now } ?: true
-                                    }.size,
-                                    leech = p.value.filter {
-                                        it.srsLevel == 0 ||
-                                                (it.wrongStreak?.let { r -> r > 2 } ?: false)
-                                    }.size
-                            )
-                        }
-        ))
+        transaction(Api.db.db) {
+            ctx.json(TreeviewResponse(
+                    Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+                            body.q, body.status))
+                            .filter { it.deck != null }
+                            .groupBy { it.deck }
+                            .map { p ->
+                                TreeviewItem(
+                                        deck = p.key!!,
+                                        new = p.value.filter { it.srsLevel == null }.size,
+                                        due = p.value.filter {
+                                            it.nextReview?.let { r -> r < now } ?: true
+                                        }.size,
+                                        leech = p.value.filter {
+                                            it.srsLevel == 0 ||
+                                                    (it.wrongStreak?.let { r -> r > 2 } ?: false)
+                                        }.size
+                                )
+                            }
+            ))
+        }
     }
 
     @OpenApi(
@@ -85,16 +90,18 @@ object QuizController {
                 .check({ setOf("right", "wrong", "repeat").contains(it) })
                 .get()
 
-        Note.find {
-            (NoteTable.userId eq ctx.sessionAttribute<String>("userId")) and
-                    (NoteTable.key eq key)
-        }.firstOrNull()?.let {
-            when (`as`) {
-                "right" -> it.markRight()
-                "wrong" -> it.markWrong()
-                "repeat" -> it.markRepeat()
+        transaction(Api.db.db) {
+            Note.find {
+                (NoteTable.userId eq ctx.sessionAttribute<String>("userId")) and
+                        (NoteTable.key eq key)
+            }.firstOrNull()?.let {
+                when (`as`) {
+                    "right" -> it.markRight()
+                    "wrong" -> it.markWrong()
+                    "repeat" -> it.markRepeat()
+                }
+                ctx.status(201).json(StdSuccessResponse("updated"))
             }
-            ctx.status(201).json(StdSuccessResponse("updated"))
         } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
 

@@ -1,4 +1,5 @@
 import { api } from '@/assets/api'
+import { IStatus } from '@/store'
 import { Component, Vue } from 'vue-property-decorator'
 
 type ITreeview<T> = {
@@ -6,13 +7,6 @@ type ITreeview<T> = {
   name: string;
   children?: ITreeview<T>[];
 } & T
-
-interface IStatus {
-  new: boolean;
-  due: boolean;
-  leech: boolean;
-  graduated: boolean;
-}
 
 interface IQuizData {
   deck: string[];
@@ -43,6 +37,9 @@ interface IQuizData {
     },
     '$route.query.id' () {
       this.loadState()
+    },
+    '$store.state.q' () {
+      this.doFilter()
     }
   },
   created () {
@@ -50,10 +47,8 @@ interface IQuizData {
   }
 })
 export default class Quiz extends Vue {
-  q = ''
-
-  itemSelected: string[] = []
-  itemOpened: string[] = []
+  itemSelected = ['']
+  itemOpened = ['']
 
   status: IStatus = {
     new: true,
@@ -140,21 +135,21 @@ export default class Quiz extends Vue {
       new: 0,
       due: 0,
       leech: 0,
-      children: recurseTreeview(this.quizData, [])
+      children: this.quizData.length ? recurseTreeview(this.quizData, []) : undefined
     }]
   }
 
   async startQuiz () {
     try {
       const { data } = await api.post<{
-        ids: string[];
-      }>('/api/quiz/q', {
+        result: string[];
+      }>('/api/quiz', {
         decks: this.itemSelected,
-        q: this.q,
+        q: this.$accessor.q,
         status: this.status
       })
 
-      this.quizIds = data.ids
+      this.quizIds = data.result
       alert('Starting quiz')
     } catch (e) {
       console.error(e)
@@ -164,14 +159,14 @@ export default class Quiz extends Vue {
   async exportQuiz () {
     try {
       const { data } = await api.post<{
-        ids: string[];
-      }>('/api/quiz/q', {
+        result: string[];
+      }>('/api/quiz', {
         decks: this.itemSelected,
-        q: this.q,
+        q: this.$accessor.q,
         status: this.status
       })
 
-      this.quizIds = data.ids
+      this.quizIds = data.result
       alert('Exporting quiz')
     } catch (e) {
       console.error(e)
@@ -190,11 +185,21 @@ export default class Quiz extends Vue {
       const { data } = await api.put<{
         id: string;
       }>('/api/preset', {
-        q: this.q,
+        q: this.$accessor.q,
         name: this.saveName,
         selected: this.itemSelected,
         opened: this.itemOpened,
         status: this.status
+      })
+
+      this.$accessor.UPDATE_TAGS({
+        id: data.id,
+        q: this.$accessor.q,
+        name: this.saveName,
+        selected: this.itemSelected,
+        opened: this.itemOpened,
+        status: this.status,
+        canDelete: true
       })
 
       this.$router.push({
@@ -204,23 +209,13 @@ export default class Quiz extends Vue {
         }
       })
 
-      this.$accessor.UPDATE_TAGS({
-        id: data.id,
-        name: this.saveName,
-        q: this.q,
-        status: this.status,
-        canDelete: true,
-        itemSelected: this.itemSelected,
-        itemOpened: this.itemOpened
-      })
-
       this.isSaveNameDialog = false
     }
   }
 
   async doSaveUpdate () {
     await api.put('/api/preset', {
-      q: this.q,
+      q: this.$accessor.q,
       selected: this.itemSelected,
       opened: this.itemOpened,
       status: this.status
@@ -233,11 +228,11 @@ export default class Quiz extends Vue {
     this.$accessor.UPDATE_TAGS({
       id: this.$route.query.id as string,
       name: this.saveName,
-      q: this.q,
+      q: this.$accessor.q,
       status: this.status,
       canDelete: true,
-      itemSelected: this.itemSelected,
-      itemOpened: this.itemOpened
+      selected: this.itemSelected,
+      opened: this.itemOpened
     })
 
     this.isSaveNameDialog = false
@@ -254,11 +249,12 @@ export default class Quiz extends Vue {
         status: IStatus;
       }>('/api/preset', {
         params: {
-          id: this.$route.query.id
+          id: this.$route.query.id,
+          select: 'q,name,selected,opened,status'
         }
       })
 
-      this.q = data.q
+      this.$accessor.UPDATE_Q(data.q)
       this.saveName = data.name
       this.itemSelected = data.selected
       this.itemOpened = data.opened
@@ -301,12 +297,16 @@ export default class Quiz extends Vue {
 
   async saveState () {
     try {
-      await api.put('/api/preset/default', {
-        q: this.q,
+      await api.patch('/api/preset', {
+        q: this.$accessor.q,
         name: this.saveName,
         selected: this.itemSelected,
         opened: this.itemOpened,
         status: this.status
+      }, {
+        params: {
+          id: this.$route.query.id
+        }
       })
     } catch (e) {
       console.error(e)
@@ -323,13 +323,13 @@ export default class Quiz extends Vue {
     this._doFilterTimeout = window.setTimeout(async () => {
       try {
         const { data } = await api.post<{
-          data: IQuizData[];
+          result: IQuizData[];
         }>('/api/quiz/treeview', {
-          q: this.q,
+          q: this.$accessor.q,
           status: this.status
         })
 
-        this.quizData = data.data
+        this.quizData = data.result
       } catch (e) {
         console.error(e)
       }

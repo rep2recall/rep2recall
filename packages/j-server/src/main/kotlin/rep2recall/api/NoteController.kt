@@ -2,11 +2,13 @@ package rep2recall.api
 
 import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.JsonElement
+import com.google.gson.JsonNull
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context
 import io.javalin.plugin.openapi.annotations.*
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import rep2recall.db.*
 
@@ -30,7 +32,7 @@ object NoteController {
             ],
             responses = [
                 OpenApiResponse("200", [OpenApiContent(NotePartialSer::class)]),
-                OpenApiResponse("404", [OpenApiContent(StdErrorResponse::class)])
+                OpenApiResponse("400", [OpenApiContent(StdErrorResponse::class)])
             ]
     )
     private fun getOne(ctx: Context) {
@@ -38,9 +40,11 @@ object NoteController {
                 .split(",")
                 .toSet()
 
-        _findOne(ctx)?.let {
-            ctx.json(it.filterKey(select))
-        } ?: ctx.status(404).json(StdErrorResponse("not found"))
+        transaction(Api.db.db) {
+            _findOne(ctx)?.let {
+                ctx.json(it.filterKey(select))
+            }
+        } ?: ctx.status(400).json(StdErrorResponse("not found"))
     }
 
     @OpenApi(
@@ -54,10 +58,12 @@ object NoteController {
     private fun create(ctx: Context) {
         val body = ctx.bodyValidator<NoteSer>().get()
 
-        val n = Note.create(
-                User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
-                body
-        )
+        val n = transaction(Api.db.db) {
+            Note.create(
+                    User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
+                    body
+            )
+        }
 
         ctx.status(201).json(CreateResponse(n.id.value))
     }
@@ -77,106 +83,108 @@ object NoteController {
             ]
     )
     private fun update(ctx: Context) {
-        val body = ctx.body<Map<String, JsonElement>>()
+        val body = ctx.body<Map<String, Any>>()
 
-        _findOne(ctx)?.let { n ->
-            n.updatedAt = DateTime.now()
+        transaction(Api.db.db) {
+            _findOne(ctx)?.let { n ->
+                n.updatedAt = DateTime.now()
 
-            body["nextReview"]?.let {
-                n.nextReview = if (it.isJsonNull) {
-                    null
-                } else DateTime.parse(gson.fromJson(it))
-            }
+                body["nextReview"]?.let {
+                    n.nextReview = if (it is JsonNull) {
+                        null
+                    } else DateTime.parse(gson.fromJson(gson.toJson(it)))
+                }
 
-            body["lastRight"]?.let {
-                n.lastRight = if (it.isJsonNull) {
-                    null
-                } else DateTime.parse(gson.fromJson(it))
-            }
+                body["lastRight"]?.let {
+                    n.lastRight = if (it is JsonNull) {
+                        null
+                    } else DateTime.parse(gson.fromJson(gson.toJson(it)))
+                }
 
-            body["lastWrong"]?.let {
-                n.lastWrong = if (it.isJsonNull) {
-                    null
-                } else DateTime.parse(gson.fromJson(it))
-            }
+                body["lastWrong"]?.let {
+                    n.lastWrong = if (it is JsonNull) {
+                        null
+                    } else DateTime.parse(gson.fromJson(gson.toJson(it)))
+                }
 
-            body["key"]?.let {
-                n.key = gson.fromJson(it)
-            }
+                body["key"]?.let {
+                    n.key = gson.fromJson(gson.toJson(it))
+                }
 
-            body["deck"]?.let {
-                n.deck = gson.fromJson(it)
-            }
+                body["deck"]?.let {
+                    n.deck = gson.fromJson(gson.toJson(it))
+                }
 
-            body["front"]?.let {
-                n.front = gson.fromJson(it)
-            }
+                body["front"]?.let {
+                    n.front = gson.fromJson(gson.toJson(it))
+                }
 
-            body["back"]?.let {
-                n.back = gson.fromJson(it)
-            }
+                body["back"]?.let {
+                    n.back = gson.fromJson(gson.toJson(it))
+                }
 
-            body["mnemonic"]?.let {
-                n.mnemonic = gson.fromJson(it)
-            }
+                body["mnemonic"]?.let {
+                    n.mnemonic = gson.fromJson(gson.toJson(it))
+                }
 
-            body["srsLevel"]?.let {
-                n.srsLevel = gson.fromJson(it)
-            }
+                body["srsLevel"]?.let {
+                    n.srsLevel = gson.fromJson(gson.toJson(it))
+                }
 
-            body["rightStreak"]?.let {
-                n.rightStreak = gson.fromJson(it)
-            }
+                body["rightStreak"]?.let {
+                    n.rightStreak = gson.fromJson(gson.toJson(it))
+                }
 
-            body["wrongStreak"]?.let {
-                n.wrongStreak = gson.fromJson(it)
-            }
+                body["wrongStreak"]?.let {
+                    n.wrongStreak = gson.fromJson(gson.toJson(it))
+                }
 
-            body["maxRight"]?.let {
-                n.maxRight = gson.fromJson(it)
-            }
+                body["maxRight"]?.let {
+                    n.maxRight = gson.fromJson(gson.toJson(it))
+                }
 
-            body["maxWrong"]?.let {
-                n.maxWrong = gson.fromJson(it)
-            }
+                body["maxWrong"]?.let {
+                    n.maxWrong = gson.fromJson(gson.toJson(it))
+                }
 
-            body["data"]?.let {
-                val data = gson.fromJson<List<NoteAttrSer>>(it)
-                val oldItems = n.data.toMutableList()
+                body["data"]?.let {
+                    val data = gson.fromJson<List<NoteAttrSer>>(gson.toJson(it))
+                    val oldItems = n.data.toMutableList()
 
-                for (a in data) {
-                    var isNew = true
-                    for (item in oldItems) {
-                        if (a.key == item.key) {
-                            item.value = a.value
-                            oldItems.remove(item)
-                            isNew = false
-                            break
+                    for (a in data) {
+                        var isNew = true
+                        for (item in oldItems) {
+                            if (a.key == item.key) {
+                                item.value = a.value
+                                oldItems.remove(item)
+                                isNew = false
+                                break
+                            }
+                        }
+
+                        if (isNew) {
+                            NoteAttr.create(a.key, a.value, n)
                         }
                     }
 
-                    if (isNew) {
-                        NoteAttr.create(a.key, a.value, n)
+                    for (item in oldItems) {
+                        item.delete()
                     }
                 }
 
-                for (item in oldItems) {
-                    item.delete()
+                body["tag"]?.let {
+                    User.findById(ctx.sessionAttribute<String>("userId")!!)?.let { u ->
+                        val tags = gson.fromJson<List<String>>(gson.toJson(it))
+                        n.tags = SizedCollection(tags.map { t ->
+                            Tag.upsert(u, t)
+                        })
+                    }
                 }
-            }
 
-            body["tag"]?.let {
-                User.findById(ctx.sessionAttribute<String>("userId")!!)?.let { u ->
-                    val tags = gson.fromJson<List<String>>(it)
-                    n.tags = SizedCollection(tags.map { t ->
-                        Tag.upsert(u, t)
-                    })
-                }
+                ctx.status(201).json(mapOf(
+                        "result" to "updated"
+                ))
             }
-
-            ctx.status(201).json(mapOf(
-                    "result" to "updated"
-            ))
         } ?: ctx.status(304).json(mapOf(
                 "error" to "not found"
         ))
@@ -196,10 +204,12 @@ object NoteController {
             ]
     )
     private fun delete(ctx: Context) {
-        _findOne(ctx)?.let {
-            it.delete()
+        transaction(Api.db.db) {
+            _findOne(ctx)?.let {
+                it.delete()
 
-            ctx.status(201).json(StdSuccessResponse("deleted"))
+                ctx.status(201).json(StdSuccessResponse("deleted"))
+            }
         } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
 

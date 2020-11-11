@@ -36,16 +36,16 @@
 
           <v-list-item
             v-for="t in $store.state.tags"
-            :key="t.name"
+            :key="t.id"
             link
             dense
           >
-            <v-list-item-content @click.native="doLoad(t.name)">
+            <v-list-item-content @click="doLoad(t.id)">
               <v-list-item-title> {{t.name}} </v-list-item-title>
             </v-list-item-content>
 
             <v-list-item-action v-if="t.canDelete">
-              <v-btn icon @click="doDelete(t.name)">
+              <v-btn icon @click="doDelete(t.id)">
                 <v-icon>mdi-trash-can-outline</v-icon>
               </v-btn>
             </v-list-item-action>

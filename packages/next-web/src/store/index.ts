@@ -6,18 +6,20 @@ import {
 import Vue from 'vue'
 import Vuex from 'vuex'
 
+export interface IStatus {
+  new: boolean;
+  due: boolean;
+  leech: boolean;
+  graduated: boolean;
+}
+
 export interface ITag {
   id: string;
   name: string;
   q: string;
-  status: {
-    new: boolean;
-    due: boolean;
-    leech: boolean;
-    graduated: boolean;
-  };
-  itemSelected: string[];
-  itemOpened: string[];
+  status: IStatus;
+  selected: string[];
+  opened: string[];
 }
 
 type ITagFull = ITag & {
@@ -27,25 +29,17 @@ type ITagFull = ITag & {
 Vue.use(Vuex)
 
 const state = (): {
+  q: string;
   tags: ITagFull[];
 } => ({
-  tags: [{
-    id: '',
-    name: 'Default',
-    q: '',
-    status: {
-      new: true,
-      due: true,
-      leech: true,
-      graduated: false
-    },
-    canDelete: false,
-    itemSelected: [''],
-    itemOpened: ['']
-  }]
+  q: '',
+  tags: []
 })
 
 const mutations = mutationTree(state, {
+  UPDATE_Q (state, q: string) {
+    state.q = q
+  },
   UPDATE_TAGS (state, t: ITagFull) {
     const i = state.tags.map((t0) => t0.name).indexOf(t.name)
 

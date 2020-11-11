@@ -2,15 +2,26 @@ package rep2recall
 
 import io.javalin.Javalin
 import io.javalin.apibuilder.ApiBuilder.path
+import io.javalin.plugin.json.FromJsonMapper
+import io.javalin.plugin.json.JavalinJson
+import io.javalin.plugin.json.ToJsonMapper
 import io.javalin.plugin.openapi.OpenApiOptions
 import io.javalin.plugin.openapi.OpenApiPlugin
 import io.javalin.plugin.openapi.annotations.HttpMethod
 import io.javalin.plugin.openapi.ui.ReDocOptions
-import io.javalin.plugin.openapi.ui.SwaggerOptions
 import io.swagger.v3.oas.models.info.Info
 import rep2recall.api.Api
+import rep2recall.db.gson
 
 fun main() {
+    JavalinJson.fromJsonMapper = object : FromJsonMapper {
+        override fun <T> map(json: String, targetClass: Class<T>) = gson.fromJson(json, targetClass)
+    }
+
+    JavalinJson.toJsonMapper = object : ToJsonMapper {
+        override fun map(obj: Any): String = gson.toJson(obj)
+    }
+
     val app = Javalin.create {
         it.registerPlugin(OpenApiPlugin(
                 OpenApiOptions(Info()
@@ -32,7 +43,7 @@ fun main() {
         it.sessionHandler {
             Api.sessionHandler
         }
-    }.start(System.getenv("PORT")?.toInt() ?: 24000)
+    }.start(System.getenv("PORT")?.toInt() ?: 36393)
 
     app.routes {
         path("api", Api.router)

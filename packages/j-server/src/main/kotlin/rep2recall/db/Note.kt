@@ -191,7 +191,7 @@ data class NoteSer(
         val lastRight: String? = null,
         val lastWrong: String? = null,
 
-        val id: String,
+        val id: String? = null,
         val key: String? = null,
         val deck: String? = null,
         val front: String? = null,

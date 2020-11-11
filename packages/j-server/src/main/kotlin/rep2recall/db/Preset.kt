@@ -21,7 +21,7 @@ class Preset(id: EntityID<String>): SerEntity(id) {
                 user: User,
                 p: PresetSer
         ): Preset {
-            return new {
+            return new(p.id) {
                 this.userId = user.id
                 this.q = p.q
                 this.name = p.name
@@ -33,8 +33,8 @@ class Preset(id: EntityID<String>): SerEntity(id) {
     }
 
     var updatedAt by PresetTable.updatedAt
-    var userId by NoteTable.userId
-    val user by User referencedOn NoteTable.userId
+    var userId by PresetTable.userId
+    val user by User referencedOn PresetTable.userId
 
     var q by PresetTable.q
     var name by PresetTable.name
@@ -58,7 +58,7 @@ class Preset(id: EntityID<String>): SerEntity(id) {
 }
 
 data class PresetSer(
-        val id: String,
+        val id: String? = null,
         val q: String,
         val name: String,
         val status: PresetStatus,
