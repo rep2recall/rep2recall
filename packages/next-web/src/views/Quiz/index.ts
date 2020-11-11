@@ -140,37 +140,29 @@ export default class Quiz extends Vue {
   }
 
   async startQuiz () {
-    try {
-      const { data } = await api.post<{
-        result: string[];
-      }>('/api/quiz', {
-        decks: this.itemSelected,
-        q: this.$accessor.q,
-        status: this.status
-      })
+    const { data } = await api.post<{
+      result: string[];
+    }>('/api/quiz', {
+      decks: this.itemSelected,
+      q: this.$accessor.q,
+      status: this.status
+    })
 
-      this.quizIds = data.result
-      alert('Starting quiz')
-    } catch (e) {
-      console.error(e)
-    }
+    this.quizIds = data.result
+    alert('Starting quiz')
   }
 
   async exportQuiz () {
-    try {
-      const { data } = await api.post<{
-        result: string[];
-      }>('/api/quiz', {
-        decks: this.itemSelected,
-        q: this.$accessor.q,
-        status: this.status
-      })
+    const { data } = await api.post<{
+      result: string[];
+    }>('/api/quiz', {
+      decks: this.itemSelected,
+      q: this.$accessor.q,
+      status: this.status
+    })
 
-      this.quizIds = data.result
-      alert('Exporting quiz')
-    } catch (e) {
-      console.error(e)
-    }
+    this.quizIds = data.result
+    alert('Exporting quiz')
   }
 
   openSaveNameDialog () {
@@ -214,7 +206,7 @@ export default class Quiz extends Vue {
   }
 
   async doSaveUpdate () {
-    await api.put('/api/preset', {
+    await api.patch('/api/preset', {
       q: this.$accessor.q,
       selected: this.itemSelected,
       opened: this.itemOpened,
@@ -261,56 +253,20 @@ export default class Quiz extends Vue {
       this.status = data.status
 
       this.doFilter()
-    } catch (e) {
-      console.error(e)
-
-      this.itemSelected = ['Level 11-20\x1fLevel 11']
-      this.itemOpened = ['', 'Level 11-20', 'Level 11-20\x1fLevel 12']
-      this.quizData = [
-        {
-          deck: ['Level  1-10', 'Level  1', 'JE'],
-          new: Math.floor(Math.random() * 10000),
-          due: Math.floor(Math.random() * 10000),
-          leech: Math.floor(Math.random() * 10000)
-        },
-        {
-          deck: ['Level 11-20', 'Level 11', 'JE'],
-          new: Math.floor(Math.random() * 10000),
-          due: Math.floor(Math.random() * 10000),
-          leech: Math.floor(Math.random() * 10000)
-        },
-        {
-          deck: ['Level 11-20', 'Level 12', 'JE'],
-          new: Math.floor(Math.random() * 10000),
-          due: Math.floor(Math.random() * 10000),
-          leech: Math.floor(Math.random() * 10000)
-        },
-        {
-          deck: ['Level 11-20', 'Level 12', 'EJ'],
-          new: Math.floor(Math.random() * 10000),
-          due: Math.floor(Math.random() * 10000),
-          leech: Math.floor(Math.random() * 10000)
-        }
-      ]
-    }
+    } catch (_) {}
   }
 
   async saveState () {
-    try {
-      await api.patch('/api/preset', {
-        q: this.$accessor.q,
-        name: this.saveName,
-        selected: this.itemSelected,
-        opened: this.itemOpened,
-        status: this.status
-      }, {
-        params: {
-          id: this.$route.query.id
-        }
-      })
-    } catch (e) {
-      console.error(e)
-    }
+    await api.patch('/api/preset', {
+      q: this.$accessor.q,
+      selected: this.itemSelected,
+      opened: this.itemOpened,
+      status: this.status
+    }, {
+      params: {
+        id: this.$route.query.id
+      }
+    })
   }
 
   _doFilterTimeout: number | null = null
@@ -321,18 +277,14 @@ export default class Quiz extends Vue {
     }
 
     this._doFilterTimeout = window.setTimeout(async () => {
-      try {
-        const { data } = await api.post<{
-          result: IQuizData[];
-        }>('/api/quiz/treeview', {
-          q: this.$accessor.q,
-          status: this.status
-        })
+      const { data } = await api.post<{
+        result: IQuizData[];
+      }>('/api/quiz/treeview', {
+        q: this.$accessor.q,
+        status: this.status
+      })
 
-        this.quizData = data.result
-      } catch (e) {
-        console.error(e)
-      }
+      this.quizData = data.result
     }, 500)
   }
 }

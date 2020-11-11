@@ -26,19 +26,36 @@ type ITagFull = ITag & {
   canDelete: boolean;
 }
 
+export interface IUser {
+  name: string;
+  email: string;
+  image: string;
+  apiKey: string;
+}
+
 Vue.use(Vuex)
 
 const state = (): {
   q: string;
   tags: ITagFull[];
+  user: IUser;
 } => ({
   q: '',
-  tags: []
+  tags: [],
+  user: {
+    name: '',
+    email: '',
+    image: '',
+    apiKey: ''
+  }
 })
 
 const mutations = mutationTree(state, {
   UPDATE_Q (state, q: string) {
     state.q = q
+  },
+  UPDATE_USER (state, user: IUser) {
+    state.user = user
   },
   UPDATE_TAGS (state, t: ITagFull) {
     const i = state.tags.map((t0) => t0.name).indexOf(t.name)

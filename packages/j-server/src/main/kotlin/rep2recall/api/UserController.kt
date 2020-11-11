@@ -1,22 +1,18 @@
 package rep2recall.api
 
+import com.github.salomonbrys.kotson.fromJson
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.http.Context
-import rep2recall.db.User
-import rep2recall.db.UserTable
 import io.javalin.apibuilder.ApiBuilder.*
-import io.javalin.plugin.openapi.annotations.OpenApi
-import io.javalin.plugin.openapi.annotations.OpenApiContent
-import io.javalin.plugin.openapi.annotations.OpenApiParam
-import io.javalin.plugin.openapi.annotations.OpenApiResponse
+import io.javalin.plugin.openapi.annotations.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import rep2recall.db.UserPartialSer
-import rep2recall.db.filterKey
+import rep2recall.db.*
 
 object UserController {
     val handler = EndpointGroup {
         get(this::getOne)
+        patch(this::update)
         patch("apiKey", this::newApiKey)
         post("signOut", this::signOut)
         delete(this::delete)
@@ -46,6 +42,41 @@ object UserController {
                 ctx.json(it.filterKey(select))
             }
         } ?: ctx.status(400).json(StdErrorResponse("not found"))
+    }
+
+    @OpenApi(
+            tags = ["user"],
+            summary = "Update current User",
+            requestBody = OpenApiRequestBody([OpenApiContent(UserPartialSer::class)]),
+            responses = [
+                OpenApiResponse("201", [OpenApiContent(StdSuccessResponse::class)]),
+                OpenApiResponse("304", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
+    private fun update(ctx: Context) {
+        val body = ctx.body<Map<String, Any>>()
+
+        transaction(Api.db.db) {
+            User.find {
+                UserTable.id eq ctx.sessionAttribute<String>("userId")
+            }.firstOrNull()?.let { p ->
+                p.updatedAt = DateTime.now()
+
+                body["email"]?.let {
+                    p.email = gson.fromJson(gson.toJson(it))
+                }
+
+                body["image"]?.let {
+                    p.image = gson.fromJson(gson.toJson(it))
+                }
+
+                body["name"]?.let {
+                    p.name = gson.fromJson(gson.toJson(it))
+                }
+
+                ctx.status(201).json(StdSuccessResponse("updated"))
+            }
+        } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
 
     @OpenApi(

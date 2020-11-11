@@ -8,6 +8,9 @@ module.exports = {
     proxy: {
       '^/api/': {
         target: 'http://localhost:36393'
+      },
+      '^/media/': {
+        target: 'http://localhost:36393'
       }
     }
   }

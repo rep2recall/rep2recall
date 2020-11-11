@@ -90,11 +90,13 @@
       <template v-slot:append>
         <v-list-item two-line>
           <v-list-item-avatar>
-            <img src="https://randomuser.me/api/portraits/lego/1.jpg">
+            <img :src="user.image">
           </v-list-item-avatar>
 
           <v-list-item-content>
-            <v-list-item-title>John Doe</v-list-item-title>
+            <v-list-item-title>
+              {{ user.name }}
+            </v-list-item-title>
             <v-list-item-subtitle>
               <v-btn x-small color="primary">
                 Logout

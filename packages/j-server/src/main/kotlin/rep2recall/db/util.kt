@@ -5,6 +5,8 @@ import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
+import com.talanlabs.avatargenerator.Avatar
+import com.talanlabs.avatargenerator.IdenticonAvatar
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -19,11 +21,34 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.regexp
 import org.joda.time.DateTime
 import org.joda.time.Duration
+import java.awt.image.BufferedImage
+import java.security.SecureRandom
+import java.util.*
 import java.util.regex.Pattern
 
 val gson: Gson = GsonBuilder()
 //        .serializeNulls()
         .create()
+
+val rand = SecureRandom()
+
+fun randomString(size: Int): String {
+    val ba = ByteArray(size)
+    rand.nextBytes(ba)
+    return String(Base64.getEncoder().encode(ba))
+}
+
+val avatarBuilder: Avatar = IdenticonAvatar.newAvatarBuilder().build()
+
+fun String.avatar(): BufferedImage {
+    val s = if (isBlank()) randomString(16) else this
+    var h = 1125899906842597L // prime
+    for (c in s.toCharArray()) {
+        h = 31*h + c.toLong()
+    }
+
+    return avatarBuilder.create(h)
+}
 
 abstract class InitTable(name: String = ""): IdTable<String>(name) {
     override val id = varchar("id", 26).entityId()

@@ -5,17 +5,21 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
 import java.io.File
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.sql.ResultSet
 
 class Db(
         dbString: String
 ) {
-    val isJar = Db::class.java.getResource("Db.class").toString().startsWith("jar:")
-    private val root: File = if (isJar) {
-        File(Db::class.java.protectionDomain.codeSource.location.toURI()).parentFile
-    } else {
-        File(System.getProperty("user.dir"))
+    companion object {
+        val isJar = Db::class.java.getResource("Db.class").toString().startsWith("jar:")
+        private val root: File = if (isJar) {
+            File(Db::class.java.protectionDomain.codeSource.location.toURI()).parentFile
+        } else {
+            File(System.getProperty("user.dir"))
+        }
+        val mediaPath: Path = Paths.get(root.toString(), "_media")
     }
 
     private val username = ""
@@ -46,6 +50,8 @@ class Db(
     }
 
     init {
+        mediaPath.toFile().mkdir()
+
         transaction(db) {
             if (db.dialect.allTablesNames().isEmpty()) {
                 val tables = arrayOf(
@@ -60,7 +66,7 @@ class Db(
 
                 SchemaUtils.create(NoteTagTable)
 
-                User.create("default")
+                User.create("")
             }
         }
     }

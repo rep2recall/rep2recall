@@ -67,7 +67,7 @@ object Api {
                                                 .verifyIdToken(authString.split(" ")[1])
                                         transaction(db.db) {
                                             (User.find { UserTable.email eq d.email }.firstOrNull()
-                                                    ?: User.create(d.email, d.name)).id.value
+                                                    ?: User.create(d.email, d.name, d.picture)).id.value
                                         }
                                     } catch (e: Error) {
                                         ctx.status(401).result(e.message ?: "Unauthorized")
@@ -82,7 +82,9 @@ object Api {
                 ctx.sessionAttribute(
                         "userId",
                         transaction(db.db) {
-                            User.find { UserTable.email eq "default" }.firstOrNull()?.id?.value
+                            User.find {
+                                UserTable.email eq (System.getenv("DEFAULT_USER") ?: "")
+                            }.firstOrNull()?.id?.value
                         }
                 )
             }

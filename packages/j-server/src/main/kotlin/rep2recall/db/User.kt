@@ -3,13 +3,18 @@ package rep2recall.db
 import com.github.guepardoapps.kulid.ULID
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.jodatime.datetime
-import java.security.SecureRandom
-import java.util.*
+import rep2recall.api.Api
+import java.io.File
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Paths
+import javax.imageio.ImageIO
 
 object UserTable: InitTable("user") {
     val updatedAt = datetime("updated_at").nullable()
 
     val email = varchar("email", 100).uniqueIndex()
+    val image = varchar("image", 100)
     val name = varchar("name", 100)
     val apiKey = varchar("api_key", 100)
 }
@@ -28,25 +33,67 @@ class User(id: EntityID<String>): SerEntity(id) {
         fun create(
                 email: String,
                 name: String? = null,
+                image: String? = null,
                 id: String? = null
         ): User {
+            var trueName = name ?: email.split('@')[0]
+            val filename = let {
+                val s = StringBuilder()
+                for (c in email.toCharArray()) {
+                    if (c == '.' || Character.isJavaIdentifierPart(c)) {
+                        s.append(c)
+                    }
+                }
+
+                if (s.isBlank()) {
+                    "${randomString(16)}.png"
+                } else "$s.png"
+            }
+            var imageURL = ""
+            try {
+                if (image != null) {
+                    Files.copy(
+                            URL(image).openStream(),
+                            Paths.get(
+                                    Db.mediaPath.toString(),
+                                    filename
+                            )
+                    )
+                    imageURL = "/media/$filename"
+                }
+            } catch (e: Error) {}
+
+            if (imageURL.isEmpty()) {
+                ImageIO.write(
+                        email.avatar(),
+                        "png",
+                        Paths.get(
+                                Db.mediaPath.toString(),
+                                filename
+                        ).toFile()
+
+                )
+                imageURL = "/media/$filename"
+            }
+
+            if (trueName.isEmpty()) {
+                trueName = "default"
+            }
+
             return new(id) {
-                this.name = name ?: email.split('@')[0]
+                this.name = trueName
                 this.email = email
+                this.image = imageURL
             }
         }
 
-        fun newApiKey(): String {
-            val rand = SecureRandom()
-            val ba = ByteArray(32)
-            rand.nextBytes(ba)
-            return String(Base64.getEncoder().encode(ba))
-        }
+        fun newApiKey() = randomString(32)
     }
 
     var updatedAt by UserTable.updatedAt
 
     var email by UserTable.email
+    var image by UserTable.image
     var name by UserTable.name
     var apiKey by UserTable.apiKey
 
@@ -63,20 +110,22 @@ class User(id: EntityID<String>): SerEntity(id) {
 
     override fun serialize() = UserSer(
             id.value,
-            email, name, apiKey
+            email, image, name, apiKey
     )
 }
 
 data class UserSer(
         val id: String,
         val email: String,
-        val name: String?,
+        val image: String?,
+        val name: String,
         val apiKey: String
 )
 
 data class UserPartialSer(
         val id: String?,
         val email: String?,
+        val image: String?,
         val name: String?,
         val apiKey: String?
 )

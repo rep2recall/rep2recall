@@ -1,11 +1,14 @@
 import { api } from '@/assets/api'
-import { ITag } from '@/store'
+import { ITag, IUser } from '@/store'
 import { Component, Vue } from 'vue-property-decorator'
 
 @Component<App>({
   created () {
     this.q = this.$accessor.q
-    this.loadTags()
+    Promise.all([
+      this.loadUser(),
+      this.loadPreset()
+    ])
   }
 })
 export default class App extends Vue {
@@ -14,6 +17,10 @@ export default class App extends Vue {
   q = ''
 
   isEdited = false
+
+  get user () {
+    return this.$accessor.user
+  }
 
   doSearch () {
     this.$accessor.UPDATE_Q(this.q)
@@ -32,7 +39,17 @@ export default class App extends Vue {
     this.$accessor.REMOVE_TAGS(id)
   }
 
-  async loadTags () {
+  async loadUser () {
+    const { data } = await api.get<IUser>('/api/user', {
+      params: {
+        select: 'name,email,image,apiKey'
+      }
+    })
+
+    this.$accessor.UPDATE_USER(data)
+  }
+
+  async loadPreset () {
     try {
       await api.get('/api/preset', {
         params: {
@@ -55,21 +72,15 @@ export default class App extends Vue {
       })
     }
 
-    try {
-      const { data } = await api.get<{
-        result: ITag[];
-      }>('/api/preset/all')
+    const { data } = await api.get<{
+      result: ITag[];
+    }>('/api/preset/all')
 
-      console.log(data)
-
-      data.result.map((t) => {
-        this.$accessor.UPDATE_TAGS({
-          ...t,
-          canDelete: !!t.id
-        })
+    data.result.map((t) => {
+      this.$accessor.UPDATE_TAGS({
+        ...t,
+        canDelete: !!t.id
       })
-    } catch (e) {
-      console.error(e)
-    }
+    })
   }
 }
