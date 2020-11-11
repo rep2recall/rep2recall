@@ -35,7 +35,7 @@ data class TreeviewRequest(
 )
 
 data class TreeviewItem(
-        val deck: String,
+        val deck: List<String>,
         val new: Int,
         val due: Int,
         val leech: Int

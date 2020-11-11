@@ -55,7 +55,7 @@ object QuizController {
                             .groupBy { it.deck }
                             .map { p ->
                                 TreeviewItem(
-                                        deck = p.key!!,
+                                        deck = p.key!!.split("::"),
                                         new = p.value.filter { it.srsLevel == null }.size,
                                         due = p.value.filter {
                                             it.nextReview?.let { r -> r < now } ?: true
