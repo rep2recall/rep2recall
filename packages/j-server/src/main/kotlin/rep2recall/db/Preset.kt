@@ -11,8 +11,8 @@ object PresetTable: InitTable("preset") {
     val q = varchar("q", 100)
     val name = varchar("name", 50)
     val status = varchar("status", 500)
-    val selected = varchar("selected", 5000)
-    val opened = varchar("opened", 5000)
+    val selected = varchar("selected", 10000)
+    val opened = varchar("opened", 10000)
 }
 
 class Preset(id: EntityID<String>): SerEntity(id) {

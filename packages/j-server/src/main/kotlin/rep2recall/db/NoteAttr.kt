@@ -4,7 +4,7 @@ import org.jetbrains.exposed.dao.id.EntityID
 
 object NoteAttrTable: InitTable("note_attr") {
     val key = varchar("key", 50)
-    val value = varchar("value", 1000)
+    val value = varchar("value", 5000)
     val noteId = reference("note_id", NoteTable)
 
     override fun init() {

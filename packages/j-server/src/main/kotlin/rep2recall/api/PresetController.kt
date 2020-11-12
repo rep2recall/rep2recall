@@ -1,7 +1,6 @@
 package rep2recall.api
 
 import com.github.salomonbrys.kotson.fromJson
-import com.google.gson.JsonElement
 import io.javalin.apibuilder.EndpointGroup
 import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.http.Context

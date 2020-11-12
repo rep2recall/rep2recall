@@ -15,9 +15,9 @@ object NoteTable: InitTable("note") {
     val key = varchar("key", 26).index()
 
     val deck = varchar("deck", 200).nullable().index()
-    val front = varchar("front", 1000).nullable()
-    val back = varchar("back", 1000).nullable()
-    val mnemonic = varchar("mnemonic", 1000).nullable()
+    val front = varchar("front", 10000).nullable()
+    val back = varchar("back", 10000).nullable()
+    val mnemonic = varchar("mnemonic", 10000).nullable()
 
     val srsLevel = integer("srs_level").nullable().index()
     val nextReview = datetime("next_review").nullable().index()

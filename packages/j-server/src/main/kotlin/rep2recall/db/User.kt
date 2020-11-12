@@ -16,7 +16,7 @@ object UserTable: InitTable("user") {
     val email = varchar("email", 100).uniqueIndex()
     val image = varchar("image", 100)
     val name = varchar("name", 100)
-    val apiKey = varchar("api_key", 100)
+    val apiKey = varchar("api_key", 100).index()
 }
 
 class User(id: EntityID<String>): SerEntity(id) {

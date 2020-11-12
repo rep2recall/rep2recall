@@ -26,7 +26,7 @@
         <v-list-group
           class="group-quiz"
           :value="isTagOpen"
-          prepend-icon="mdi-comment-question-outline"
+          prepend-icon="mdi-frequently-asked-questions"
         >
           <template v-slot:activator>
             <v-list-item-title @click.stop="$router.push('/')">
@@ -52,13 +52,13 @@
           </v-list-item>
         </v-list-group>
 
-        <v-list-item to="/edit">
+        <v-list-item to="/browse">
           <v-list-item-icon>
-            <v-icon>mdi-pencil</v-icon>
+            <v-icon>mdi-format-list-bulleted</v-icon>
           </v-list-item-icon>
 
           <v-list-item-content>
-            <v-list-item-title>Edit</v-list-item-title>
+            <v-list-item-title>Browse</v-list-item-title>
           </v-list-item-content>
         </v-list-item>
 
