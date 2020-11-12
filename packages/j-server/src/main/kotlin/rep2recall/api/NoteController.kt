@@ -39,7 +39,7 @@ object NoteController {
                 .split(",")
                 .toSet()
 
-        transaction(Api.db.db) {
+        transaction {
             _findOne(ctx)?.let {
                 ctx.json(it.filterKey(select))
             }
@@ -57,7 +57,7 @@ object NoteController {
     private fun create(ctx: Context) {
         val body = ctx.bodyValidator<NoteSer>().get()
 
-        val n = transaction(Api.db.db) {
+        val n = transaction {
             Note.create(
                     User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
                     body
@@ -84,7 +84,7 @@ object NoteController {
     private fun update(ctx: Context) {
         val body = ctx.body<Map<String, Any>>()
 
-        transaction(Api.db.db) {
+        transaction {
             _findOne(ctx)?.let { n ->
                 n.updatedAt = DateTime.now()
 
@@ -147,8 +147,12 @@ object NoteController {
                 }
 
                 body["data"]?.let {
+                    n.data = gson.fromJson(gson.toJson(it))
+                }
+
+                body["attr"]?.let {
                     val data = gson.fromJson<List<NoteAttrSer>>(gson.toJson(it))
-                    val oldItems = n.data.toMutableList()
+                    val oldItems = n.attr.toMutableList()
 
                     for (a in data) {
                         var isNew = true
@@ -169,12 +173,13 @@ object NoteController {
                     for (item in oldItems) {
                         item.delete()
                     }
+
                 }
 
                 body["tag"]?.let {
                     User.findById(ctx.sessionAttribute<String>("userId")!!)?.let { u ->
                         val tags = gson.fromJson<List<String>>(gson.toJson(it))
-                        n.tags = SizedCollection(tags.map { t ->
+                        n.tag = SizedCollection(tags.map { t ->
                             Tag.upsert(u, t)
                         })
                     }
@@ -203,7 +208,7 @@ object NoteController {
             ]
     )
     private fun delete(ctx: Context) {
-        transaction(Api.db.db) {
+        transaction {
             _findOne(ctx)?.let {
                 it.delete()
 

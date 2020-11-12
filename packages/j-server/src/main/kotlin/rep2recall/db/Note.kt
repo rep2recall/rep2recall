@@ -1,9 +1,10 @@
 package rep2recall.db
 
 import com.github.guepardoapps.kulid.ULID
+import com.github.salomonbrys.kotson.fromJson
 import org.jetbrains.exposed.dao.id.EntityID
+import org.jetbrains.exposed.sql.SizedCollection
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.jodatime.datetime
 import org.joda.time.DateTime
 import org.joda.time.Duration
@@ -18,6 +19,11 @@ object NoteTable: InitTable("note") {
     val front = varchar("front", 10000).nullable()
     val back = varchar("back", 10000).nullable()
     val mnemonic = varchar("mnemonic", 10000).nullable()
+    val data = jsonb(
+            "data",
+            { gson.toJson(it) },
+            { gson.fromJson<Map<String, Any?>>(it) }
+    ).nullable()
 
     val srsLevel = integer("srs_level").nullable().index()
     val nextReview = datetime("next_review").nullable().index()
@@ -54,6 +60,7 @@ class Note(id: EntityID<String>): SerEntity(id) {
                 this.front = n.front
                 this.back = n.back
                 this.mnemonic = n.mnemonic
+                this.data = n.data
                 this.srsLevel = n.srsLevel
                 this.nextReview = n.nextReview?.let { DateTime.parse(it) }
                 this.rightStreak = n.rightStreak
@@ -64,13 +71,13 @@ class Note(id: EntityID<String>): SerEntity(id) {
                 this.lastWrong = n.lastWrong?.let { DateTime.parse(it) }
             }
 
-            n.data.forEach {
+            n.attr?.forEach {
                 NoteAttr.create(it.key, it.value, note)
             }
 
-            n.tags.forEach {
+            note.tag = SizedCollection((n.tag ?: listOf()).map {
                 Tag.upsert(user, it)
-            }
+            })
 
             return note
         }
@@ -98,6 +105,7 @@ class Note(id: EntityID<String>): SerEntity(id) {
     var front by NoteTable.front
     var back by NoteTable.back
     var mnemonic by NoteTable.mnemonic
+    var data by NoteTable.data
 
     var srsLevel by NoteTable.srsLevel
     var nextReview by NoteTable.nextReview
@@ -108,13 +116,8 @@ class Note(id: EntityID<String>): SerEntity(id) {
     var lastRight by NoteTable.lastRight
     var lastWrong by NoteTable.lastWrong
 
-    val data by NoteAttr via NoteAttrTable
-    var tags by Tag via NoteTagTable
-
-    override fun delete() {
-        NoteAttrTable.deleteWhere { NoteAttrTable.noteId eq id }
-        super.delete()
-    }
+    var attr by NoteAttr via NoteAttrTable
+    var tag by Tag via NoteTagTable
 
     fun markRight() = updateSrsLevel(1)
     fun markWrong() = updateSrsLevel(-1)
@@ -181,8 +184,8 @@ class Note(id: EntityID<String>): SerEntity(id) {
             wrongStreak = wrongStreak,
             maxRight = maxRight,
             maxWrong = maxWrong,
-            data = data.sortedBy { it.id }.map { it.serialize() },
-            tags = tags.sortedBy { it.id }.map { it.serialize() }
+            data = data,
+            tag = tag.sortedBy { it.id }.map { it.serialize() }
     )
 }
 
@@ -202,8 +205,9 @@ data class NoteSer(
         val wrongStreak: Int? = null,
         val maxRight: Int? = null,
         val maxWrong: Int? = null,
-        val data: List<NoteAttrSer> = listOf(),
-        val tags: List<String> = listOf()
+        val data: Map<String, Any?>? = null,
+        val attr: List<NoteAttrSer>? = null,
+        val tag: List<String>? = null
 )
 
 data class NotePartialSer(
@@ -222,6 +226,7 @@ data class NotePartialSer(
         val wrongStreak: Int? = null,
         val maxRight: Int? = null,
         val maxWrong: Int? = null,
-        val data: List<NoteAttrSer>? = null,
-        val tags: List<String>? = null
+        val data: Map<String, Any?>? = null,
+        val attr: List<NoteAttrSer>? = null,
+        val tag: List<String>? = null
 )

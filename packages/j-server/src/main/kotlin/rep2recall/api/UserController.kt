@@ -35,7 +35,7 @@ object UserController {
                 .split(",")
                 .toSet()
 
-        transaction(Api.db.db) {
+        transaction {
             User.find {
                 UserTable.id eq ctx.sessionAttribute<String>("userId")
             }.firstOrNull()?.let {
@@ -56,7 +56,7 @@ object UserController {
     private fun update(ctx: Context) {
         val body = ctx.body<Map<String, Any>>()
 
-        transaction(Api.db.db) {
+        transaction {
             User.find {
                 UserTable.id eq ctx.sessionAttribute<String>("userId")
             }.firstOrNull()?.let { p ->
@@ -88,7 +88,7 @@ object UserController {
             ]
     )
     private fun newApiKey(ctx: Context) {
-        transaction(Api.db.db) {
+        transaction {
             User.find {
                 UserTable.id eq ctx.sessionAttribute<String>("userId")
             }.firstOrNull()?.let { u ->
@@ -121,7 +121,7 @@ object UserController {
             ]
     )
     private fun delete(ctx: Context) {
-        transaction(Api.db.db) {
+        transaction {
             User.find {
                 UserTable.id eq ctx.sessionAttribute<String>("userId")
             }.firstOrNull()?.delete()

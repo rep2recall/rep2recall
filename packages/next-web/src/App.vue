@@ -10,7 +10,6 @@
           hide-details="auto"
           append-icon="mdi-magnify"
           @click:append="doSearch"
-          style="width: 300px"
         />
       </form>
     </v-app-bar>
@@ -116,6 +115,14 @@
 <script lang="ts" src="./app/index.ts"></script>
 
 <style lang="scss" scoped>
+.v-text-field {
+  width: 400px;
+
+  @media screen and (max-width: 500px) {
+    width: calc(100vw - 60px);
+  }
+}
+
 .v-list-item, .v-list-group:not(.v-list-group--active) {
   &:hover {
     background-color: rgba(173, 216, 230, 0.2);

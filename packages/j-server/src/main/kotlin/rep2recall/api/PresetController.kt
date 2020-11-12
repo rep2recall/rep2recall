@@ -40,7 +40,7 @@ object PresetController {
 
         val id = ctx.queryParam("id") ?: ""
 
-        transaction(Api.db.db) {
+        transaction {
             Preset.find {
                 PresetTable.userId eq ctx.sessionAttribute<String>("userId") and
                         (PresetTable.id eq id)
@@ -58,7 +58,7 @@ object PresetController {
             ]
     )
     private fun getAll(ctx: Context) {
-        transaction(Api.db.db) {
+        transaction {
             ctx.json(PresetGetAllResponse(
                     Preset.find {
                         PresetTable.userId eq ctx.sessionAttribute<String>("userId")
@@ -81,7 +81,7 @@ object PresetController {
     private fun create(ctx: Context) {
         val body = ctx.bodyValidator<PresetSer>().get()
 
-        val p = transaction(Api.db.db) {
+        val p = transaction {
             Preset.create(
                     User.findById(ctx.sessionAttribute<String>("userId")!!)!!,
                     body
@@ -107,7 +107,7 @@ object PresetController {
         val id = ctx.queryParam("id") ?: ""
         val body = ctx.body<Map<String, Any>>()
 
-        transaction(Api.db.db) {
+        transaction {
             Preset.find {
                 PresetTable.userId eq ctx.sessionAttribute<String>("userId") and
                         (PresetTable.id eq id)
@@ -153,7 +153,7 @@ object PresetController {
     private fun delete(ctx: Context) {
         val id = ctx.queryParam<String>("id").get()
 
-        transaction(Api.db.db) {
+        transaction {
             Preset.find {
                 PresetTable.userId eq ctx.sessionAttribute<String>("userId") and
                         (PresetTable.id eq id)

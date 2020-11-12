@@ -3,11 +3,9 @@ package rep2recall.db
 import com.github.guepardoapps.kulid.ULID
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.jodatime.datetime
-import rep2recall.api.Api
-import java.io.File
 import java.net.URL
 import java.nio.file.Files
-import java.nio.file.Paths
+import java.nio.file.Path
 import javax.imageio.ImageIO
 
 object UserTable: InitTable("user") {
@@ -37,27 +35,16 @@ class User(id: EntityID<String>): SerEntity(id) {
                 id: String? = null
         ): User {
             var trueName = name ?: email.split('@')[0]
-            val filename = let {
-                val s = StringBuilder()
-                for (c in email.toCharArray()) {
-                    if (c == '.' || Character.isJavaIdentifierPart(c)) {
-                        s.append(c)
-                    }
-                }
+            val filename = email.sanitizeFilename()?.let {
+                "$it.png"
+            } ?: randomFile(".png", Db.mediaPath.toString())
 
-                if (s.isBlank()) {
-                    "${randomString(16)}.png"
-                } else "$s.png"
-            }
             var imageURL = ""
             try {
                 if (image != null) {
                     Files.copy(
                             URL(image).openStream(),
-                            Paths.get(
-                                    Db.mediaPath.toString(),
-                                    filename
-                            )
+                            Path.of(Db.mediaPath.toString(), filename)
                     )
                     imageURL = "/media/$filename"
                 }
@@ -67,17 +54,14 @@ class User(id: EntityID<String>): SerEntity(id) {
                 ImageIO.write(
                         email.avatar(),
                         "png",
-                        Paths.get(
-                                Db.mediaPath.toString(),
-                                filename
-                        ).toFile()
+                        Path.of(Db.mediaPath.toString(), filename).toFile()
 
                 )
                 imageURL = "/media/$filename"
             }
 
             if (trueName.isEmpty()) {
-                trueName = "default"
+                trueName = "Default"
             }
 
             return new(id) {
@@ -87,7 +71,7 @@ class User(id: EntityID<String>): SerEntity(id) {
             }
         }
 
-        fun newApiKey() = randomString(32)
+        fun newApiKey() = random64(32)
     }
 
     var updatedAt by UserTable.updatedAt

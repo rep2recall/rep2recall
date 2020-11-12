@@ -18,9 +18,11 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.joda.time.DateTime
 import org.joda.time.Duration
 import java.awt.image.BufferedImage
+import java.nio.file.Path
 import java.security.SecureRandom
 import java.util.*
 import java.util.regex.Pattern
@@ -31,16 +33,42 @@ val gson: Gson = GsonBuilder()
 
 val rand = SecureRandom()
 
-fun randomString(size: Int): String {
+fun random64(size: Int): String {
     val ba = ByteArray(size)
     rand.nextBytes(ba)
     return String(Base64.getEncoder().encode(ba))
+            .replace(Regex("^=+"), "")
+            .replace(Regex("=+$"), "")
+}
+
+fun randomFile(suffix: String, path: String): String {
+    var filename = "${random64(16).sanitizeFilename()}$suffix"
+    while (Path.of(path, filename).toFile().exists()) {
+        filename = "${random64(16).sanitizeFilename()}$suffix"
+    }
+
+    return filename
 }
 
 val avatarBuilder: Avatar = IdenticonAvatar.newAvatarBuilder().build()
 
+fun String.sanitizeFilename(): String? {
+    val s = StringBuilder()
+    for (c in toCharArray()) {
+        if (c == '.' || Character.isJavaIdentifierPart(c)) {
+            s.append(c)
+        }
+    }
+
+    if (s.isEmpty()) {
+        return null
+    }
+
+    return s.toString()
+}
+
 fun String.avatar(): BufferedImage {
-    val s = if (isBlank()) randomString(16) else this
+    val s = if (isBlank()) random64(16) else this
     var h = 1125899906842597L // prime
     for (c in s.toCharArray()) {
         h = 31*h + c.toLong()
@@ -159,9 +187,15 @@ object QueryUtil {
     }
 
     @JvmName("compIdStringNullable")
-    fun comp(p: QuerySplitPart, c: Column<EntityID<String>?>) = when(p.value) {
-        "NULL" -> c.isNull()
-        else -> c eq p.value
+    fun comp(p: QuerySplitPart, c: Column<EntityID<String>?>) = if (p.value == "NULL") c.isNull() else {
+//        when(p.op) {
+//            "<" -> c less p.value
+//            "<=" -> c lessEq p.value
+//            ">" -> c greater p.value
+//            ">=" -> c greaterEq p.value
+//            else -> c eq p.value
+//        }
+        c eq p.value
     }
 
     @JvmName("compString")
@@ -170,13 +204,27 @@ object QueryUtil {
         "<=" -> c lessEq p.value
         ">" -> c greater p.value
         ">=" -> c greaterEq p.value
-        else -> c eq p.value
+        "~" -> c like p.value
+        "=" -> c eq p.value
+        else -> c like "%${
+            p.value.replace(Regex("[_%]"), "[\$&]")
+        }%"
     }
 
     @JvmName("compStringNullable")
-    fun comp(p: QuerySplitPart, c: Column<String?>) = when(p.value) {
-        "NULL" -> c.isNull()
-        else -> c eq p.value
+    fun comp(p: QuerySplitPart, c: Column<String?>) = if (p.value == "NULL") c.isNull() else {
+        when(p.op) {
+            "<" -> c less p.value
+            "<=" -> c lessEq p.value
+            ">" -> c greater p.value
+            ">=" -> c greaterEq p.value
+            "~" -> c like p.value
+            "=" -> c eq p.value
+            else -> c like "%${
+                p.value.replace(Regex("[_%]"), "[\$&]")
+            }%"
+
+        }
     }
 
     @JvmName("compIntNullable")

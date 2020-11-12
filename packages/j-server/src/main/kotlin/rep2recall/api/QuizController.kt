@@ -27,7 +27,7 @@ object QuizController {
     private fun query(ctx: Context) {
         val body = ctx.bodyValidator<QuizQueryRequest>().get()
 
-        transaction(Api.db.db) {
+        transaction {
             ctx.json(QuizQueryResponse(
                     Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
                             body.q, body.status, body.decks)).map { it.key }.shuffled()
@@ -47,7 +47,7 @@ object QuizController {
         val body = ctx.bodyValidator<TreeviewRequest>().get()
         val now = DateTime.now()
 
-        transaction(Api.db.db) {
+        transaction {
             ctx.json(TreeviewResponse(
                     Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
                             body.q, body.status))
@@ -90,7 +90,7 @@ object QuizController {
                 .check({ setOf("right", "wrong", "repeat").contains(it) })
                 .get()
 
-        transaction(Api.db.db) {
+        transaction {
             Note.find {
                 (NoteTable.userId eq ctx.sessionAttribute<String>("userId")) and
                         (NoteTable.key eq key)
@@ -112,7 +112,6 @@ object QuizController {
             status: PresetStatus,
             decks: List<String>? = null
     ) = NoteTable
-            .leftJoin(NoteAttrTable)
             .leftJoin(NoteTagTable)
             .leftJoin(TagTable)
             .select {

@@ -20,8 +20,8 @@ export default class Browse extends Vue {
       sortable: false
     },
     {
-      text: 'Data',
-      value: 'data',
+      text: 'Attributes',
+      value: 'attr',
       sortable: false
     },
     {

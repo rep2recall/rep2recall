@@ -19,12 +19,11 @@ import rep2recall.db.Db
 import rep2recall.db.User
 import rep2recall.db.UserTable
 import java.io.ByteArrayInputStream
+import java.nio.file.Path
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 object Api {
-    val db = Db(System.getenv("DATABASE_URL") ?: "session")
-
     private val firebaseApp = System.getenv("FIREBASE_SDK")?.let { sdk ->
         System.getenv("FIREBASE_CONFIG")?.let { config ->
             FirebaseApp.initializeApp(FirebaseOptions.builder()
@@ -47,7 +46,7 @@ object Api {
                                 .decode(authString.split(" ")[1])).split(':', limit = 2)
                         ctx.sessionAttribute(
                                 "userId",
-                                transaction(db.db) {
+                                transaction(Db.db) {
                                     User.find {
                                         (UserTable.apiKey eq u[1]) and (UserTable.email eq u[0])
                                     }.firstOrNull()?.id?.value
@@ -65,7 +64,7 @@ object Api {
                                     try {
                                         val d = FirebaseAuth.getInstance(firebaseApp)
                                                 .verifyIdToken(authString.split(" ")[1])
-                                        transaction(db.db) {
+                                        transaction(Db.db) {
                                             (User.find { UserTable.email eq d.email }.firstOrNull()
                                                     ?: User.create(d.email, d.name, d.picture)).id.value
                                         }
@@ -81,7 +80,7 @@ object Api {
             if (System.getenv("DATABASE_URL").isNullOrEmpty()) {
                 ctx.sessionAttribute(
                         "userId",
-                        transaction(db.db) {
+                        transaction(Db.db) {
                             User.find {
                                 UserTable.email eq (System.getenv("DEFAULT_USER") ?: "")
                             }.firstOrNull()?.id?.value
@@ -100,7 +99,10 @@ object Api {
         sessionCache = DefaultSessionCache(this).apply {
             sessionDataStore = JDBCSessionDataStoreFactory().apply {
                 setDatabaseAdaptor(DatabaseAdaptor().apply {
-                    setDriverInfo(db.driver, db.connectionUrl)
+                    setDriverInfo(Db.SQLITE_DRIVER, let {
+                        val dbPath = Path.of(Db.root.toString(), "session.db")
+                        "jdbc:sqlite:${dbPath.toUri().path}"
+                    })
                 })
             }.getSessionDataStore(sessionHandler)
         }
