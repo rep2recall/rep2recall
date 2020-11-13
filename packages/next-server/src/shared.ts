@@ -1,7 +1,3 @@
-import path from 'path'
+import { Serialize } from 'any-serialize'
 
-import { LocalDb } from './db/local'
-
-export const db = new LocalDb(
-  process.env.DB || path.join(__dirname, '../assets/db.sqlite')
-)
+export const ser = new Serialize()
