@@ -9,6 +9,15 @@ import { IStatus } from '../types'
 import { getNextReview, srsMap } from './quiz'
 import { ISplitOpToken, removeBraces, splitOp } from './tokenize'
 
+// eslint-disable-next-line no-use-before-define
+@pre<User>('remove', async function () {
+  await Promise.all([
+    NoteModel.find({ user: this._id }).then((rs) =>
+      rs.map((r) => r.deleteOne())
+    ),
+    PresetModel.deleteMany({ user: this._id })
+  ])
+})
 class User {
   @prop({ default: () => Ulid.generate() }) _id?: string
   @prop({ required: true, unique: true }) email!: string

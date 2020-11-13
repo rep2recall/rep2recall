@@ -1,14 +1,20 @@
 import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
 import { FastifyInstance } from 'fastify'
 import fSession from 'fastify-secure-session'
 import swagger from 'fastify-swagger'
 import admin from 'firebase-admin'
+import { Ulid } from 'id128'
+import fetch from 'node-fetch'
 
 import { UserModel } from '../db/mongo'
 import { ser } from '../shared'
+import noteRouter from './note'
 import presetRouter from './preset'
 import quizRouter from './quiz'
+import userRouter from './user'
 import { filterObjValue } from './util'
 
 const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
@@ -139,15 +145,32 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
       if (ticket.email && (!user || user.email !== ticket.email)) {
         const email = ticket.email
         return await UserModel.findOne({ email })
-          .then((u) => {
+          .then(async (u) => {
             if (u) {
               return u
+            }
+
+            let image = 'https://www.gravatar.com/avatar/0?d=mp'
+            if (ticket.picture) {
+              const tmpDir = path.join(os.tmpdir(), 'rep2recall-')
+              try {
+                fs.mkdtempSync(tmpDir)
+              } catch (_) {}
+
+              const filePath = path.join(tmpDir, Ulid.generate() + '.png')
+              fs.writeFileSync(
+                filePath,
+                await fetch(ticket.picture).then((r) => r.buffer())
+              )
+
+              const r = await admin.storage().bucket().upload(filePath)
+              image = r[0].publicUrl()
             }
 
             return UserModel.create({
               email,
               name: ticket.name,
-              image: ticket.picture || 'https://www.gravatar.com/avatar/0?d=mp'
+              image
             })
           })
           .then((u) => u._id as string)
@@ -164,8 +187,10 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
     reply.status(401).send({})
   })
 
+  f.register(noteRouter, { prefix: '/note' })
   f.register(presetRouter, { prefix: '/preset' })
   f.register(quizRouter, { prefix: '/quiz' })
+  f.register(userRouter, { prefix: '/user' })
 
   next()
 }

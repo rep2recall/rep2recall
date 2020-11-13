@@ -3,24 +3,46 @@ import path from 'path'
 import fastify from 'fastify'
 import helmet from 'fastify-helmet'
 import fastifyStatic from 'fastify-static'
+import mongoose from 'mongoose'
 
-const app = fastify()
-const port = parseInt(process.env.PORT || '8080')
+import apiRouter from './api'
+import { logger } from './logger'
 
-app.register(helmet)
+async function main() {
+  await mongoose.connect(process.env.MONGO_URI!, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: false
+  })
 
-app.register(fastifyStatic, {
-  root: path.resolve('public')
-})
+  const app = fastify({ logger })
+  const port = parseInt(process.env.PORT || '8080')
 
-app.setNotFoundHandler((_, reply) => {
-  reply.sendFile('index.html')
-})
+  app.register(helmet)
+  app.register(apiRouter, { prefix: '/api' })
 
-app.listen(port, !process.env.IS_ONLINE ? 'localhost' : '0.0.0.0', (err) => {
-  if (err) {
-    throw err
-  }
+  app.register(fastifyStatic, {
+    root: path.resolve('public')
+  })
 
-  console.log(`Go to http://localhost:${port}`)
-})
+  app.setNotFoundHandler((_, reply) => {
+    reply.sendFile('index.html')
+  })
+
+  app.listen(
+    port,
+    process.env.NODE_ENV === 'development' ? 'localhost' : '0.0.0.0',
+    (err) => {
+      if (err) {
+        throw err
+      }
+
+      console.info(`Go to http://localhost:${port}`)
+    }
+  )
+}
+
+if (require.main === module) {
+  main().catch(console.error)
+}
