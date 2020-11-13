@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import S from 'jsonschema-definer'
 
-import { NoteModel, UserModel } from '../db/mongo'
+import { NoteModel } from '../db/mongo'
 import { IError, ISuccess, sError, sStatus, sSuccess } from '../types'
 import { shuffle } from './util'
 
@@ -11,6 +11,8 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
   doMark()
 
   next()
+
+  const tags = ['quiz']
 
   /**
    * POST /
@@ -32,6 +34,8 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
       '/',
       {
         schema: {
+          tags,
+          summary: 'Create a Quiz',
           body: sBody.valueOf(),
           response: {
             200: sResponse.valueOf(),
@@ -40,11 +44,11 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user = await UserModel.findById(req.session.get('userId'))
+        const user: string = req.session.get('userId')
         if (!user) {
           res.status(401)
           return {
-            error: 'user not found'
+            error: 'User not found'
           }
         }
 
@@ -52,7 +56,7 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
 
         return {
           result: await NoteModel.search(q, {
-            user: user._id,
+            user,
             decks,
             status,
             post: [
@@ -92,6 +96,8 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
       '/treeview',
       {
         schema: {
+          tags,
+          summary: 'Query stats for a treeview',
           body: sBody.valueOf(),
           response: {
             200: sResponse.valueOf(),
@@ -100,11 +106,11 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user = await UserModel.findById(req.session.get('userId'))
+        const user: string = req.session.get('userId')
         if (!user) {
           res.status(401)
           return {
-            error: 'user not found'
+            error: 'User not found'
           }
         }
 
@@ -113,7 +119,7 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
 
         return {
           result: await NoteModel.search(q, {
-            user: user._id,
+            user,
             status,
             post: [
               {
@@ -176,6 +182,8 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
       '/mark',
       {
         schema: {
+          tags,
+          summary: 'Mark a Note as right, wrong or repeat',
           querystring: sQuerystring.valueOf(),
           response: {
             201: sSuccess.valueOf(),
@@ -185,11 +193,11 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user = await UserModel.findById(req.session.get('userId'))
+        const user: string = req.session.get('userId')
         if (!user) {
           res.status(401)
           return {
-            error: 'user not found'
+            error: 'User not found'
           }
         }
 
@@ -201,7 +209,7 @@ const quizRouter = (f: FastifyInstance, _: any, next: () => void) => {
         if (!n) {
           res.status(404)
           return {
-            error: 'note not found'
+            error: 'Note not found'
           }
         }
 

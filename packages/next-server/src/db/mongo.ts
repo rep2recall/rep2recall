@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 
-import { Ref, getModelForClass, index, prop } from '@typegoose/typegoose'
+import { Ref, getModelForClass, index, pre, prop } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
 import escapeRegex from 'escape-string-regexp'
 import { Ulid } from 'id128'
@@ -29,6 +29,10 @@ export const UserModel = getModelForClass(User, {
   schemaOptions: { timestamps: true, collection: 'User' }
 })
 
+// eslint-disable-next-line no-use-before-define
+@pre<Note>('remove', async function () {
+  await NoteAttrModel.deleteMany({ note: this._id })
+})
 class Note {
   @prop({ default: () => Ulid.generate() }) _id?: string
   @prop({ required: true }) user!: Ref<User>
@@ -62,13 +66,13 @@ class Note {
       decks = [],
       status,
       isJoinNoteAttr = false,
-      post = []
+      post
     }: {
       user: string
       decks?: string[]
       status?: IStatus
       isJoinNoteAttr?: boolean
-      post?: Record<string, Record<string, any>>[]
+      post: Record<string, Record<string, any>>[]
     }
   ): Promise<any[]> {
     const now = new Date()
@@ -287,7 +291,12 @@ class Note {
         where.push({
           $group: {
             _id: '$_id',
-            attr: '$attr',
+            attr: {
+              $push: {
+                key: '$attr.key',
+                value: '$attr.value'
+              }
+            },
             ...[
               'uid',
               'deck',
@@ -303,7 +312,9 @@ class Note {
               'rightStreak',
               'wrongStreak',
               'maxRight',
-              'maxWrong'
+              'maxWrong',
+              'createdAt',
+              'updatedAt'
             ].reduce(
               (prev, k) => ({
                 ...prev,
@@ -317,12 +328,6 @@ class Note {
     }
 
     return NoteModel.aggregate([...where, ...post])
-  }
-
-  async getAttr() {
-    return NoteAttrModel.find({
-      note: this
-    })
   }
 
   markRight = this._updateSrsLevel(+1)
