@@ -8,3 +8,15 @@ export const sStatus = S.shape({
 })
 
 export type IStatus = typeof sStatus.type
+
+export const sSuccess = S.shape({
+  result: S.string()
+})
+
+export type ISuccess = typeof sSuccess.type
+
+export const sError = S.shape({
+  error: S.string()
+})
+
+export type IError = typeof sError.type

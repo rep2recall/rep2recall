@@ -10,7 +10,6 @@
           hide-details="auto"
           append-icon="mdi-magnify"
           @click:append="doSearch"
-          style="width: 300px"
         />
       </form>
     </v-app-bar>
@@ -26,7 +25,7 @@
         <v-list-group
           class="group-quiz"
           :value="isTagOpen"
-          prepend-icon="mdi-comment-question-outline"
+          prepend-icon="mdi-frequently-asked-questions"
         >
           <template v-slot:activator>
             <v-list-item-title @click.stop="$router.push('/')">
@@ -36,29 +35,29 @@
 
           <v-list-item
             v-for="t in $store.state.tags"
-            :key="t.name"
+            :key="t.id"
             link
             dense
           >
-            <v-list-item-content @click.native="doLoad(t.name)">
+            <v-list-item-content @click="doLoad(t.id)">
               <v-list-item-title> {{t.name}} </v-list-item-title>
             </v-list-item-content>
 
             <v-list-item-action v-if="t.canDelete">
-              <v-btn icon @click="doDelete(t.name)">
+              <v-btn icon @click="doDelete(t.id)">
                 <v-icon>mdi-trash-can-outline</v-icon>
               </v-btn>
             </v-list-item-action>
           </v-list-item>
         </v-list-group>
 
-        <v-list-item to="/edit">
+        <v-list-item to="/browse">
           <v-list-item-icon>
-            <v-icon>mdi-pencil</v-icon>
+            <v-icon>mdi-format-list-bulleted</v-icon>
           </v-list-item-icon>
 
           <v-list-item-content>
-            <v-list-item-title>Edit</v-list-item-title>
+            <v-list-item-title>Browse</v-list-item-title>
           </v-list-item-content>
         </v-list-item>
 
@@ -90,11 +89,13 @@
       <template v-slot:append>
         <v-list-item two-line>
           <v-list-item-avatar>
-            <img src="https://randomuser.me/api/portraits/lego/1.jpg">
+            <img :src="user.image">
           </v-list-item-avatar>
 
           <v-list-item-content>
-            <v-list-item-title>John Doe</v-list-item-title>
+            <v-list-item-title>
+              {{ user.name }}
+            </v-list-item-title>
             <v-list-item-subtitle>
               <v-btn x-small color="primary">
                 Logout
@@ -114,6 +115,14 @@
 <script lang="ts" src="./app/index.ts"></script>
 
 <style lang="scss" scoped>
+.v-text-field {
+  width: 400px;
+
+  @media screen and (max-width: 500px) {
+    width: calc(100vw - 60px);
+  }
+}
+
 .v-list-item, .v-list-group:not(.v-list-group--active) {
   &:hover {
     background-color: rgba(173, 216, 230, 0.2);

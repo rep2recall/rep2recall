@@ -1,11 +1,14 @@
 import { api } from '@/assets/api'
-import { ITag } from '@/store'
+import { ITag, IUser } from '@/store'
 import { Component, Vue } from 'vue-property-decorator'
 
 @Component<App>({
   created () {
-    this.q = this.$route.query.q as string
-    this.loadTags()
+    this.q = this.$accessor.q
+    Promise.all([
+      this.loadUser(),
+      this.loadPreset()
+    ])
   }
 })
 export default class App extends Vue {
@@ -15,24 +18,19 @@ export default class App extends Vue {
 
   isEdited = false
 
-  doSearch () {
-    const isSearchablePath = ['/', '/edit', '/quiz'].includes('path')
+  get user () {
+    return this.$accessor.user
+  }
 
-    if (!isSearchablePath || this.q !== this.$route.query.q) {
-      this.$router.push({
-        path: isSearchablePath ? this.$route.path : '/',
-        query: {
-          q: this.q
-        }
-      })
-    }
+  doSearch () {
+    this.$accessor.UPDATE_Q(this.q)
   }
 
   doLoad (id: string) {
     this.$router.push({
       path: '/quiz',
       query: {
-        tag: id
+        id
       }
     })
   }
@@ -41,20 +39,48 @@ export default class App extends Vue {
     this.$accessor.REMOVE_TAGS(id)
   }
 
-  async loadTags () {
-    try {
-      const { data } = await api.get<{
-        data: ITag[];
-      }>('/api/preset/all')
+  async loadUser () {
+    const { data } = await api.get<IUser>('/api/user', {
+      params: {
+        select: 'name,email,image,apiKey'
+      }
+    })
 
-      data.data.map((t) => {
-        this.$accessor.ADD_TAGS({
-          ...t,
-          canDelete: false
-        })
+    this.$accessor.UPDATE_USER(data)
+  }
+
+  async loadPreset () {
+    try {
+      await api.get('/api/preset', {
+        params: {
+          select: 'id'
+        }
       })
     } catch (e) {
-      console.error(e)
+      await api.put('/api/preset', {
+        id: '',
+        q: this.q,
+        name: 'Default',
+        selected: [''],
+        opened: [''],
+        status: {
+          new: true,
+          due: true,
+          leech: true,
+          graduated: false
+        }
+      })
     }
+
+    const { data } = await api.get<{
+      result: ITag[];
+    }>('/api/preset/all')
+
+    data.result.map((t) => {
+      this.$accessor.UPDATE_TAGS({
+        ...t,
+        canDelete: !!t.id
+      })
+    })
   }
 }

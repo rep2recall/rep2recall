@@ -8,8 +8,12 @@
     "dev": "vue-cli-service serve"
   },
   "dependencies": {
+    "@types/ejs": "^3.0.5",
+    "@types/js-yaml": "^3.12.5",
     "axios": "^0.21.0",
     "core-js": "^3.6.5",
+    "ejs": "^3.1.5",
+    "js-yaml": "^3.14.0",
     "register-service-worker": "^1.7.1",
     "typed-vuex": "^0.1.22",
     "vue": "^2.6.11",
