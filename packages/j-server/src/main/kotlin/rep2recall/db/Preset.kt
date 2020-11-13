@@ -8,11 +8,15 @@ object PresetTable: InitTable("preset") {
     val updatedAt = datetime("updated_at").nullable()
     val userId = reference("user_id", UserTable)
 
-    val q = varchar("q", 100)
-    val name = varchar("name", 50)
-    val status = varchar("status", 500)
-    val selected = varchar("selected", 10000)
-    val opened = varchar("opened", 10000)
+    val q = text("q")
+    val name = text("name")
+    val status = jsonb(
+            "status",
+            { gson.toJson(it) },
+            { gson.fromJson<PresetStatus>(it) }
+    )
+    val selected = text("selected")
+    val opened = text("opened")
 }
 
 class Preset(id: EntityID<String>): SerEntity(id) {
@@ -38,10 +42,7 @@ class Preset(id: EntityID<String>): SerEntity(id) {
 
     var q by PresetTable.q
     var name by PresetTable.name
-    var status: PresetStatus by PresetTable.status.transform(
-            { gson.toJson(it) },
-            { gson.fromJson<PresetStatus>(it) }
-    )
+    var status: PresetStatus by PresetTable.status
     var selected: List<String> by PresetTable.selected.transform(
             { it.joinToString("\u001f") },
             { it.split("\u001f") }

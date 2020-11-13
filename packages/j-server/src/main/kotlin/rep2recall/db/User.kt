@@ -11,10 +11,10 @@ import javax.imageio.ImageIO
 object UserTable: InitTable("user") {
     val updatedAt = datetime("updated_at").nullable()
 
-    val email = varchar("email", 100).uniqueIndex()
-    val image = varchar("image", 100)
-    val name = varchar("name", 100)
-    val apiKey = varchar("api_key", 100).index()
+    val email = text("email").uniqueIndex()
+    val image = text("image")
+    val name = text("name")
+    val apiKey = text("api_key").index()
 }
 
 class User(id: EntityID<String>): SerEntity(id) {

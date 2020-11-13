@@ -3,8 +3,8 @@ package rep2recall.db
 import org.jetbrains.exposed.dao.id.EntityID
 
 object NoteAttrTable: InitTable("note_attr") {
-    val key = varchar("key", 50)
-    val value = varchar("value", 5000)
+    val key = text("key")
+    val value = text("value")
     val noteId = reference("note_id", NoteTable)
 
     override fun init() {

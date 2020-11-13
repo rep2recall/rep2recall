@@ -29,7 +29,7 @@ object QuizController {
 
         transaction {
             ctx.json(QuizQueryResponse(
-                    Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+                    Note.wrapRows(getSearchQuery(ctx.sessionAttribute<String>("userId")!!,
                             body.q, body.status, body.decks)).map { it.key }.shuffled()
             ))
         }
@@ -49,7 +49,7 @@ object QuizController {
 
         transaction {
             ctx.json(TreeviewResponse(
-                    Note.wrapRows(_getQuery(ctx.sessionAttribute<String>("userId")!!,
+                    Note.wrapRows(getSearchQuery(ctx.sessionAttribute<String>("userId")!!,
                             body.q, body.status))
                             .filter { it.deck != null }
                             .groupBy { it.deck }
@@ -104,79 +104,4 @@ object QuizController {
             }
         } ?: ctx.status(304).json(StdErrorResponse("not found"))
     }
-
-    @Suppress("FunctionName")
-    private fun _getQuery(
-            userId: String,
-            q: String,
-            status: PresetStatus,
-            decks: List<String>? = null
-    ) = NoteTable
-            .leftJoin(NoteTagTable)
-            .leftJoin(TagTable)
-            .select {
-        fun isDeck(d: String) = (NoteTable.deck eq d) or
-                (NoteTable.deck greater "$d::" and (NoteTable.deck less "$d:;"))
-
-        var cond = NoteTable.userId eq userId
-
-        var statusCond: Op<Boolean> = Op.FALSE
-
-        if (status.new) {
-            statusCond = statusCond or NoteTable.srsLevel.isNull()
-        }
-
-        statusCond = statusCond or if (status.graduated) {
-            NoteTable.srsLevel.isNotNull()
-        } else {
-            NoteTable.srsLevel lessEq 3
-        }
-
-        if (status.leech) {
-            statusCond = statusCond or (NoteTable.srsLevel eq 0) or
-                    (NoteTable.wrongStreak greater 2)
-        }
-
-        if (status.due) {
-            statusCond = statusCond and (
-                    (NoteTable.nextReview.isNull()) or
-                    (NoteTable.nextReview less DateTime.now())
-                    )
-        }
-
-        cond = cond and statusCond
-
-        var deckCond: Op<Boolean> = Op.TRUE
-
-        if (!decks.isNullOrEmpty()) {
-            deckCond = isDeck(decks[0])
-            decks.subList(1, decks.size).forEach {
-                deckCond = deckCond and isDeck(it)
-            }
-        }
-
-        cond = cond and deckCond
-
-        cond and QueryUtil.parse(q, listOf(":", "<", "<=", ">", ">=", "=", "~")) { p ->
-            when(p.key) {
-                "key" -> QueryUtil.comp(p, NoteTable.key)
-                "srsLevel" -> QueryUtil.comp(p, NoteTable.srsLevel)
-                "nextReview" -> QueryUtil.comp(p, NoteTable.nextReview)
-                "rightStreak" -> QueryUtil.comp(p, NoteTable.rightStreak)
-                "wrongStreak" -> QueryUtil.comp(p, NoteTable.wrongStreak)
-                "lastRight" -> QueryUtil.comp(p, NoteTable.lastRight)
-                "lastWrong" -> QueryUtil.comp(p, NoteTable.lastWrong)
-                "maxRight" -> QueryUtil.comp(p, NoteTable.maxRight)
-                "maxWrong" -> QueryUtil.comp(p, NoteTable.maxWrong)
-                "tag" -> QueryUtil.comp(p, TagTable.name)
-                "deck" -> when(p.op) {
-                    ":" -> isDeck(p.value)
-                    else -> QueryUtil.comp(p, NoteTable.deck)
-                }
-                null -> isDeck(p.value) or
-                        QueryUtil.comp(p)
-                else -> QueryUtil.comp(p)
-            }
-        }
-    }.groupBy(NoteTable.id)
 }

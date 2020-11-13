@@ -1,5 +1,6 @@
 import { api } from '@/assets/api'
 import { IStatus } from '@/store'
+import ejs from 'ejs'
 import { Component, Vue } from 'vue-property-decorator'
 
 type ITreeview<T> = {
@@ -57,9 +58,19 @@ export default class Quiz extends Vue {
     graduated: false
   }
 
-  quizData: IQuizData[] = []
+  treeviewData: IQuizData[] = []
 
-  quizIds: string[] = []
+  quizData: Record<string, {
+    front?: string;
+    back?: string;
+    attr?: Record<string, string>;
+    data?: Record<string, unknown>;
+  }> = {}
+
+  quizIds: string[] = [];
+  quizIndex = -1
+  isQuizDialog = false
+  isQuizAnswerShown = false
 
   isSaveNameDialog = false
   isSaveConfirmDialog = false
@@ -73,6 +84,44 @@ export default class Quiz extends Vue {
     },
     { text: 'Export', callback: () => this.exportQuiz(), disabled: true }
   ]
+
+  ejsContext = {
+    $: async (quizId: string, field: 'front' | 'back' | 'data' | 'attr') => {
+      this.$set(this.quizData, quizId, this.quizData[quizId] || {})
+
+      if (typeof this.quizData[quizId][field] !== 'undefined') {
+        return this.quizData[quizId][field]
+      }
+
+      try {
+        await this.cacheContent(quizId, [field])
+      } catch (e) {
+        console.error(e)
+      }
+
+      return this.quizData[quizId][field]
+    },
+    $$: async (quizId: string, attr: string) => {
+      if (typeof (this.quizData[quizId]?.attr || {})[attr] !== 'undefined') {
+        return (this.quizData[quizId].attr || {})[attr]
+      }
+
+      const { data } = await api.get<{
+        result?: string;
+      }>('/api/note/attr', {
+        params: {
+          key: quizId,
+          attr
+        }
+      })
+
+      this.$set(this.quizData, quizId, this.quizData[quizId] || {})
+      this.$set(this.quizData[quizId], 'attr', this.quizData[quizId].attr || {})
+      this.$set(this.quizData[quizId].attr || {}, attr, data.result)
+
+      return data.result
+    }
+  }
 
   get treeview (): ITreeview<{
     new: number;
@@ -135,33 +184,118 @@ export default class Quiz extends Vue {
       new: 0,
       due: 0,
       leech: 0,
-      children: this.quizData.length ? recurseTreeview(this.quizData, []) : undefined
+      children: this.treeviewData.length
+        ? recurseTreeview(this.treeviewData, [])
+        : undefined
     }]
   }
 
-  async startQuiz () {
-    const { data } = await api.post<{
-      result: string[];
-    }>('/api/quiz', {
-      decks: this.itemSelected,
-      q: this.$accessor.q,
-      status: this.status
+  get quizCurrent () {
+    const r = this.quizIds[this.quizIndex]
+
+    if (!r) {
+      return null
+    }
+
+    return r
+  }
+
+  get iframeContent () {
+    if (!this.quizCurrent || !this.quizData[this.quizCurrent]) {
+      return ''
+    }
+
+    return (this.isQuizAnswerShown
+      ? this.quizData[this.quizCurrent].back
+      : this.quizData[this.quizCurrent].front) || ''
+  }
+
+  startQuiz () {
+    this.quizIds.slice(0, 3).map((id) => this.cacheContent(id))
+    this.quizIndex = -1
+    this.isQuizDialog = true
+  }
+
+  nextQuiz () {
+    this.quizIndex++
+    this.quizIds.slice(this.quizIndex, this.quizIndex + 3)
+      .map((id) => this.cacheContent(id))
+  }
+
+  async markQuiz (as: 'right' | 'wrong' | 'repeat') {
+    if (!this.quizCurrent) {
+      return
+    }
+
+    await api.patch('/api/quiz/mark', undefined, {
+      params: {
+        key: this.quizCurrent,
+        as
+      }
     })
 
-    this.quizIds = data.result
-    alert('Starting quiz')
+    this.nextQuiz()
+  }
+
+  async cacheContent (quizId?: string, fields = ['front', 'back', 'attr', 'data']) {
+    if (!quizId) {
+      return
+    }
+
+    this.$set(this.quizData, quizId, this.quizData[quizId] || {})
+
+    const fieldSet = new Set(fields)
+    fields.forEach((f) => {
+      if (f === 'attr') {
+        return
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof (this.quizData[quizId] as any)[f] !== 'undefined') {
+        fieldSet.delete(f)
+      }
+    })
+
+    const { data } = await api.get<{
+      front?: string;
+      back?: string;
+      attr?: {
+        key: string;
+        value: string;
+      }[];
+      data?: Record<string, unknown>;
+    }>('/api/note', {
+      params: {
+        key: quizId,
+        select: Array.from(fieldSet).join(',')
+      }
+    })
+
+    const attr = data.attr ? data.attr.reduce((prev, it) => ({
+      ...prev,
+      [it.key]: it.value
+    }), {} as Record<string, string>) : {}
+
+    const ctx = {
+      ...this.ejsContext,
+      attr,
+      data: data.data
+    }
+
+    this.$set(this.quizData[quizId], 'attr', attr)
+    this.$set(this.quizData[quizId], 'data', data.data)
+
+    await Promise.all([
+      ejs.render(data.front || '', ctx, { async: true }).then((r) => {
+        this.$set(this.quizData[quizId], 'front', r)
+      }),
+      ejs.render(data.back || '', ctx, { async: true }).then((r) => {
+        this.$set(this.quizData[quizId], 'back', r)
+      })
+    ])
   }
 
   async exportQuiz () {
-    const { data } = await api.post<{
-      result: string[];
-    }>('/api/quiz', {
-      decks: this.itemSelected,
-      q: this.$accessor.q,
-      status: this.status
-    })
-
-    this.quizIds = data.result
     alert('Exporting quiz')
   }
 
@@ -257,7 +391,10 @@ export default class Quiz extends Vue {
   }
 
   async saveState () {
-    await api.patch('/api/preset', {
+    /**
+     * Do not await
+     */
+    api.patch('/api/preset', {
       q: this.$accessor.q,
       selected: this.itemSelected,
       opened: this.itemOpened,
@@ -267,6 +404,16 @@ export default class Quiz extends Vue {
         id: this.$route.query.id
       }
     })
+
+    const { data } = await api.post<{
+      result: string[];
+    }>('/api/quiz', {
+      decks: this.itemSelected,
+      q: this.$accessor.q,
+      status: this.status
+    })
+
+    this.quizIds = data.result
   }
 
   _doFilterTimeout: number | null = null
@@ -284,7 +431,8 @@ export default class Quiz extends Vue {
         status: this.status
       })
 
-      this.quizData = data.result
+      this.treeviewData = data.result
+      this.saveState()
     }, 500)
   }
 }

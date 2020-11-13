@@ -5,10 +5,14 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.JsonParser
-import io.javalin.apibuilder.ApiBuilder.before
-import io.javalin.apibuilder.ApiBuilder.path
+import io.javalin.apibuilder.ApiBuilder.*
 import io.javalin.apibuilder.EndpointGroup
+import io.javalin.http.Context
 import io.javalin.http.util.RateLimit
+import io.javalin.plugin.openapi.annotations.OpenApi
+import io.javalin.plugin.openapi.annotations.OpenApiContent
+import io.javalin.plugin.openapi.annotations.OpenApiParam
+import io.javalin.plugin.openapi.annotations.OpenApiResponse
 import org.eclipse.jetty.server.session.DatabaseAdaptor
 import org.eclipse.jetty.server.session.DefaultSessionCache
 import org.eclipse.jetty.server.session.JDBCSessionDataStoreFactory
@@ -24,6 +28,8 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 object Api {
+    val port = System.getenv("PORT")?.toInt() ?: 36393
+
     private val firebaseApp = System.getenv("FIREBASE_SDK")?.let { sdk ->
         System.getenv("FIREBASE_CONFIG")?.let { config ->
             FirebaseApp.initializeApp(FirebaseOptions.builder()
@@ -89,6 +95,8 @@ object Api {
             }
         }
 
+        get("config", this::getConfig)
+
         path("note", NoteController.handler)
         path("preset", PresetController.handler)
         path("quiz", QuizController.handler)
@@ -107,5 +115,17 @@ object Api {
             }.getSessionDataStore(sessionHandler)
         }
         httpOnly = true
+    }
+
+    @OpenApi(
+            summary = "Get server config",
+            responses = [
+                OpenApiResponse("200", [OpenApiContent(Config::class)])
+            ]
+    )
+    private fun getConfig(ctx: Context) {
+        ctx.json(Config(
+                baseURL = "http://localhost:$port"
+        ))
     }
 }

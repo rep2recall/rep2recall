@@ -1,11 +1,19 @@
 import { api } from '@/assets/api'
 import { Component, Vue } from 'vue-property-decorator'
 
-@Component
+@Component<Settings>({
+  async created () {
+    if (location.origin.includes('://localhost')) {
+      const { data } = await api.get<{
+        baseURL: string;
+      }>('/api/config')
+
+      this.baseURL = data.baseURL
+    }
+  }
+})
 export default class Settings extends Vue {
-  baseURL = location.origin.includes('://localhost')
-    ? 'http://localhost:36393'
-    : location.origin
+  baseURL = location.origin
 
   get user () {
     return this.$accessor.user

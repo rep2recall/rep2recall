@@ -3,14 +3,13 @@ package rep2recall.db
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
 import org.postgresql.util.PGobject
-import java.lang.reflect.Type
 import org.jetbrains.exposed.sql.Function
 
 class JsonbColumnType<T : Any>(
         private val stringify: (T) -> String,
         private val parse: (String) -> T
 ) : ColumnType() {
-    override fun sqlType() = if(Db.driver == Db.POSTGRES_DRIVER) JSONB else VARCHAR
+    override fun sqlType() = if(Db.driver == Db.POSTGRES_DRIVER) JSONB else TEXT
 
     override fun setParameter(stmt: PreparedStatementApi, index: Int, value: Any?) {
         super.setParameter(stmt, index, value.let {
@@ -22,7 +21,11 @@ class JsonbColumnType<T : Any>(
     }
 
     override fun valueFromDB(value: Any): Any {
-        return if (value is PGobject) parse(value.value) else value
+        return when (value) {
+            is PGobject -> parse(value.value)
+            is String -> parse(value)
+            else -> value
+        }
     }
 
     override fun valueToString(value: Any?): String = when (value) {
@@ -36,17 +39,11 @@ class JsonbColumnType<T : Any>(
     companion object {
         const val JSONB = "JSONB"
         const val TEXT = "TEXT"
-        const val VARCHAR = "VARCHAR"
     }
 }
 
 fun <T: Any> Table.jsonb(name: String, stringify: (T) -> String, parse: (String) -> T): Column<T> =
         registerColumn(name, JsonbColumnType(stringify, parse))
-
-fun <T: Type> Table.jsonb(
-        name: String,
-        klass: T
-): Column<T> = jsonb(name, { gson.toJson(it, klass) }, { gson.fromJson<T>(it, klass) })
 
 
 class JsonValue<T>(

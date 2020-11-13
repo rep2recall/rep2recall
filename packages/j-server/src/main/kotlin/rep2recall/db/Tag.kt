@@ -9,7 +9,7 @@ object TagTable: InitTable("tag") {
     val updatedAt = datetime("updated_at").nullable()
     val userId = reference("user_id", UserTable)
 
-    val name = varchar("name", 50).index()
+    val name = text("name").index()
 
     override fun init() {
         uniqueIndex(userId, name)

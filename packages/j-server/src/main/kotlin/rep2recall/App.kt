@@ -68,7 +68,7 @@ object App {
             app.get("/") { ctx -> ctx.result("Ready") }
         }
 
-        app.start(System.getenv("PORT")?.toInt() ?: 36393)
+        app.start(Api.port)
     }
 }
 

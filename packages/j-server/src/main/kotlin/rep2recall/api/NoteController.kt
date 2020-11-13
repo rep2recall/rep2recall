@@ -14,6 +14,8 @@ import rep2recall.db.*
 object NoteController {
     val handler = EndpointGroup {
         get(this::getOne)
+        get("attr", this::getAttr)
+        post("q", this::query)
         put(this::create)
         patch(this::update)
         delete(this::delete)
@@ -44,6 +46,69 @@ object NoteController {
                 ctx.json(it.filterKey(select))
             }
         } ?: ctx.status(400).json(StdErrorResponse("not found"))
+    }
+
+    @OpenApi(
+            tags = ["note"],
+            summary = "Get a Note Attribute value",
+            queryParams = [
+                OpenApiParam("key", String::class, required = true),
+                OpenApiParam("attr", String::class, required = true)
+            ],
+            responses = [
+                OpenApiResponse("200", [OpenApiContent(StdSuccessResponse::class)]),
+                OpenApiResponse("400", [OpenApiContent(StdErrorResponse::class)])
+            ]
+    )
+    private fun getAttr(ctx: Context) {
+        val key = ctx.queryParam<String>("key").get()
+        val attr = ctx.queryParam<String>("attr").get()
+
+        transaction {
+            NoteAttrTable.innerJoin(NoteTable).select {
+                (NoteAttrTable.key eq attr) and (NoteTable.key eq key)
+            }.firstOrNull()?.let {
+                ctx.json(StdSuccessResponse(
+                        NoteAttr.wrapRow(it).value
+                ))
+            }
+        } ?: ctx.status(400).json(StdErrorResponse("not found"))
+    }
+
+    private fun query(ctx: Context) {
+        val body = ctx.body<QueryRequest>()
+
+        var sortBy = body.sortBy ?: "id"
+        var desc = body.desc ?: false
+
+        if (body.sortBy == null && body.desc == null) {
+            desc = true
+        }
+
+        transaction {
+            var q = getSearchQuery(
+                    ctx.sessionAttribute<String>("userId")!!,
+                    body.q
+            )
+
+            val count = q.count()
+
+            q = q.orderBy(
+                    when (sortBy) {
+                        "updatedAt" -> NoteTable.updatedAt
+                        else -> NoteTable.id
+                    } to (if (desc) SortOrder.DESC else SortOrder.ASC)
+            )
+
+            body.limit?.let {
+                q = q.limit(it, body.offset)
+            }
+
+            ctx.json(mapOf(
+                    "result" to q.map { Note.wrapRow(it).filterKey(body.select.toSet()) },
+                    "count" to count
+            ))
+        }
     }
 
     @OpenApi(

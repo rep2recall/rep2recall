@@ -13,12 +13,12 @@ object NoteTable: InitTable("note") {
     val updatedAt = datetime("updated_at").nullable()
     val userId = reference("user_id", UserTable)
 
-    val key = varchar("key", 26).index()
+    val key = text("key").index()
 
-    val deck = varchar("deck", 200).nullable().index()
-    val front = varchar("front", 10000).nullable()
-    val back = varchar("back", 10000).nullable()
-    val mnemonic = varchar("mnemonic", 10000).nullable()
+    val deck = text("deck").nullable().index()
+    val front = text("front").nullable()
+    val back = text("back").nullable()
+    val mnemonic = text("mnemonic").nullable()
     val data = jsonb(
             "data",
             { gson.toJson(it) },
