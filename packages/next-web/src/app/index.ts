@@ -1,22 +1,36 @@
+import 'firebase/auth'
+
 import { api } from '@/assets/api'
-import { ITag, IUser } from '@/store'
+import { ITag } from '@/store'
+import firebase from 'firebase/app'
 import { Component, Vue } from 'vue-property-decorator'
 
 @Component<App>({
+  watch: {
+    user () {
+      this.loadUser()
+    },
+    '$route.path' () {
+      if (this.$route.path === '/') {
+        this.isDrawer = false
+      }
+    }
+  },
   created () {
+    this.loadUser()
     this.q = this.$accessor.q
-    Promise.all([
-      this.loadUser(),
-      this.loadPreset()
-    ])
+
+    this.loadPreset().finally(() => {
+      this.isReady = true
+    })
   }
 })
 export default class App extends Vue {
+  isReady = false
   isDrawer = false
   isTagOpen = true
-  q = ''
-
   isEdited = false
+  q = ''
 
   get user () {
     return this.$accessor.user
@@ -39,14 +53,18 @@ export default class App extends Vue {
     this.$accessor.REMOVE_TAGS(id)
   }
 
-  async loadUser () {
-    const { data } = await api.get<IUser>('/api/user', {
-      params: {
-        select: 'name,email,image,apiKey'
-      }
-    })
+  loadUser () {
+    // console.log(this.$route)
 
-    this.$accessor.UPDATE_USER(data)
+    if (!this.user) {
+      if (this.$route.path !== '/') {
+        this.$router.push('/')
+      }
+    } else {
+      if (this.$route.path === '/') {
+        this.$router.push('/quiz')
+      }
+    }
   }
 
   async loadPreset () {
@@ -82,5 +100,9 @@ export default class App extends Vue {
         canDelete: !!t.id
       })
     })
+  }
+
+  signOut () {
+    firebase.auth().signOut()
   }
 }

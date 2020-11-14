@@ -20,8 +20,8 @@ export default class Browse extends Vue {
   itemSelected = []
   columns = [
     {
-      text: 'Key',
-      value: 'key',
+      text: 'UID',
+      value: 'uid',
       width: 200
     },
     {
@@ -51,7 +51,7 @@ export default class Browse extends Vue {
   ]
 
   tableData: {
-    key: string;
+    uid: string;
     front: string;
     back: string;
   }[] = []
@@ -106,7 +106,7 @@ export default class Browse extends Vue {
         result?: string;
       }>('/api/note/attr', {
         params: {
-          key: quizId,
+          uid: quizId,
           attr
         }
       })
@@ -148,7 +148,7 @@ export default class Browse extends Vue {
       data?: Record<string, unknown>;
     }>('/api/note', {
       params: {
-        key: quizId,
+        uid: quizId,
         select: Array.from(fieldSet).join(',')
       }
     })
@@ -181,8 +181,8 @@ export default class Browse extends Vue {
     return yaml.safeDump(o)
   }
 
-  getData (key: string, field: 'front' | 'back' | 'attr') {
-    return (this.quizData[key] || {})[field]
+  getData (uid: string, field: 'front' | 'back' | 'attr') {
+    return (this.quizData[uid] || {})[field]
   }
 
   doBatchEdit () {
@@ -206,7 +206,7 @@ export default class Browse extends Vue {
 
     const { data } = await api.post<{
       result: {
-        key: string;
+        uid: string;
         front?: string;
         back?: string;
         attr?: {
@@ -217,7 +217,7 @@ export default class Browse extends Vue {
       }[];
       count: number;
     }>('/api/note/q', {
-      select: ['key', 'front', 'back', 'attr', 'data'],
+      select: ['uid', 'front', 'back', 'attr', 'data'],
       q: this.$accessor.q,
       offset: (this.dataOptions.page - 1) * this.dataOptions.itemsPerPage,
       limit: this.dataOptions.itemsPerPage,
@@ -226,7 +226,7 @@ export default class Browse extends Vue {
     })
 
     this.tableData = data.result.map((d) => {
-      this.$set(this.quizData, d.key, this.quizData[d.key] || {})
+      this.$set(this.quizData, d.uid, this.quizData[d.uid] || {})
 
       const attr = d.attr ? d.attr.reduce((prev, it) => ({
         ...prev,
@@ -239,20 +239,20 @@ export default class Browse extends Vue {
         data: d.data
       }
 
-      this.$set(this.quizData[d.key], 'attr', attr)
-      this.$set(this.quizData[d.key], 'data', d.data)
+      this.$set(this.quizData[d.uid], 'attr', attr)
+      this.$set(this.quizData[d.uid], 'data', d.data)
 
       Promise.all([
         ejs.render(d.front || '', ctx, { async: true }).then((r) => {
-          this.$set(this.quizData[d.key], 'front', r)
+          this.$set(this.quizData[d.uid], 'front', r)
         }),
         ejs.render(d.back || '', ctx, { async: true }).then((r) => {
-          this.$set(this.quizData[d.key], 'back', r)
+          this.$set(this.quizData[d.uid], 'back', r)
         })
       ])
 
       return {
-        key: d.key,
+        uid: d.uid,
         front: d.front || '',
         back: d.back || ''
       }

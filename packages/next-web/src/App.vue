@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar app color="primary" dark hide-on-scroll>
+    <v-app-bar v-if="user" app color="primary" dark hide-on-scroll>
       <v-app-bar-nav-icon @click.stop="isDrawer = !isDrawer" />
       <v-spacer />
       <form @submit.prevent="doSearch">
@@ -15,6 +15,7 @@
     </v-app-bar>
 
     <v-navigation-drawer
+      v-if="user"
       v-model="isDrawer"
       absolute
       temporary
@@ -97,7 +98,7 @@
               {{ user.name }}
             </v-list-item-title>
             <v-list-item-subtitle>
-              <v-btn x-small color="primary">
+              <v-btn x-small color="primary" @click="signOut">
                 Logout
               </v-btn>
             </v-list-item-subtitle>
@@ -106,7 +107,7 @@
       </template>
     </v-navigation-drawer>
 
-    <v-main>
+    <v-main v-if="isReady">
       <router-view/>
     </v-main>
   </v-app>

@@ -110,7 +110,7 @@ export default class Quiz extends Vue {
         result?: string;
       }>('/api/note/attr', {
         params: {
-          key: quizId,
+          uid: quizId,
           attr
         }
       })
@@ -229,7 +229,7 @@ export default class Quiz extends Vue {
 
     await api.patch('/api/quiz/mark', undefined, {
       params: {
-        key: this.quizCurrent,
+        uid: this.quizCurrent,
         as
       }
     })
@@ -266,7 +266,7 @@ export default class Quiz extends Vue {
       data?: Record<string, unknown>;
     }>('/api/note', {
       params: {
-        key: quizId,
+        uid: quizId,
         select: Array.from(fieldSet).join(',')
       }
     })

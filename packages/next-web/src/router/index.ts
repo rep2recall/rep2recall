@@ -9,7 +9,7 @@ const router = new VueRouter({
   routes: [
     {
       path: '/',
-      redirect: '/quiz'
+      component: () => import(/* webpackChunkName: "front" */ '@/views/Front.vue')
     },
     {
       path: '/quiz',

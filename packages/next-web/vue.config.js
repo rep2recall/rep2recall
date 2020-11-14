@@ -1,9 +1,7 @@
 module.exports = {
   lintOnSave: false,
-  transpileDependencies: [
-    'vuetify'
-  ],
-  outputDir: '../j-server/src/main/resources/public',
+  transpileDependencies: ['vuetify'],
+  outputDir: '../next-server/public',
   devServer: {
     proxy: {
       '^/(api|media)/': {

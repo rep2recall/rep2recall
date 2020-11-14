@@ -38,23 +38,18 @@ Vue.use(Vuex)
 const state = (): {
   q: string;
   tags: ITagFull[];
-  user: IUser;
+  user: IUser | null;
 } => ({
   q: '',
   tags: [],
-  user: {
-    name: '',
-    email: '',
-    image: '',
-    apiKey: ''
-  }
+  user: null
 })
 
 const mutations = mutationTree(state, {
   UPDATE_Q (state, q: string) {
     state.q = q
   },
-  UPDATE_USER (state, user: IUser) {
+  UPDATE_USER (state, user: IUser | null) {
     state.user = user
   },
   UPDATE_TAGS (state, t: ITagFull) {
