@@ -21,9 +21,10 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
   let isFirebase = false
 
   if (process.env.FIREBASE_SDK && process.env.FIREBASE_CONFIG) {
+    const config = JSON.parse(process.env.FIREBASE_CONFIG)
     admin.initializeApp({
-      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SDK)),
-      databaseURL: JSON.parse(process.env.FIREBASE_CONFIG).databaseURL
+      ...config,
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SDK))
     })
 
     isFirebase = true
@@ -63,7 +64,6 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
   })
 
   f.register(swagger, {
-    routePrefix: '/api/doc',
     swagger: {
       info: {
         title: 'Rep2recall API',
@@ -83,7 +83,8 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
         }
       }
     },
-    exposeRoute: true
+    exposeRoute: true,
+    routePrefix: '/doc'
   })
 
   f.addHook('preHandler', async (req, reply) => {
@@ -94,9 +95,19 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
     let userId: string | undefined
 
     if (process.env.DEFAULT_USER) {
-      userId = await UserModel.findOne({
-        email: process.env.DEFAULT_USER
-      }).then((u) => u?._id as string)
+      const email = process.env.DEFAULT_USER
+
+      userId = await UserModel.findOne({ email })
+        .then(
+          (u) =>
+            u ||
+            UserModel.create({
+              email,
+              name: email.replace(/@.+$/, ''),
+              image: 'https://www.gravatar.com/avatar/0?d=mp'
+            })
+        )
+        .then((u) => u._id)
 
       req.session.set('userId', userId)
       return
@@ -140,9 +151,12 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
       }
 
       const ticket = await admin.auth().verifyIdToken(m[1], true)
-      const user = req.session.get('user')
+      const userId = req.session.get('userId')
+      if (userId) {
+        return userId
+      }
 
-      if (ticket.email && (!user || user.email !== ticket.email)) {
+      if (ticket.email) {
         const email = ticket.email
         return await UserModel.findOne({ email })
           .then(async (u) => {
@@ -152,19 +166,23 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
 
             let image = 'https://www.gravatar.com/avatar/0?d=mp'
             if (ticket.picture) {
-              const tmpDir = path.join(os.tmpdir(), 'rep2recall-')
+              const tmpDir = path.join(os.tmpdir(), 'rep2recall')
               try {
-                fs.mkdtempSync(tmpDir)
+                fs.mkdirSync(tmpDir)
               } catch (_) {}
 
-              const filePath = path.join(tmpDir, Ulid.generate() + '.png')
+              const filePath = path.join(
+                tmpDir,
+                Ulid.generate().toCanonical() + '.png'
+              )
               fs.writeFileSync(
                 filePath,
                 await fetch(ticket.picture).then((r) => r.buffer())
               )
 
-              const r = await admin.storage().bucket().upload(filePath)
-              image = r[0].publicUrl()
+              const [f] = await admin.storage().bucket().upload(filePath)
+              await f.makePublic()
+              image = f.metadata.mediaLink
             }
 
             return UserModel.create({

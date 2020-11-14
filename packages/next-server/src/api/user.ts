@@ -2,9 +2,11 @@ import { FastifyInstance } from 'fastify'
 import S from 'jsonschema-definer'
 
 import { UserModel } from '../db/mongo'
-import { IError, ISuccess, sError, sSuccess } from '../types'
+import { IError, ISuccess, sSuccess } from '../types'
 
 const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
+  const tags = ['user']
+
   getOne()
   update()
   newApiKey()
@@ -13,21 +15,20 @@ const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
 
   next()
 
-  const tags = ['user']
-
   /**
    * GET /
    */
   function getOne() {
-    const sResponse = S.shape({
+    const sResponseShape = {
       email: S.string().optional(),
       name: S.string().optional(),
       image: S.string().optional(),
       apiKey: S.string().optional()
-    })
+    }
+    const sResponse = S.shape(sResponseShape)
 
     const sQuerystring = S.shape({
-      select: S.list(S.string().enum(...Object.keys(sResponse.type)))
+      select: S.list(S.string().enum(...Object.keys(sResponseShape)))
     })
 
     f.get<{
@@ -40,8 +41,7 @@ const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Get current User',
           querystring: sQuerystring.valueOf(),
           response: {
-            200: sResponse.valueOf(),
-            401: sError.valueOf()
+            200: sResponse.valueOf()
           }
         }
       },
@@ -85,8 +85,7 @@ const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Update current User',
           body: sBody.valueOf(),
           response: {
-            201: sSuccess.valueOf(),
-            401: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
@@ -120,8 +119,7 @@ const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           tags,
           summary: 'Generate new API key for current User',
           response: {
-            201: sSuccess.valueOf(),
-            401: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
@@ -174,15 +172,14 @@ const userRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
    * DELETE /
    */
   function deleteOne() {
-    f.patch(
-      '/apiKey',
+    f.delete(
+      '/',
       {
         schema: {
           tags,
           summary: 'Delete current User and sign out',
           response: {
-            201: sSuccess.valueOf(),
-            401: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },

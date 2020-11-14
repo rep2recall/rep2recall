@@ -28,8 +28,8 @@ const gcloudConf: pino.LoggerOptions = {
 export const logger = pino({
   serializers: {
     req(req) {
-      if (req.query && typeof req.query.select === 'string') {
-        req.query.select = req.query.selct.split(',')
+      if (typeof req.query?.select === 'string') {
+        req.query.select = req.query.select.split(',')
       }
 
       return {

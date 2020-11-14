@@ -1,6 +1,13 @@
 import crypto from 'crypto'
 
-import { Ref, getModelForClass, index, pre, prop } from '@typegoose/typegoose'
+import {
+  Severity,
+  getModelForClass,
+  index,
+  modelOptions,
+  pre,
+  prop
+} from '@typegoose/typegoose'
 import dayjs from 'dayjs'
 import escapeRegex from 'escape-string-regexp'
 import { Ulid } from 'id128'
@@ -19,7 +26,7 @@ import { ISplitOpToken, removeBraces, splitOp } from './tokenize'
   ])
 })
 class User {
-  @prop({ default: () => Ulid.generate() }) _id?: string
+  @prop({ default: () => Ulid.generate().toCanonical() }) _id?: string
   @prop({ required: true, unique: true }) email!: string
   @prop({ required: true }) name!: string
   @prop({ required: true }) image!: string
@@ -42,14 +49,19 @@ export const UserModel = getModelForClass(User, {
 @pre<Note>('remove', async function () {
   await NoteAttrModel.deleteMany({ note: this._id })
 })
+@modelOptions({
+  options: {
+    allowMixed: Severity.ALLOW
+  }
+})
 class Note {
-  @prop({ default: () => Ulid.generate() }) _id?: string
-  @prop({ required: true }) user!: Ref<User>
+  @prop({ default: () => Ulid.generate().toCanonical() }) _id?: string
+  @prop({ required: true }) userId!: string
 
   @prop({
     required: true,
     unique: true,
-    default: () => Ulid.generate()
+    default: () => Ulid.generate().toCanonical()
   })
   uid?: string
 
@@ -71,13 +83,13 @@ class Note {
   static async search(
     q: string,
     {
-      user,
+      userId,
       decks = [],
       status,
       isJoinNoteAttr = false,
       post
     }: {
-      user: string
+      userId: string
       decks?: string[]
       status?: IStatus
       isJoinNoteAttr?: boolean
@@ -87,7 +99,7 @@ class Note {
     const now = new Date()
     const isDeck = (d: string) => ({
       $or: [
-        { deck: { $literal: d } },
+        { deck: d },
         {
           $and: [{ deck: { $gt: `${d}::` } }, { deck: { $gt: `${d}:;` } }]
         }
@@ -172,7 +184,7 @@ class Note {
           return { [p.k]: { $regex: new RegExp(escapeRegex(p.v), 'i') } }
         }
 
-        if (type !== 'string' && $op === '$literal') {
+        if ($op === '$literal') {
           return { [p.k]: p.v }
         }
 
@@ -191,7 +203,7 @@ class Note {
 
         if (p.k) {
           return {
-            $and: [{ 'attr.key': { $literal: removeBraces(p.k) } }, q]
+            $and: [{ 'attr.key': removeBraces(p.k) }, q]
           }
         }
 
@@ -268,7 +280,9 @@ class Note {
       $and.push({ $nor: notOp.map((p) => whenK(p)) })
     }
 
-    const where: Record<string, Record<string, any>>[] = [{ $match: { user } }]
+    const where: Record<string, Record<string, any>>[] = [
+      { $match: { userId } }
+    ]
 
     if ($and.length) {
       cond = cond ? { $and: [cond, ...$and] } : { $and }
@@ -393,9 +407,9 @@ export const NoteModel = getModelForClass(Note, {
   schemaOptions: { timestamps: true, collection: 'Note' }
 })
 
-@index({ key: 1, note: 1 }, { unique: true })
+@index({ key: 1, noteId: 1 }, { unique: true })
 class NoteAttr {
-  @prop({ required: true }) note!: Ref<Note>
+  @prop({ required: true }) noteId!: string
 
   @prop({ required: true }) key!: string
   @prop({ required: true }) value!: string
@@ -405,11 +419,16 @@ export const NoteAttrModel = getModelForClass(NoteAttr, {
   schemaOptions: { timestamps: true, collection: 'NoteAttr' }
 })
 
+@modelOptions({
+  options: {
+    allowMixed: Severity.ALLOW
+  }
+})
 class Preset {
-  @prop({ default: () => Ulid.generate() }) _id?: string
-  @prop({ required: true }) user!: Ref<User>
+  @prop({ default: () => Ulid.generate().toCanonical() }) _id?: string
+  @prop({ required: true }) userId!: string
 
-  @prop({ required: true }) q!: string
+  @prop({ validate: (q) => typeof q !== 'undefined' }) q!: string
   @prop({ required: true }) name!: string
   @prop({ required: true }) status!: IStatus
   @prop({ required: true }) selected!: string[]

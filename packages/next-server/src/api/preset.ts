@@ -2,9 +2,11 @@ import { FastifyInstance } from 'fastify'
 import S from 'jsonschema-definer'
 
 import { PresetModel } from '../db/mongo'
-import { IError, ISuccess, sError, sStatus, sSuccess } from '../types'
+import { IError, ISuccess, sStatus, sSuccess } from '../types'
 
 const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
+  const tags = ['preset']
+
   getOne()
   getAll()
   create()
@@ -13,24 +15,23 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
 
   next()
 
-  const tags = ['preset']
-
   /**
    * GET /
    */
   function getOne() {
-    const sResponse = S.shape({
+    const sResponseShape = {
       id: S.string().optional(),
       name: S.string().optional(),
       q: S.string().optional(),
       status: sStatus.optional(),
       selected: S.list(S.string()).optional(),
       opened: S.list(S.string()).optional()
-    })
+    }
+    const sResponse = S.shape(sResponseShape)
 
     const sQuerystring = S.shape({
-      select: S.list(S.string().enum(...Object.keys(sResponse.type))),
-      id: S.string()
+      select: S.list(S.string().enum(...Object.keys(sResponseShape))),
+      id: S.string().optional()
     })
 
     f.get<{
@@ -43,15 +44,13 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
           summary: 'Get a Preset',
           querystring: sQuerystring.valueOf(),
           response: {
-            200: sResponse.valueOf(),
-            401: sError.valueOf(),
-            404: sError.valueOf()
+            200: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -59,8 +58,8 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
 
         return PresetModel.findOne({
-          user,
-          _id: req.query.id
+          userId,
+          _id: req.query.id || ''
         }).then((r) => {
           if (r) {
             return req.query.select.reduce(
@@ -105,14 +104,13 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
           tags,
           summary: 'Get all Presets',
           response: {
-            200: sResponse.valueOf(),
-            401: sError.valueOf()
+            200: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -120,7 +118,7 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
 
         return {
-          result: await PresetModel.find({ user })
+          result: await PresetModel.find({ userId })
             .sort('-updatedAt -createdAt')
             .then((rs) =>
               rs.map((r) => ({
@@ -142,6 +140,7 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
    */
   function create() {
     const sBody = S.shape({
+      id: S.string().optional(),
       name: S.string(),
       q: S.string(),
       status: sStatus,
@@ -163,23 +162,27 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
           summary: 'Create a Preset',
           body: sBody.valueOf(),
           response: {
-            201: sResponse.valueOf(),
-            401: sError.valueOf()
+            201: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
           }
         }
 
+        const { id, ...body } = req.body
+        if (typeof id === 'string') {
+          ;(body as any)._id = id
+        }
+
         const p = await PresetModel.create({
-          ...req.body,
-          user
+          ...body,
+          userId
         })
 
         res.status(201)
@@ -203,7 +206,7 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
     })
 
     const sQuerystring = S.shape({
-      id: S.string()
+      id: S.string().optional()
     })
 
     f.patch<{
@@ -218,15 +221,13 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
           body: sBody.valueOf(),
           querystring: sQuerystring.valueOf(),
           response: {
-            201: sSuccess.valueOf(),
-            401: sError.valueOf(),
-            404: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -234,8 +235,8 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
 
         const p = await PresetModel.findOne({
-          user,
-          _id: req.query.id
+          userId,
+          _id: req.query.id || ''
         })
         if (!p) {
           res.status(404)
@@ -273,14 +274,13 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
           summary: 'Delete a Preset',
           querystring: sQuerystring.valueOf(),
           response: {
-            201: sSuccess.valueOf(),
-            404: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -288,7 +288,7 @@ const presetRouter = (f: FastifyInstance, _: any, next: () => void) => {
         }
 
         const p = await PresetModel.findOne({
-          user,
+          userId,
           _id: req.query.id
         })
         if (!p) {

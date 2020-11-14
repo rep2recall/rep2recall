@@ -2,20 +2,11 @@ import { FastifyInstance } from 'fastify'
 import S from 'jsonschema-definer'
 
 import { NoteAttrModel, NoteModel } from '../db/mongo'
-import { IError, ISuccess, sError, sSuccess } from '../types'
+import { IError, ISuccess, sSuccess } from '../types'
 
 const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
-  getOne()
-  getAttr()
-  query()
-  create()
-  update()
-  deleteOne()
-
-  next()
-
   const tags = ['note']
-  const sNote = S.shape({
+  const sNoteShape = {
     uid: S.string().optional(),
     deck: S.string().optional(),
     front: S.string().optional(),
@@ -39,14 +30,24 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
         value: S.string()
       })
     ).optional()
-  })
+  }
+  const sNote = S.shape(sNoteShape)
+
+  getOne()
+  getAttr()
+  query()
+  create()
+  update()
+  deleteOne()
+
+  next()
 
   /**
    * GET /
    */
   function getOne() {
     const sQuerystring = S.shape({
-      select: S.list(S.string().enum(...Object.keys(sNote.type))),
+      select: S.list(S.string().enum(...Object.keys(sNoteShape))),
       uid: S.string()
     })
 
@@ -62,22 +63,20 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Get a Note',
           querystring: sQuerystring.valueOf(),
           response: {
-            200: sResponse.valueOf(),
-            401: sError.valueOf(),
-            404: sError.valueOf()
+            200: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
           }
         }
 
-        return NoteModel.findOne({ user, uid: req.query.uid }).then(
+        return NoteModel.findOne({ userId, uid: req.query.uid }).then(
           async (r) => {
             if (r) {
               return req.query.select.reduce(
@@ -127,22 +126,20 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Get a Note attribute',
           querystring: sQuerystring.valueOf(),
           response: {
-            200: sSuccess.valueOf(),
-            401: sError.valueOf(),
-            404: sError.valueOf()
+            200: sSuccess.valueOf()
           }
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
           }
         }
 
-        const r = await NoteModel.findOne({ user, uid: req.query.uid })
+        const r = await NoteModel.findOne({ userId, uid: req.query.uid })
         if (!r) {
           res.status(404)
           return {
@@ -170,7 +167,7 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
    */
   function query() {
     const sBody = S.shape({
-      select: S.list(S.string().enum(...Object.keys(sNote.type))),
+      select: S.list(S.string().enum(...Object.keys(sNoteShape))),
       q: S.string().optional(),
       offset: S.integer().optional(),
       limit: S.integer().optional(),
@@ -193,14 +190,13 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Query for Notes',
           body: sBody.valueOf(),
           response: {
-            200: sResponse.valueOf(),
-            401: sError.valueOf()
+            200: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -216,7 +212,7 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
         }
 
         return NoteModel.search(q, {
-          user,
+          userId,
           isJoinNoteAttr: select.includes('attr'),
           post: [
             {
@@ -268,14 +264,13 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Create a Note',
           body: sBody.valueOf(),
           response: {
-            201: sResponse.valueOf(),
-            401: sError.valueOf()
+            201: sResponse.valueOf()
           }
         }
       },
       async (req, res): Promise<typeof sResponse.type | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
@@ -286,13 +281,13 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
 
         return NoteModel.create({
           ...body,
-          user
+          userId
         }).then(async (r) => {
           await Promise.all(
             attr.map((a) =>
               NoteAttrModel.create({
                 ...a,
-                note: r
+                noteId: r._id
               })
             )
           )
@@ -328,22 +323,20 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           querystring: sQuerystring.valueOf(),
           body: sBody.valueOf(),
           response: {
-            201: sSuccess.valueOf(),
-            401: sError.valueOf(),
-            404: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
           }
         }
 
-        const r = await NoteModel.findOne({ user, uid: req.query.uid })
+        const r = await NoteModel.findOne({ userId, uid: req.query.uid })
         if (!r) {
           res.status(404)
           return {
@@ -414,21 +407,20 @@ const noteRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
           summary: 'Delete a note',
           querystring: sQuerystring.valueOf(),
           response: {
-            201: sSuccess.valueOf(),
-            404: sError.valueOf()
+            201: sSuccess.valueOf()
           }
         }
       },
       async (req, res): Promise<ISuccess | IError> => {
-        const user: string = req.session.get('userId')
-        if (!user) {
+        const userId: string = req.session.get('userId')
+        if (!userId) {
           res.status(401)
           return {
             error: 'User not found'
           }
         }
 
-        const r = await NoteModel.findOne({ user, uid: req.query.uid })
+        const r = await NoteModel.findOne({ userId, uid: req.query.uid })
         if (!r) {
           res.status(404)
           return {
