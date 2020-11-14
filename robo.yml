@@ -2,29 +2,17 @@
 
 build:
   command: |
-    cd packages/web
+    cd packages/next-web
     pnpm build
     cd -
 
-    cd packages/server
-    pnpm build
-    cd -
-
-    docker build -f Dockerfile.local -t {{.docker.tag}} .
-build-standalone:
-  command: |
-    export FIREBASE_CONFIG=
-    export BASE_URL=http://localhost:36323
-
-    cd packages/web
-    pnpm build
-    cd -
-
-    cd packages/server
+    cd packages/next-server
     pnpm build
     cd -
 
     docker build -f Dockerfile.local -t patarapolw/rep2recall .
+build-compose:
+  command: |
     docker-compose build --force-recreate --no-deps
 start:
   command: |
@@ -32,7 +20,7 @@ start:
 
     docker run --rm \
       -p 8080:8080 \
-      -e MONGO_URI -e SECRET -e FIREBASE_SDK -e FIREBASE_CONFIG -e BASE_URL \
+      -e MONGO_URI -e FIREBASE_SDK -e FIREBASE_CONFIG \
       --name rep2recall \
       {{.docker.tag}}
 kill:
@@ -43,17 +31,19 @@ deploy:
     docker push {{.docker.tag}}
 dev:
   command: |
-    concurrently \
-      'cd packages/server && pnpm dev' \
-      'cd packages/web && pnpm dev'
+    cd packages/next-server
+    rm -rf ./public
+    pnpx concurrently \
+      'cd ../next-web && pnpm watch' \
+      'pnpx wait-on ./public && pnpm dev'
 install:
   command: |
-    cd packages/web
+    cd packages/next-web
     echo 'shamefully-hoist=true' > .npmrc
     pnpm i
     cd -
 
-    cd packages/server
+    cd packages/next-server
     pnpm i
     cd -
 heroku-token:

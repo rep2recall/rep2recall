@@ -1,7 +1,7 @@
 FROM node:12-alpine AS server
 RUN npm i -g pnpm
 WORKDIR /app
-COPY packages/server/package.json packages/server/pnpm-lock.yaml ./
+COPY packages/next-server/package.json packages/next-server/pnpm-lock.yaml ./
 RUN pnpm i --prod --frozen-lockfile
 
 FROM astefanutti/scratch-node:12
