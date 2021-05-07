@@ -48,9 +48,8 @@ object Api {
         sessionCache = DefaultSessionCache(this).apply {
             sessionDataStore = JDBCSessionDataStoreFactory().apply {
                 setDatabaseAdaptor(DatabaseAdaptor().apply {
-                    setDriverInfo(Db.SQLITE_DRIVER, let {
-                        val dbPath = Path.of(Db.root.toString(), "session.db")
-                        "jdbc:sqlite:${dbPath.toUri().path}"
+                    setDriverInfo(Db.H2_DRIVER, let {
+                        "jdbc:h2:${Db.sessionPath}"
                     })
                 })
             }.getSessionDataStore(sessionHandler)

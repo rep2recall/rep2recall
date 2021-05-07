@@ -1,7 +1,11 @@
 package rep2recall.db
 
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.transactions.transactionManager
 import java.io.File
 import java.nio.file.Path
+import java.sql.ResultSet
 
 object Db {
     val isJar = Db::class.java.getResource("Db.class")!!.toString().startsWith("jar:")
@@ -12,13 +16,24 @@ object Db {
     }
     val mediaPath: Path = Path.of(root.toString(), "_media")
 
-    private const val DEFAULT_SQLITE_DB_NAME = "data.db"
-    const val SQLITE_DRIVER = "org.sqlite.JDBC"
-    const val POSTGRES_DRIVER = "org.postgresql.Driver"
+    const val H2_DRIVER = "org.h2.Driver"
 
-    val driver: String
-    val connectionUrl: String
-    val db: Database
+    val dbPath = System.getenv("DATABASE_URL") ?: Path.of(root.toString(), "data").toString()
+    val sessionPath = System.getenv("DATABASE_URL") ?: Path.of(root.toString(), "session").toString()
+
+    val db = Database.connect(
+        url = dbPath,
+        driver = H2_DRIVER,
+        user = System.getenv("H2_USER") ?: "",
+        password = System.getenv("H2_PASS") ?: ""
+    )
+
+    fun exec(
+        stmt: String,
+        // args: Iterable<Pair<ColumnType, Any?>>, // safeString = unsafeString.Replace("'","''");
+    ) {
+        db.transactionManager.currentOrNull()?.exec(stmt)
+    }
 
     fun <T:Any>exec(
         stmt: String,
@@ -35,54 +50,10 @@ object Db {
     }
 
     init {
-        mediaPath.toFile().mkdir()
-
-        val databaseURL = System.getenv("DATABASE_URL") ?: DEFAULT_SQLITE_DB_NAME
-        val m = Regex("postgres(ql)?://(?<user>[^:]+):(?<pass>[^@]+)@(?<r>.+)")
-            .matchEntire(databaseURL)
-
-        driver = m?.let { POSTGRES_DRIVER } ?: SQLITE_DRIVER
-        connectionUrl = m?.let {
-            "jdbc:postgresql://${it.groups["r"]!!.value}"
-        } ?: let {
-            val dbPath = Path.of(root.toString(), databaseURL)
-            "jdbc:sqlite:${dbPath.toUri().path}"
-        }
-        db = m?.let {
-            Database.connect(
-                url = connectionUrl,
-                driver = driver,
-                user = it.groups["user"]!!.value,
-                password = it.groups["pass"]!!.value
-            )
-        } ?: Database.connect(
-            url = connectionUrl,
-            driver = driver,
-            user = "",
-            password = ""
-        )
-
-        m ?: let {
-            TransactionManager.manager.defaultIsolationLevel =
-                Connection.TRANSACTION_SERIALIZABLE
-        }
-
-        transaction(db) {
-            if (db.dialect.allTablesNames().isEmpty()) {
-                val tables = arrayOf(
-                    UserTable, NoteAttrTable, NoteTable, PresetTable,
-                    TagTable
-                )
-
-                SchemaUtils.create(*tables)
-                tables.map {
-                    it.init()
-                }
-
-                SchemaUtils.create(NoteTagTable)
-
-                User.create("")
-            }
-        }
+//        transaction(db) {
+//            if (db.dialect.allTablesNames().isEmpty()) {
+//                null
+//            }
+//        }
     }
 }

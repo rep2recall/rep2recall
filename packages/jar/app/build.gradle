@@ -1,3 +1,10 @@
+buildscript {
+    ext {
+        exposedVersion = '0.31.1'
+        javalinVersion = '3.13.6'
+    }
+}
+
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.4.31'
     id 'application'
@@ -13,11 +20,16 @@ dependencies {
     implementation platform('org.jetbrains.kotlin:kotlin-bom')
 
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
-    implementation 'io.javalin:javalin:3.11.2'
-    implementation 'io.javalin:javalin-openapi:3.11.2'
+    implementation "io.javalin:javalin:$javalinVersion"
+    implementation "io.javalin:javalin-openapi:$javalinVersion"
     implementation 'org.slf4j:slf4j-simple:1.8.0-beta4'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'com.github.salomonbrys.kotson:kotson:2.5.0'
+    implementation 'com.h2database:h2:1.4.200'
+    implementation "org.jetbrains.exposed:exposed-core:$exposedVersion"
+    implementation "org.jetbrains.exposed:exposed-dao:$exposedVersion"
+    implementation "org.jetbrains.exposed:exposed-jdbc:$exposedVersion"
+    implementation "org.jetbrains.exposed:exposed-jodatime:$exposedVersion"
 
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit'
@@ -31,7 +43,7 @@ compileTestKotlin {
 }
 
 application {
-    mainClass = 'rep2recall.AppKt'
+    mainClassName = 'rep2recall.AppKt'
 }
 
 shadowJar {
