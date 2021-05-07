@@ -1,5 +1,6 @@
 package rep2recall.db
 
+import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
@@ -30,18 +31,18 @@ object Db {
 
     fun exec(
         stmt: String,
-        // args: Iterable<Pair<ColumnType, Any?>>, // safeString = unsafeString.Replace("'","''");
+        args: Iterable<Pair<ColumnType, Any?>> = listOf()
     ) {
-        db.transactionManager.currentOrNull()?.exec(stmt)
+        db.transactionManager.currentOrNull()?.exec(stmt, args)
     }
 
     fun <T:Any>exec(
         stmt: String,
-        // args: Iterable<Pair<ColumnType, Any?>>, // safeString = unsafeString.Replace("'","''");
+        args: Iterable<Pair<ColumnType, Any?>>? = null, // safeString = unsafeString.Replace("'","''");
         transform: (ResultSet) -> T
     ): List<T> {
         val result = arrayListOf<T>()
-        db.transactionManager.currentOrNull()?.exec(stmt) { rs ->
+        db.transactionManager.currentOrNull()?.exec(stmt, args ?: listOf()) { rs ->
             while (rs.next()) {
                 result += transform(rs)
             }
