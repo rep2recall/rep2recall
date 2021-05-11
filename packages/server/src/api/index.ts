@@ -2,10 +2,12 @@ import crypto from 'crypto'
 
 import MongoStore from 'connect-mongo'
 import { FastifyInstance } from 'fastify'
+import fCookie from 'fastify-cookie'
 import fSession from 'fastify-session'
 import swagger from 'fastify-swagger'
 
 import { UserModel } from '../db/mongo'
+import { logger } from '../logger'
 import { magic, ser } from '../shared'
 import noteRouter from './note'
 import presetRouter from './preset'
@@ -18,6 +20,12 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
     f.register(require('fastify-cors'))
   }
 
+  if (!magic) {
+    process.env.DEFAULT_USER = process.env.DEFAULT_USER || 'DEFAULT'
+  }
+
+  f.register(fCookie)
+
   if (process.env.SECRET) {
     f.register(fSession, {
       secret: process.env.SECRET,
@@ -29,7 +37,7 @@ const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
     })
   } else {
     if (process.env.MONGO_URI) {
-      console.error('process.env.SECRET is required to store mongo session')
+      logger.error('process.env.SECRET is required to store mongo session')
     }
 
     f.register(fSession, {

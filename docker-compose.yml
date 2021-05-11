@@ -14,7 +14,7 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/rep2recall
       - PORT=36323
-      - DEFAULT_USER=name@example.com
+      - DEFAULT_USER
       - SECRET
       - MAGIC_SECRET
       - MAGIC_PUBLIC

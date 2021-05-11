@@ -30,6 +30,8 @@ deploy:
     docker push {{.docker.tag}}
 dev:
   command: |
+    export MONGO_URI=mongodb://localhost:27017/rep2recall
+
     cd packages/server
     rm -rf ./public
     pnpx concurrently \
@@ -44,6 +46,9 @@ install:
     cd packages/server
     yarn
     cd -
+db:
+  command: |
+    docker-compose up mongo
 
 ##########
 # Settings

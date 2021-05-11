@@ -9,10 +9,10 @@ import {
   prop
 } from '@typegoose/typegoose'
 import dayjs from 'dayjs'
-import escapeRegex from 'escape-string-regexp'
 import shortUUID from 'short-uuid'
 
 import { IStatus } from '../types'
+import { escapeRegExp } from '../util'
 import { getNextReview, srsMap } from './quiz'
 import { ISplitOpToken, removeBraces, splitOp } from './tokenize'
 
@@ -181,7 +181,7 @@ class Note {
         )[p.op!]
 
         if (!$op && p.op !== '~') {
-          return { [p.k]: { $regex: new RegExp(escapeRegex(p.v), 'i') } }
+          return { [p.k]: { $regex: new RegExp(escapeRegExp(p.v), 'i') } }
         }
 
         if ($op === '$literal') {

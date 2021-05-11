@@ -19,7 +19,16 @@ async function main() {
   const app = fastify({ logger })
   const port = parseInt(process.env.PORT || '8080')
 
-  app.register(helmet)
+  app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: "'self' 'unsafe-inline' 'unsafe-eval'",
+        styleSrc:
+          "'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+        fontSrc: 'https://fonts.gstatic.com https://cdn.jsdelivr.net'
+      }
+    }
+  })
 
   app.register(fastifyStatic, {
     root: path.resolve('public')
