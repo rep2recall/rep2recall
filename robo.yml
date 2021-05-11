@@ -39,12 +39,14 @@ dev:
       'pnpx wait-on ./public && yarn dev'
 install:
   command: |
-    cd packages/web
-    yarn
-    cd -
-
     cd packages/server
     yarn
+    yarn build
+    cd -
+
+    cd packages/web
+    yarn
+    yarn build
     cd -
 db:
   command: |
