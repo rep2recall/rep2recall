@@ -1,131 +1,205 @@
-import { FastifyInstance } from 'fastify'
-import fCoookie from 'fastify-cookie'
-import swagger from 'fastify-oas'
-import fSession from 'fastify-session'
-import admin from 'firebase-admin'
+import crypto from 'crypto'
 
-import { DbUserModel } from '../db/model'
-import editRouter from './edit'
+import MongoStore from 'connect-mongo'
+import { FastifyInstance } from 'fastify'
+import fSession from 'fastify-session'
+import swagger from 'fastify-swagger'
+
+import { UserModel } from '../db/mongo'
+import { magic, ser } from '../shared'
+import noteRouter from './note'
+import presetRouter from './preset'
 import quizRouter from './quiz'
 import userRouter from './user'
+import { filterObjValue } from './util'
 
-const router = (f: FastifyInstance, _: any, next: () => void) => {
-  let isFirebase = false
-
-  if (process.env.FIREBASE_SDK && process.env.FIREBASE_CONFIG) {
-    admin.initializeApp({
-      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SDK)),
-      databaseURL: JSON.parse(process.env.FIREBASE_CONFIG).databaseURL
-    })
-
-    isFirebase = true
+const apiRouter = (f: FastifyInstance, _: unknown, next: () => void) => {
+  if (process.env.NODE_ENV === 'development') {
+    f.register(require('fastify-cors'))
   }
 
+  if (process.env.SECRET) {
+    f.register(fSession, {
+      secret: process.env.SECRET,
+      store: process.env.MONGO_URI
+        ? MongoStore.create({
+            mongoUrl: process.env.MONGO_URI
+          })
+        : undefined
+    })
+  } else {
+    if (process.env.MONGO_URI) {
+      console.error('process.env.SECRET is required to store mongo session')
+    }
+
+    f.register(fSession, {
+      secret: crypto.randomBytes(64).toString('base64')
+    })
+  }
+
+  f.addHook('preHandler', function (req, _, done) {
+    if (req.body && typeof req.body === 'object') {
+      req.log.info(
+        {
+          body: filterObjValue(
+            req.body,
+            /**
+             * This will keep only primitives, nulls, plain objects, Date, and RegExp
+             * ArrayBuffer in file uploads will be removed.
+             */
+            (v) => ser.hash(v) === ser.hash(ser.clone(v))
+          )
+        },
+        'parsed body'
+      )
+    }
+    done()
+  })
+
+  f.addHook<{
+    Querystring: Record<string, string | string[]>
+  }>('preValidation', async (req) => {
+    if (typeof req.query.select === 'string') {
+      req.query.select = req.query.select.split(/,/g)
+    }
+  })
+
   f.register(swagger, {
-    routePrefix: '/doc',
     swagger: {
       info: {
-        title: 'Rep2Recall API',
-        description: 'Rep2Recall Swagger API',
+        title: 'Rep2recall API',
+        description: 'Full JavaScript/CSS/HTML customizable quiz',
         version: '0.1.0'
       },
       consumes: ['application/json'],
       produces: ['application/json'],
-      servers: [
-        {
-          url: process.env.BASE_URL,
-          description: 'Online server'
+      securityDefinitions: {
+        basicAuth: {
+          type: 'basic'
         },
-        ...(process.env.NODE_ENV === 'development'
-          ? [
-              {
-                url: `http://localhost:${process.env.PORT}`,
-                description: 'Local server'
-              }
-            ]
-          : [])
-      ],
-      components: {
-        securitySchemes: {
-          BearerAuth: {
-            type: 'http',
-            scheme: 'bearer'
-          }
+        apiKey: {
+          type: 'apiKey',
+          name: 'Authorization',
+          in: 'header'
         }
       }
     },
-    exposeRoute: true
+    exposeRoute: true,
+    routePrefix: '/doc'
   })
 
-  f.register(fCoookie)
-  f.register(fSession, { secret: process.env.SECRET! })
-
   f.addHook('preHandler', async (req, reply) => {
-    if (req.req.url && req.req.url.startsWith('/api/doc')) {
+    if (req.url && req.url.startsWith('/api/doc')) {
       return
     }
+
+    let userId: string | undefined
 
     if (process.env.DEFAULT_USER) {
-      req.session.user = await DbUserModel.signInOrCreate(
-        process.env.DEFAULT_USER
-      )
+      const email = process.env.DEFAULT_USER
+
+      userId = await UserModel.findOne({ email })
+        .then(
+          (u) =>
+            u ||
+            UserModel.create({
+              email
+            })
+        )
+        .then((u) => u._id)
+
+      req.session.userId = userId
       return
     }
 
-    const bearerAuth = async (auth: string) => {
-      if (!isFirebase) {
-        return false
-      }
+    const { authorization } = req.headers
 
-      const m = /^Bearer (.+)$/.exec(auth)
-
-      if (!m) {
-        return false
-      }
-
-      const ticket = await admin.auth().verifyIdToken(m[1], true)
-
-      if (!req.session.user && ticket.email) {
-        req.session.user = await DbUserModel.signInOrCreate(ticket.email)
-      }
-
-      return !!req.session.user
+    if (!authorization) {
+      reply.status(401).send({})
+      return
     }
 
-    const basicAuth = async (auth: string) => {
-      const m = /^Basic (.+)$/.exec(auth)
+    const isBasic = async () => {
+      const m = /^Basic (.+)$/.exec(authorization)
 
       if (!m) {
-        return false
+        return
       }
 
       const credentials = Buffer.from(m[1], 'base64').toString()
-      const [email, secret] = credentials.split(':')
-      if (!secret) {
+      const [email, apiKey] = credentials.split(':')
+      if (!apiKey) {
         return false
       }
 
-      req.session.user = await DbUserModel.signInWithSecret(email, secret)
-
-      return !!req.session.user
+      return UserModel.findOne({
+        email,
+        apiKey
+      }).then((u) => u?._id)
     }
 
-    if (
-      req.headers.authorization &&
-      ((await basicAuth(req.headers.authorization)) ||
-        (await bearerAuth(req.headers.authorization)))
-    ) {
+    const isBearer = async () => {
+      if (!magic) {
+        return
+      }
+
+      const m = /^Bearer (.+)$/.exec(authorization)
+
+      if (!m) {
+        return
+      }
+
+      try {
+        magic.token.validate(m[1])
+      } catch (_) {
+        return
+      }
+
+      const userId = req.session.userId
+      if (userId) {
+        return userId
+      }
+
+      const ticket = await magic.users.getMetadataByToken(m[1])
+
+      if (ticket.email) {
+        const email = ticket.email
+        return await UserModel.findOne({ email })
+          .then(async (u) => {
+            if (u) {
+              return u
+            }
+
+            return UserModel.create({
+              email
+            })
+          })
+          .then((u) => u._id as string)
+      }
+    }
+
+    userId = (await isBasic()) || (await isBearer())
+
+    if (userId) {
+      req.session.userId = userId
       return
     }
 
-    reply.status(401).send()
+    reply.status(401).send({})
   })
 
-  f.register(editRouter, { prefix: '/edit' })
+  f.get('/settings', async () => {
+    return {
+      magic: process.env.MAGIC_PUBLIC
+    }
+  })
+
+  f.register(noteRouter, { prefix: '/note' })
+  f.register(presetRouter, { prefix: '/preset' })
   f.register(quizRouter, { prefix: '/quiz' })
   f.register(userRouter, { prefix: '/user' })
 
   next()
 }
 
-export default router
+export default apiRouter

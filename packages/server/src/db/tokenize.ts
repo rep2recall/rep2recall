@@ -2,13 +2,13 @@ export interface ISplitOptions {
   brackets: [string, string][]
   split: string
   escape: string
-  keepBrace?: boolean
 }
 
 export const defaultSplitOptions: ISplitOptions = {
   brackets: [
     ['"', '"'],
-    ["'", "'"]
+    ["'", "'"],
+    ['(', ')']
   ],
   split: ' ',
   escape: '\\'
@@ -60,24 +60,20 @@ export function split(
   }
 
   let prev = ''
-  ss.split('').forEach((c) => {
+  ss.split('').map((c) => {
     if (prev === options.escape) {
       tokenStack.addChar(c)
     } else {
-      let canAddChar = true
-
       for (const [op, cl] of options.brackets) {
         if (c === cl) {
           if (bracketStack.peek() === op) {
             bracketStack.pop()
-            canAddChar = false
             break
           }
         }
 
         if (c === op) {
           bracketStack.push(c)
-          canAddChar = false
           break
         }
       }
@@ -85,9 +81,7 @@ export function split(
       if (c === options.split && !bracketStack.peek()) {
         tokenStack.flush()
       } else {
-        if (options.keepBrace || canAddChar) {
-          tokenStack.addChar(c)
-        }
+        tokenStack.addChar(c)
       }
     }
 
@@ -122,16 +116,17 @@ export function splitOp(ss: string) {
   )
   const output: ISplitOpToken[] = []
 
-  data.forEach((d) => {
-    const m = /^([-+?])?([A-Z_.-]+)([:><])(.+)$/i.exec(d)
-    if (m) {
-      const [, prefix, k, op, v] = m
-
+  data.map((d) => {
+    // eslint-disable-next-line no-useless-escape
+    const m = /^(?<prefix>[\-+])?(?<k>[^:><]+)(?<op>[:><=]{1,2})(?<v>.+)$/i.exec(
+      d
+    )
+    if (m && m.groups) {
       output.push({
-        prefix,
-        k,
-        op,
-        v: removeBraces(v)
+        prefix: m.groups.prefix,
+        k: m.groups.k,
+        op: m.groups.op,
+        v: removeBraces(m.groups.v)
       })
     } else {
       output.push({
@@ -143,12 +138,11 @@ export function splitOp(ss: string) {
   return output
 }
 
-function removeBraces(ss: string) {
-  const m = /^(.)(.+)(.)$/.exec(ss)
-  if (m) {
+export function removeBraces(ss: string) {
+  if (ss.length >= 2) {
     for (const [op, cl] of defaultSplitOptions.brackets) {
-      if (op === m[1] && cl === m[3]) {
-        return m[2]
+      if (op === ss[0] && cl === ss[ss.length - 1]) {
+        return ss.substr(1, ss.length - 2)
       }
     }
   }

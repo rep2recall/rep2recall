@@ -5,18 +5,19 @@ services:
     restart: always
     image: patarapolw/rep2recall
     # build:
-    #   context: ./
-    #   dockerfile: Dockerfile.local
+    #   context: packages/server
+    #   dockerfile: Dockerfile
     ports:
       - '36323:36323'
     links:
       - mongo
     environment:
       - MONGO_URI=mongodb://mongo:27017/rep2recall
-      - SECRET=WBKX7Oox6]lwVN:WC%J%1oG}o{:]aM>w=>4!cEi:#+YLTFXydRO3bcmKwxp-nB*
-      - BASE_URL=http://localhost:36323
       - PORT=36323
       - DEFAULT_USER=name@example.com
+      - SECRET
+      - MAGIC_SECRET
+      - MAGIC_PUBLIC
   mongo:
     container_name: mongo
     image: mongo

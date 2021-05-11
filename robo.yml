@@ -2,15 +2,14 @@
 
 build:
   command: |
-    cd packages/next-web
-    pnpm build
+    cd packages/web
+    yarn build
     cd -
 
-    cd packages/next-server
-    pnpm build
-    cd -
+    cd packages/server
+    yarn build
 
-    docker build -f Dockerfile.local -t patarapolw/rep2recall .
+    docker build -t patarapolw/rep2recall .
 build-compose:
   command: |
     docker-compose build --force-recreate --no-deps
@@ -20,7 +19,7 @@ start:
 
     docker run --rm \
       -p 8080:8080 \
-      -e MONGO_URI -e FIREBASE_SDK -e FIREBASE_CONFIG \
+      -e MONGO_URI -e MAGIC_SECRET -e MAGIC_PUBLIC -e SECRET \
       --name rep2recall \
       {{.docker.tag}}
 kill:
@@ -31,30 +30,20 @@ deploy:
     docker push {{.docker.tag}}
 dev:
   command: |
-    cd packages/next-server
+    cd packages/server
     rm -rf ./public
     pnpx concurrently \
-      'cd ../next-web && pnpm watch' \
-      'pnpx wait-on ./public && pnpm dev'
+      'cd ../web && yarn watch' \
+      'pnpx wait-on ./public && yarn dev'
 install:
   command: |
-    cd packages/next-web
-    echo 'shamefully-hoist=true' > .npmrc
-    pnpm i
+    cd packages/web
+    yarn
     cd -
 
-    cd packages/next-server
-    pnpm i
+    cd packages/server
+    yarn
     cd -
-heroku-token:
-  command: |
-    heroku auth:token
-heroku-docker-login:
-  command: |
-    docker login --username=_ --password=${HEROKU_TOKEN} registry.heroku.com
-heroku-release:
-  command: |
-    heroku container:release web
 
 ##########
 # Settings
