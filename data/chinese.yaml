@@ -1,0 +1,243 @@
+model:
+  - id: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    name: Chinese vocab
+    back: |
+      <% if (it.simplified) { %>
+        <p>Simplified: <span class="clickable" onclick="speak(innerText)"> <%= it.simplified %> </span></p>
+      <% } else { %>
+        <p>Chinese: <span class="clickable" onclick="speak(innerText)"> <%= it.chinese %> </span></p>
+      <% } %>
+      <% if (it.traditional && it.traditional.length) { %><p>Traditional: <%= it.traditional.join(' | ') %></p><% } %>
+      <p>Reading: <%= it.pinyin.join(' / ') %></p>
+      <% if (it.english && it.english.length) { %><p>English: 
+        <ul>
+          <% it.english.map(r => { %>
+            <li> <%= r %> </li>
+          <% }) %>
+        </ul>
+      </p><% } %>
+    shared: |
+      <style>
+      * {
+        font-weight: normal;
+        font-family: 'Noto Sans CJK SC';
+      }
+
+      .clickable {
+        cursor: pointer;
+      }
+      .clickable:hover {
+        color: blue;
+      }
+      </style>
+
+      <script>
+      (() => {
+        const allVoices = {}
+        
+        window.speak = (s) => {
+          if (Object.keys(allVoices).length === 0) {
+            // eslint-disable-next-line array-callback-return
+            window.speechSynthesis.getVoices().map((v) => {
+              allVoices[v.lang] = v.lang
+            })
+
+            window.speechSynthesis.onvoiceschanged = () => {
+              // eslint-disable-next-line array-callback-return
+              window.speechSynthesis.getVoices().map((v) => {
+                allVoices[v.lang] = v.lang
+              })
+            }
+          }
+
+          const voices = Object.keys(allVoices)
+          const stage1 = () => voices.filter((v) => v === 'zh' || v === 'cmn')[0]
+          const stage2 = () => {
+            return voices.filter((v) => /^zh[-_]?/i.test(v))[0]
+          }
+
+          const lang = stage1() || stage2() || ''
+
+          if (lang) {
+            const utterance = new window.SpeechSynthesisUtterance(s)
+            utterance.lang = lang
+            window.speechSynthesis.speak(utterance)
+
+            return new Promise((resolve) => {
+              utterance.onend = () => {
+                resolve()
+              }
+            })
+          }
+        }
+      })()
+      </script>
+    generated:
+      _: |
+        <%
+          if (!it.pinyin) {
+            const r = await fetch(`https://zhres.herokuapp.com/api/vocab/match`, {
+              method: 'POST',
+              body: JSON.stringify({ entry: it.chinese }),
+              headers: { 'Content-Type': 'application/json' }
+            })
+            if (r.ok) {
+              const { result } = await r.json()
+              if (result[0]) {
+                it.simplified = result[0].simplified
+                it.traditional = result.map(r => r.traditional).filter(r => r).filter((a, i, r) => r.indexOf(a) === i)
+                it.pinyin = result.map(r => r.pinyin).filter((a, i, r) => r.indexOf(a) === i)
+                it.english = result.flatMap(r => r.english.split('/')).filter((a, i, r) => r.indexOf(a) === i)
+              }
+            }
+          }
+
+          if (!it.pinyin) {
+            it.pinyin = [toPinyin(it.chinese)]
+          }
+        %>
+      # pinyin: string[]
+      # simplified: string
+      # traditional: string[]
+      # english: string[]
+template:
+  - id: 334b35a1-1720-4a6b-aa83-77b203dd276c
+    name: Simplified-English
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    front: |
+      <h1><%= it.simplified || it.chinese %></h1>
+  - id: 6d4342b5-5c4a-439f-8104-7fcc2fb6b64f
+    name: English-Chinese
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    if: <%= it.english && it.english.length %>
+    front: |
+      <ul>
+        <% it.english.map(r => { %>
+          <li> <%= r %> </li>
+        <% }) %>
+      </ul>
+note:
+  - id: 0a1d524f-c657-47d5-aeca-b2387e5e9c46
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 爱情
+  - id: 477c48cb-3b01-4fe9-b1cf-1e4138729338
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 爱人
+  - id: 944cf312-5651-4d3e-90ca-53a41a9feea7
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 敬爱
+  - id: 5752e437-79b3-4520-85aa-4ad9b975ab0a
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 恋爱
+  - id: 2c87d552-0e46-4cfa-8c1c-222aa2962f79
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 恨意
+  - id: 11606966-f872-446f-9738-c7b93f373ecf
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 仇恨
+  - id: 00c38366-548f-4a9f-be47-1598beb45c8c
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 愤恨
+  - id: b168576f-03e2-4b77-bd0a-ddc1b815f23e
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 安好
+  - id: b7b68a79-e6f7-499e-adfe-d809b4d87494
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 安危
+  - id: 3936889b-f196-4646-a3c8-72566f3ed1ed
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 公安
+  - id: b3fdc3e9-1001-4e02-b15f-3ba68a5c0f31
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 平安
+  - id: 3b6c662d-f102-4c59-8844-c4e60e027795
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 危害
+  - id: aedc35af-a48c-49c0-bea7-c8cc051c684f
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 危机
+  - id: b3fbe1fc-65e2-450d-bbcc-105525a5afc0
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 安居乐业
+  - id: c92530be-1568-456a-a849-cd26f6f250e2
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 白色
+  - id: c2d7f86d-3834-4a3d-bbb4-9797820b6fc2
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 洁白
+  - id: aa950cb9-90d2-4797-be49-1f556feaad1c
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 黑白
+  - id: a463e8f0-8f41-42d8-84fc-719fc1943b0c
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 黑板
+  - id: 75c3bcd1-3500-4a54-8f25-d3f7e71c83b3
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 漆黑
+  - id: 331c3e18-bb05-4e80-b9d7-fce935d3ed0d
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 黑名单
+  - id: abe61606-dee1-4c07-b582-5a1bf728d88d
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 超薄
+  - id: 083eb1b9-ccde-4260-b961-8262768b14d4
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 厚薄
+  - id: 8d381929-737a-47f6-8160-aa0b4842803d
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 厚度
+  - id: 520d6b83-6949-4267-946d-f9253e5ebf6c
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 厚此薄彼
+  - id: 27f0d06e-8c31-4b18-997c-bc34489e2ff1
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 饱满
+  - id: c3f101ee-086a-4c66-90ce-1ed30632c10e
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 吃饱
+  - id: aba319c7-24d9-466c-a3ae-95cabcf110ee
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 温饱
+  - id: d793b0c1-90da-4df3-9513-f12dac9667c7
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 饿鬼
+  - id: 327dc7f6-e8ce-4021-a1d9-4f46b9e594ce
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 饿死
+  - id: ac87fc05-c630-4559-b68b-03e36c638136
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 饥饿
+  - id: 9e3ab550-efa6-47d5-8046-761b127fd88c
+    modelId: ed93dc6f-3103-4ef2-a0b9-16b0b36720c6
+    data:
+      chinese: 解饿
