@@ -1,15 +1,8 @@
 version: '3'
 services:
-  web:
-    image: patarapolw/rep2recall--web
-    build:
-      context: packages/web
   app:
-    depends_on: web
     restart: always
     image: patarapolw/rep2recall
-    build:
-      context: packages/server
     ports:
       - '36323:36323'
     links:

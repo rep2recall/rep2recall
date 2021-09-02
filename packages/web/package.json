@@ -5,7 +5,8 @@
   "scripts": {
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "watch": "vue-cli-service build --watch"
+    "s:build": "vue-cli-service build --dest ../server/public",
+    "s:watch": "vue-cli-service build --watch --dest ../server/public"
   },
   "dependencies": {
     "@types/ejs": "^3.0.5",

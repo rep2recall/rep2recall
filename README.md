@@ -37,10 +37,14 @@ Also, now [Anki](https://apps.ankiweb.net/)-compatible.
 
 ## Running on your machine (offline-enabled)
 
-Just take [/docker-compose.yml](/docker-compose.yml) and run
+`docker-compose` or `podman-compose` is required.
 
 ```sh
-docker-compose up
-```
+git clone https://github.com/rep2recall/rep2recall.git
+cd rep2recall
+docker-compose build
 
-There were also Electron versions, if you don't have Docker - <https://github.com/patarapolw/rep2recall/releases>. However, it might not be updated, as I made them offline using SQLite.
+# mkdir mongo-data -- This might be required for podman-compose
+docker-compose up
+# docker-compose down
+```

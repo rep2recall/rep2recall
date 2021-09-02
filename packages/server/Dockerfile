@@ -12,5 +12,5 @@ RUN yarn --frozen-lockfile
 # WORKDIR /app
 # COPY --from=server /app/node_modules node_modules
 # COPY lib lib
-COPY public public
+COPY --from=patarapolw/rep2recall--web /app/dist public
 ENTRYPOINT ["node", "lib/index.js"]

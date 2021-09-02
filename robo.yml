@@ -4,45 +4,30 @@ install:
   command: |
     cd packages/server
     yarn
-    yarn build
+    yarn s:build
     cd -
 
     cd packages/web
     yarn
     yarn build
-    cd -
 build:
   command: |
-    cd packages/web
-    yarn build
-    cd -
-
-    cd packages/server
-    yarn build
-
-    podman build -t patarapolw/rep2recall .
-auto:
-  command: |
-    podman-compose up 1>/dev/null
-    podman-compose down
-build-compose:
-  command: |
-    podman-compose build --force-recreate --no-deps
+    podman-compose build
 start:
   command: |
-    robo -c {{ .robo.file }} kill
+    podman-compose build
+    mkdir -p mongo-data
 
-    podman run --rm \
-      -p 8080:8080 \
-      -e MONGO_URI -e MAGIC_SECRET -e MAGIC_PUBLIC -e SECRET \
-      --name rep2recall \
-      {{.docker.tag}}
-kill:
-  command: |
-    podman ps -q -f 'name=rep2recall' | xargs docker kill
+    handler() {
+      podman-compose down
+    }
+
+    trap handler SIGINT
+
+    podman-compose up 1>/dev/null
 deploy:
   command: |
-    podman push {{.docker.tag}}
+    podman push patarapolw/rep2recall
 dev:
   command: |
     export MONGO_URI=mongodb://localhost:27017/rep2recall
@@ -50,15 +35,8 @@ dev:
     cd packages/server
     rm -rf ./public
     pnpx concurrently \
-      'cd ../web && yarn watch' \
+      'cd ../web && yarn s:watch' \
       'pnpx wait-on ./public && yarn dev'
 db:
   command: |
     podman-compose up mongo
-
-##########
-# Settings
-
-variables:
-  docker:
-    tag: ${DOCKER_TAG:-rep2recall}
