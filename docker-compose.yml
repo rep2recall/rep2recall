@@ -1,7 +1,6 @@
 version: '3'
 services:
   app:
-    container_name: rep2recall
     restart: always
     image: patarapolw/rep2recall
     # build:
@@ -15,15 +14,12 @@ services:
       - MONGO_URI=mongodb://mongo:27017/rep2recall
       - PORT=36323
       - DEFAULT_USER
-      - SECRET
+      - SECRET=qtvov0meacVNh4HwAq5FZEcSpbwZ6ywJ
       - MAGIC_SECRET
       - MAGIC_PUBLIC
   mongo:
-    container_name: mongo
     image: mongo
     ports:
       - '27017:27017'
     volumes:
-      - mongo-data:/data/db
-volumes:
-  mongo-data:
+      - ./mongo-data:/data/db

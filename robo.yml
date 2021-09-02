@@ -1,42 +1,5 @@
 # Commands
 
-build:
-  command: |
-    cd packages/web
-    yarn build
-    cd -
-
-    cd packages/server
-    yarn build
-
-    docker build -t patarapolw/rep2recall .
-build-compose:
-  command: |
-    docker-compose build --force-recreate --no-deps
-start:
-  command: |
-    robo -c {{ .robo.file }} kill
-
-    docker run --rm \
-      -p 8080:8080 \
-      -e MONGO_URI -e MAGIC_SECRET -e MAGIC_PUBLIC -e SECRET \
-      --name rep2recall \
-      {{.docker.tag}}
-kill:
-  command: |
-    docker ps -q -f 'name=rep2recall' | xargs docker kill
-deploy:
-  command: |
-    docker push {{.docker.tag}}
-dev:
-  command: |
-    export MONGO_URI=mongodb://localhost:27017/rep2recall
-
-    cd packages/server
-    rm -rf ./public
-    pnpx concurrently \
-      'cd ../web && yarn watch' \
-      'pnpx wait-on ./public && yarn dev'
 install:
   command: |
     cd packages/server
@@ -48,9 +11,50 @@ install:
     yarn
     yarn build
     cd -
+build:
+  command: |
+    cd packages/web
+    yarn build
+    cd -
+
+    cd packages/server
+    yarn build
+
+    podman build -t patarapolw/rep2recall .
+auto:
+  command: |
+    podman-compose up 1>/dev/null
+    podman-compose down
+build-compose:
+  command: |
+    podman-compose build --force-recreate --no-deps
+start:
+  command: |
+    robo -c {{ .robo.file }} kill
+
+    podman run --rm \
+      -p 8080:8080 \
+      -e MONGO_URI -e MAGIC_SECRET -e MAGIC_PUBLIC -e SECRET \
+      --name rep2recall \
+      {{.docker.tag}}
+kill:
+  command: |
+    podman ps -q -f 'name=rep2recall' | xargs docker kill
+deploy:
+  command: |
+    podman push {{.docker.tag}}
+dev:
+  command: |
+    export MONGO_URI=mongodb://localhost:27017/rep2recall
+
+    cd packages/server
+    rm -rf ./public
+    pnpx concurrently \
+      'cd ../web && yarn watch' \
+      'pnpx wait-on ./public && yarn dev'
 db:
   command: |
-    docker-compose up mongo
+    podman-compose up mongo
 
 ##########
 # Settings

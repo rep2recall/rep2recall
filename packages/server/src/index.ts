@@ -24,7 +24,7 @@ async function main() {
       directives: {
         defaultSrc: "'self' 'unsafe-inline' 'unsafe-eval'",
         styleSrc:
-          "'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+          "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
         fontSrc: 'https://fonts.gstatic.com https://cdn.jsdelivr.net'
       }
     }
@@ -48,7 +48,7 @@ async function main() {
         throw err
       }
 
-      console.info(`Go to http://localhost:${port}`)
+      console.error(`Go to http://localhost:${port}`)
     }
   )
 }
