@@ -161,7 +161,7 @@ class Note {
           let v = now
           try {
             v = dayjs(p.v).toDate() || now
-          } catch (_) {}
+          } catch (_) { }
 
           p.v = v as any
         } else if (type === 'integer') {
@@ -428,7 +428,7 @@ class Preset {
   @prop({ default: () => shortUUID.generate() }) _id?: string
   @prop({ required: true }) userId!: string
 
-  @prop({ validate: (q) => typeof q !== 'undefined' }) q!: string
+  @prop({ validate: (q: string) => typeof q !== 'undefined' }) q!: string
   @prop({ required: true }) name!: string
   @prop({ required: true }) status!: IStatus
   @prop({ required: true }) selected!: string[]
